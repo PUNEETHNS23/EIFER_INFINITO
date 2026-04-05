@@ -9,6 +9,8 @@ function AdminDashboard() {
   const [teams, setTeams] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [activeSection, setActiveSection] = useState('matches');
+  const [matchDateFilter, setMatchDateFilter] = useState('');
+  const [matchSportFilter, setMatchSportFilter] = useState('');
 
   // Form states
   const [newTeam, setNewTeam] = useState({ name: '', sport_id: 'athletics' });
@@ -18,6 +20,22 @@ function AdminDashboard() {
   const [dqReason, setDqReason] = useState({});
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'esports'];
+
+  const getLocalDateKey = (dateValue) => {
+    if (!dateValue) return '';
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) return '';
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const filteredMatches = matches.filter((m) => {
+    if (matchDateFilter && getLocalDateKey(m.scheduled_time) !== matchDateFilter) return false;
+    if (matchSportFilter && m.sport_id !== matchSportFilter) return false;
+    return true;
+  });
 
   useEffect(() => {
     if (user) {
@@ -179,23 +197,38 @@ function AdminDashboard() {
               <form onSubmit={handleAddMatch} style={{ marginTop: '1rem' }}>
                 <div className="input-group">
                   <label className="input-label">Sport</label>
-                  <select className="input-field" value={newMatch.sport_id} onChange={e => setNewMatch({...newMatch, sport_id: e.target.value})}>
+                  <select
+                    className="input-field"
+                    value={newMatch.sport_id}
+                    onChange={e => setNewMatch({ ...newMatch, sport_id: e.target.value, team1_id: '', team2_id: '' })}
+                  >
                     {sportsEnum.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <div className="input-group" style={{ flex: 1 }}>
                     <label className="input-label">Team 1</label>
-                    <select className="input-field" onChange={e => setNewMatch({...newMatch, team1_id: e.target.value})}>
+                    <select
+                      className="input-field"
+                      value={newMatch.team1_id}
+                      onChange={e => setNewMatch({ ...newMatch, team1_id: e.target.value })}
+                    >
                       <option value="">Select</option>
                       {teams.filter(t => t.sport_id === newMatch.sport_id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
                   <div className="input-group" style={{ flex: 1 }}>
                     <label className="input-label">Team 2</label>
-                    <select className="input-field" onChange={e => setNewMatch({...newMatch, team2_id: e.target.value})}>
+                    <select
+                      className="input-field"
+                      value={newMatch.team2_id}
+                      onChange={e => setNewMatch({ ...newMatch, team2_id: e.target.value })}
+                    >
                       <option value="">Select</option>
-                      {teams.filter(t => t.sport_id === newMatch.sport_id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      {teams
+                        .filter(t => t.sport_id === newMatch.sport_id)
+                        .filter(t => String(t.id) !== String(newMatch.team1_id))
+                        .map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -209,6 +242,47 @@ function AdminDashboard() {
           </div>
 
           <h2>Manage Matches</h2>
+          <div className="card" style={{ marginTop: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Filter by Date</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={matchDateFilter}
+                  onChange={(e) => setMatchDateFilter(e.target.value)}
+                  style={{ maxWidth: '240px' }}
+                />
+              </div>
+
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Filter by Sport</label>
+                <select
+                  className="input-field"
+                  value={matchSportFilter}
+                  onChange={(e) => setMatchSportFilter(e.target.value)}
+                  style={{ maxWidth: '260px' }}
+                >
+                  <option value="">All</option>
+                  {sportsEnum.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="btn-outline btn-sm"
+                onClick={() => {
+                  setMatchDateFilter('');
+                  setMatchSportFilter('');
+                }}
+                style={{ height: 'fit-content' }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
           <div className="card" style={{ marginTop: '1rem', overflowX: 'auto' }}>
             <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
               <thead>
@@ -221,7 +295,7 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {matches.map(m => (
+                {filteredMatches.map(m => (
                   <tr key={m.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     <td style={{ padding: '1rem' }}>{m.sport_id}</td>
                     <td style={{ padding: '1rem' }}>{m.team1} vs {m.team2}</td>

@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
-import models, schemas, database, auth
+from . import models, schemas, database, auth
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -129,6 +129,35 @@ def map_match_names(m, db):
     match_dict['team2'] = t2.name if t2 else "Unknown"
     return match_dict
 
+def _apply_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int, score_t2: int):
+    t1 = db.query(models.Team).filter(models.Team.id == team1_id).first()
+    t2 = db.query(models.Team).filter(models.Team.id == team2_id).first()
+    if not t1 or not t2:
+        return
+
+    if score_t1 > score_t2:
+        t1.points += 3
+    elif score_t2 > score_t1:
+        t2.points += 3
+    else:
+        t1.points += 1
+        t2.points += 1
+
+
+def _reverse_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int, score_t2: int):
+    t1 = db.query(models.Team).filter(models.Team.id == team1_id).first()
+    t2 = db.query(models.Team).filter(models.Team.id == team2_id).first()
+    if not t1 or not t2:
+        return
+
+    if score_t1 > score_t2:
+        t1.points = max(0, t1.points - 3)
+    elif score_t2 > score_t1:
+        t2.points = max(0, t2.points - 3)
+    else:
+        t1.points = max(0, t1.points - 1)
+        t2.points = max(0, t2.points - 1)
+
 @app.get("/api/matches", response_model=list[schemas.Match])
 def get_matches(db: Session = Depends(get_db)):
     matches = db.query(models.Match).order_by(models.Match.scheduled_time).all()
@@ -146,6 +175,8 @@ def get_matches_by_sport(sport_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/matches", response_model=schemas.Match)
 def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    if match.team1_id == match.team2_id:
+        raise HTTPException(status_code=400, detail="Team 1 and Team 2 must be different")
     db_match = models.Match(**match.dict())
     db.add(db_match)
     db.commit()
@@ -158,23 +189,21 @@ def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Session =
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
     
-    # update points logic
-    was_not_completed = db_match.status != "completed"
-    
+    old_status = db_match.status
+    old_score_t1 = db_match.score_t1
+    old_score_t2 = db_match.score_t2
+
     for key, value in match_update.dict().items():
         setattr(db_match, key, value)
-    
-    if match_update.status == "completed" and was_not_completed:
-        # Give 3 points to winner, 1 for draw
-        t1 = db.query(models.Team).filter(models.Team.id == db_match.team1_id).first()
-        t2 = db.query(models.Team).filter(models.Team.id == db_match.team2_id).first()
-        if db_match.score_t1 > db_match.score_t2:
-            t1.points += 3
-        elif db_match.score_t2 > db_match.score_t1:
-            t2.points += 3
-        else:
-            t1.points += 1
-            t2.points += 1
+
+    # Points logic:
+    # - If the match was previously completed, remove the old result points.
+    # - If the match is now completed, apply points for the new result.
+    if old_status == "completed":
+        _reverse_match_points(db, db_match.team1_id, db_match.team2_id, old_score_t1, old_score_t2)
+
+    if db_match.status == "completed":
+        _apply_match_points(db, db_match.team1_id, db_match.team2_id, db_match.score_t1, db_match.score_t2)
             
     db.commit()
     db.refresh(db_match)
@@ -188,16 +217,7 @@ def delete_match(match_id: int, db: Session = Depends(get_db), current_user: str
     
     # Reverse points if match was completed
     if db_match.status == "completed":
-        t1 = db.query(models.Team).filter(models.Team.id == db_match.team1_id).first()
-        t2 = db.query(models.Team).filter(models.Team.id == db_match.team2_id).first()
-        if t1 and t2:
-            if db_match.score_t1 > db_match.score_t2:
-                t1.points = max(0, t1.points - 3)
-            elif db_match.score_t2 > db_match.score_t1:
-                t2.points = max(0, t2.points - 3)
-            else:
-                t1.points = max(0, t1.points - 1)
-                t2.points = max(0, t2.points - 1)
+        _reverse_match_points(db, db_match.team1_id, db_match.team2_id, db_match.score_t1, db_match.score_t2)
     
     db.delete(db_match)
     db.commit()

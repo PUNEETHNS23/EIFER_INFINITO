@@ -65,11 +65,11 @@ function Home() {
           <div className="hero-text">
             <p className="hero-tag">EIFER SPORTS CLUB PRESENTS</p>
             <h1 className="hero-title">
-              <span className="hero-title-line1">SPORTSFEST</span>
+              <span className="hero-title-line1">SPORTS FEST</span>
               <span className="hero-title-line2">Infinito</span>
             </h1>
             <p className="hero-description">
-              The ultimate inter-college sports tournament. 10 disciplines. One champion. 
+              The ultimate intra-college sports tournament. 10 disciplines. One champion. 
               Compete, dominate, and rise to glory.
             </p>
             <div className="hero-actions">
@@ -98,7 +98,7 @@ function Home() {
           </div>
           <div className="hero-image-wrapper">
             <div className="hero-image-glow"></div>
-            <img src="/eifer-logo.png" alt="EIFER Eagle" className="hero-image" />
+            <img src="/eifer-logo-no-bg.png" alt="EIFER Eagle" className="hero-image" />
           </div>
         </div>
         <div className="hero-scroll-indicator">

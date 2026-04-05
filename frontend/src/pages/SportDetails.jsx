@@ -53,7 +53,7 @@ function SportDetails() {
               <div className="match-sport" style={{ color: match.status === 'live' ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
                 {match.status.toUpperCase()}
               </div>
-              <div className="match-teams">
+              <div className="match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
                 <span className="team">{match.team1}</span>
                 <span className="score">{match.score_t1} - {match.score_t2}</span>
                 <span className="team">{match.team2}</span>

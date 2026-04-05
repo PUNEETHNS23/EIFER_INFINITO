@@ -19,7 +19,7 @@ function Layout() {
     <div className="app-container">
       <nav className="navbar">
         <Link to="/" className="nav-brand">
-          <img src="/eifer-logo.png" alt="EIFER" className="nav-logo" onError={(e) => { e.target.style.display='none'; }} />
+          <img src="/eifer-logo-no-bg.png" alt="EIFER" className="nav-logo" onError={(e) => { e.target.style.display='none'; }} />
           <div className="brand-text">
             <span className="brand-name">INFINITO</span>
             <span className="brand-sub">BY EIFER</span>
