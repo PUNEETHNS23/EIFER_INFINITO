@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 
 class TeamBase(BaseModel):
@@ -7,13 +7,14 @@ class TeamBase(BaseModel):
     name: str
 
 class TeamCreate(TeamBase):
-    pass
+    squad: Optional[list[dict[str, Any]]] = None
 
 class Team(TeamBase):
     id: int
     points: int
     is_disqualified: bool = False
-    disqualification_reason: str | None = None
+    disqualification_reason: Optional[str] = None
+    squad: Optional[list[dict[str, Any]]] = None
     class Config:
         from_attributes = True
 
@@ -24,20 +25,22 @@ class MatchBase(BaseModel):
     scheduled_time: datetime
 
 class MatchCreate(MatchBase):
-    pass
+    score_detail: Optional[dict[str, Any]] = None
 
 class MatchUpdate(BaseModel):
-    score_t1: int
-    score_t2: int
-    status: str
+    score_t1: Optional[int] = None
+    score_t2: Optional[int] = None
+    status: Optional[str] = None
+    score_detail: Optional[dict[str, Any]] = None
 
 class Match(MatchBase):
     id: int
     score_t1: int
     score_t2: int
     status: str
-    team1: str = None
-    team2: str = None
+    score_detail: Optional[dict[str, Any]] = None
+    team1: Optional[str] = None
+    team2: Optional[str] = None
     class Config:
         from_attributes = True
 

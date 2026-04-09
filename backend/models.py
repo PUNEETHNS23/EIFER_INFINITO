@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, JSON
 from sqlalchemy.orm import relationship
 import datetime
 
@@ -21,6 +21,7 @@ class Team(Base):
     points = Column(Integer, default=0)
     is_disqualified = Column(Boolean, default=False)
     disqualification_reason = Column(String, default=None, nullable=True)
+    squad = Column(JSON, nullable=True)
 
 class Match(Base):
     __tablename__ = "matches"
@@ -31,6 +32,7 @@ class Match(Base):
     team2_id = Column(Integer, ForeignKey("teams.id"))
     score_t1 = Column(Integer, default=0)
     score_t2 = Column(Integer, default=0)
+    score_detail = Column(JSON, nullable=True)
     status = Column(String, default="upcoming") # upcoming, live, completed
     scheduled_time = Column(DateTime, default=datetime.datetime.utcnow)
 
