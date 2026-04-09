@@ -1,20 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import SportScoreboard from '../components/SportScoreboard';
+import { SPORTS } from '../sports/sportsConfig';
+import { useMatchSocket } from '../hooks/useMatchSocket';
 import './Home.css';
-
-const sportsList = [
-  { id: 'athletics', name: 'Athletics', icon: '🏃' },
-  { id: 'cricket', name: 'Cricket', icon: '🏏' },
-  { id: 'volleyball', name: 'Volleyball', icon: '🏐' },
-  { id: 'football', name: 'Football', icon: '⚽' },
-  { id: 'carrom', name: 'Carrom', icon: '🥏' },
-  { id: 'chess', name: 'Chess', icon: '♟️' },
-  { id: 'arm-wrestling', name: 'Arm Wrestling', icon: '💪' },
-  { id: 'weight-lifting', name: 'Weight Lifting', icon: '🏋️' },
-  { id: 'kho-kho', name: 'Kho Kho', icon: '🏃‍♂️' },
-  { id: 'esports', name: 'E-Sports', icon: '🎮' },
-];
 
 function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
@@ -37,6 +27,33 @@ function Home() {
     };
     fetchData();
   }, []);
+
+  useMatchSocket((updatedMatch) => {
+    setLiveMatches((prev) => {
+      if (updatedMatch.status === 'live') {
+        const idx = prev.findIndex((m) => m.id === updatedMatch.id);
+        if (idx >= 0) {
+          const arr = [...prev];
+          arr[idx] = updatedMatch;
+          return arr;
+        }
+        return [...prev, updatedMatch];
+      }
+      return prev.filter((m) => m.id !== updatedMatch.id);
+    });
+    
+    setUpcomingMatches((prev) => {
+      if (updatedMatch.status === 'upcoming') {
+        const idx = prev.findIndex((m) => m.id === updatedMatch.id);
+        if (idx >= 0) {
+          const arr = [...prev];
+          arr[idx] = updatedMatch;
+          return arr;
+        }
+      }
+      return prev.filter((m) => m.id !== updatedMatch.id || updatedMatch.status === 'upcoming');
+    });
+  });
 
   return (
     <div className="home-page">
@@ -69,7 +86,7 @@ function Home() {
               <span className="hero-title-line2">Infinito</span>
             </h1>
             <p className="hero-description">
-              The ultimate intra-college sports tournament. 10 disciplines. One champion. 
+              The ultimate intra-college sports tournament. 13 disciplines. One champion.
               Compete, dominate, and rise to glory.
             </p>
             <div className="hero-actions">
@@ -81,7 +98,7 @@ function Home() {
             </div>
             <div className="hero-stats">
               <div className="hero-stat">
-                <span className="hero-stat-number">10</span>
+                <span className="hero-stat-number">13</span>
                 <span className="hero-stat-label">Sports</span>
               </div>
               <div className="hero-stat-divider"></div>
@@ -122,19 +139,9 @@ function Home() {
                   <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
                 </div>
                 <div className="match-card-live-body">
-                  <div className="match-team">
-                    <span className="team-name">{match.team1}</span>
-                  </div>
-                  <div className="match-score-display">
-                    <span className="score-big">{match.score_t1}</span>
-                    <span className="score-separator">:</span>
-                    <span className="score-big">{match.score_t2}</span>
-                  </div>
-                  <div className="match-team">
-                    <span className="team-name">{match.team2}</span>
-                  </div>
+                  <SportScoreboard match={match} compact />
                 </div>
-                <Link to={`/sport/${match.sport_id}`} className="match-card-live-link">
+                <Link to={match.sport_id === 'cricket' ? `/match/${match.id}` : `/sport/${match.sport_id}`} className="match-card-live-link">
                   Watch Details →
                 </Link>
               </div>
@@ -156,7 +163,7 @@ function Home() {
           <h2 className="section-title">Sports Categories</h2>
         </div>
         <div className="sports-grid">
-          {sportsList.map((sport, index) => (
+          {SPORTS.map((sport, index) => (
             <Link to={`/sport/${sport.id}`} key={sport.id} className="sport-card-premium" style={{ animationDelay: `${index * 0.05}s` }}>
               <div className="sport-card-bg"></div>
               <div className="sport-card-content">

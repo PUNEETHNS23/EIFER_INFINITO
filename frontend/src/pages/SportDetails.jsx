@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import api from '../api';
+import { getSportMeta } from '../sports/sportsConfig';
+import SportScoreboard from '../components/SportScoreboard';
+import { useMatchSocket } from '../hooks/useMatchSocket';
+import './SportDetails.css';
 
 function SportDetails() {
   const { id } = useParams();
@@ -23,24 +27,39 @@ function SportDetails() {
     fetchDetails();
   }, [id]);
 
+  useMatchSocket((updatedMatch) => {
+    if (updatedMatch.sport_id === id) {
+      setMatches((prev) => {
+        const idx = prev.findIndex((m) => m.id === updatedMatch.id);
+        if (idx >= 0) {
+          const arr = [...prev];
+          arr[idx] = updatedMatch;
+          return arr;
+        }
+        return [...prev, updatedMatch];
+      });
+    }
+  });
+
+  const meta = getSportMeta(id);
+
   return (
-    <div className="container">
-      <div className="page-header">
-        <h1 className="page-title">{id.replace('-', ' ').toUpperCase()}</h1>
+    <div className="container sport-details-page">
+      <div className="sd-hero">
+        <div className="sd-hero-icon">{meta.icon}</div>
+        <h1 className="sd-hero-title">{meta.name}</h1>
       </div>
 
-      <div className="tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--color-border)' }}>
+      <div className="sd-tabs">
         <button 
-          className={`nav-link ${activeTab === 'matches' ? 'active' : ''}`} 
+          className={`sd-tab-btn ${activeTab === 'matches' ? 'active' : ''}`} 
           onClick={() => setActiveTab('matches')}
-          style={{ borderBottom: activeTab === 'matches' ? '2px solid var(--color-primary)' : 'none', padding: '1rem' }}
         >
           Matches
         </button>
         <button 
-          className={`nav-link ${activeTab === 'teams' ? 'active' : ''}`} 
+          className={`sd-tab-btn ${activeTab === 'teams' ? 'active' : ''}`} 
           onClick={() => setActiveTab('teams')}
-          style={{ borderBottom: activeTab === 'teams' ? '2px solid var(--color-primary)' : 'none', padding: '1rem' }}
         >
           Teams & Leaderboard
         </button>
@@ -48,45 +67,55 @@ function SportDetails() {
 
       {activeTab === 'matches' && (
         <div className="live-matches-grid">
-          {matches.map((match) => (
-            <div key={match.id} className={`card match-card ${match.status === 'live' ? 'live' : ''}`}>
-              <div className="match-sport" style={{ color: match.status === 'live' ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
-                {match.status.toUpperCase()}
+          {matches.map((match) => {
+            const cardContent = (
+              <div className={`sd-match-card ${match.status === 'live' ? 'live' : ''}`}>
+                <div className="sd-match-header">
+                  <span className={`sd-match-status ${match.status === 'live' ? 'live' : ''}`}>
+                    {match.status === 'live' ? '● LIVE' : match.status.toUpperCase()}
+                  </span>
+                  <span>{new Date(match.scheduled_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <SportScoreboard match={match} />
               </div>
-              <div className="match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
-                <span className="team">{match.team1}</span>
-                <span className="score">{match.score_t1} - {match.score_t2}</span>
-                <span className="team">{match.team2}</span>
+            );
+
+            return (
+              <div key={match.id} className="sd-match-card-wrapper">
+                {match.sport_id === 'cricket' ? (
+                  <Link to={`/match/${match.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    {cardContent}
+                  </Link>
+                ) : (
+                  cardContent
+                )}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '1rem' }}>
-                {new Date(match.scheduled_time).toLocaleString()}
-              </div>
-            </div>
-          ))}
-          {matches.length === 0 && <div className="empty-state">No matches scheduled.</div>}
+            );
+          })}
+          {matches.length === 0 && <div className="empty-state-premium">No matches scheduled for {meta.name} yet.</div>}
         </div>
       )}
 
       {activeTab === 'teams' && (
-        <div className="card">
-          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+        <div className="sd-table-card">
+          <table className="sd-table">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <th style={{ padding: '1rem' }}>Rank</th>
-                <th style={{ padding: '1rem' }}>Team</th>
-                <th style={{ padding: '1rem' }}>Points</th>
+              <tr>
+                <th>Rank</th>
+                <th>Team</th>
+                <th>Points</th>
               </tr>
             </thead>
             <tbody>
               {/* Note: Dummy sorting by points */}
               {teams.sort((a, b) => b.points - a.points).map((team, index) => (
-                <tr key={team.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <td style={{ padding: '1rem', color: index === 0 ? 'var(--color-primary)' : 'inherit' }}>{index + 1}</td>
-                  <td style={{ padding: '1rem', fontWeight: 'bold' }}>{team.name}</td>
-                  <td style={{ padding: '1rem' }}>{team.points}</td>
+                <tr key={team.id}>
+                  <td className={`sd-rank-${index + 1}`}>{index + 1}</td>
+                  <td className="sd-team-name">{team.name}</td>
+                  <td><span className="sd-points-badge">{team.points}</span></td>
                 </tr>
               ))}
-              {teams.length === 0 && <tr><td colSpan="3" style={{ padding: '1rem', textAlign: 'center' }}>No teams found.</td></tr>}
+              {teams.length === 0 && <tr><td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>No teams registered for {meta.name}.</td></tr>}
             </tbody>
           </table>
         </div>

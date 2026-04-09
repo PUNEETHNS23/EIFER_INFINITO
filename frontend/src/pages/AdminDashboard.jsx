@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import { SPORTS } from '../sports/sportsConfig';
 
 function AdminDashboard() {
   const { user } = useAuth();
@@ -13,13 +14,14 @@ function AdminDashboard() {
   const [matchSportFilter, setMatchSportFilter] = useState('');
 
   // Form states
-  const [newTeam, setNewTeam] = useState({ name: '', sport_id: 'athletics' });
+  const [newTeam, setNewTeam] = useState({ name: '', sport_id: 'athletics', squad: [] });
+  const [tempPlayerName, setTempPlayerName] = useState('');
   const [newMatch, setNewMatch] = useState({ sport_id: 'athletics', team1_id: '', team2_id: '', scheduled_time: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '' });
   const [adminMsg, setAdminMsg] = useState('');
   const [dqReason, setDqReason] = useState({});
 
-  const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'esports'];
+  const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
 
   const getLocalDateKey = (dateValue) => {
     if (!dateValue) return '';
@@ -77,10 +79,21 @@ function AdminDashboard() {
     try {
       await api.post('/teams', newTeam);
       fetchTeams();
-      setNewTeam({ name: '', sport_id: 'athletics' });
+      setNewTeam({ name: '', sport_id: 'athletics', squad: [] });
     } catch (e) {
       alert('Error adding team');
     }
+  };
+
+  const addPlayerToSquad = (isSubstitute = false) => {
+    if (tempPlayerName.trim()) {
+      setNewTeam(prev => ({ ...prev, squad: [...(prev.squad || []), { name: tempPlayerName, is_substitute: isSubstitute }] }));
+      setTempPlayerName('');
+    }
+  };
+
+  const removePlayerFromSquad = (idx) => {
+    setNewTeam(prev => ({ ...prev, squad: prev.squad.filter((_, i) => i !== idx) }));
   };
 
   const handleAddMatch = async (e) => {
@@ -90,15 +103,6 @@ function AdminDashboard() {
       fetchMatches();
     } catch (e) {
       alert('Error creating match');
-    }
-  };
-
-  const updateMatchScore = async (id, score_t1, score_t2, status) => {
-    try {
-      await api.put(`/matches/${id}`, { score_t1, score_t2, status });
-      fetchMatches();
-    } catch (e) {
-      alert('Error updating match');
     }
   };
 
@@ -157,6 +161,17 @@ function AdminDashboard() {
     }
   };
 
+  const handleDeleteTeam = async (teamId) => {
+    if (!confirm('Are you sure you want to delete this team?')) return;
+    try {
+      await api.delete(`/teams/${teamId}`);
+      fetchTeams();
+      fetchMatches();
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Error deleting team');
+    }
+  };
+
   if (!user) {
     return <Navigate to="/login" />;
   }
@@ -191,53 +206,47 @@ function AdminDashboard() {
       {/* MATCHES SECTION */}
       {activeSection === 'matches' && (
         <>
+          <div className="card" style={{ marginBottom: '2rem' }}>
+            <h2>Sport score desks</h2>
+            <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+              Each sport has its own scoreboard layout and fields. Open a desk to update live scores and status.
+            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+                gap: '0.75rem',
+                marginTop: '1.25rem',
+              }}
+            >
+              {SPORTS.map((s) => (
+                <Link key={s.id} to={`/admin/score/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center' }}>
+                  {s.icon} {s.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div style={{ marginBottom: '4rem' }}>
             <div className="card">
               <h2>Schedule Match</h2>
-              <form onSubmit={handleAddMatch} style={{ marginTop: '1rem' }}>
-                <div className="input-group">
-                  <label className="input-label">Sport</label>
-                  <select
-                    className="input-field"
-                    value={newMatch.sport_id}
-                    onChange={e => setNewMatch({ ...newMatch, sport_id: e.target.value, team1_id: '', team2_id: '' })}
-                  >
-                    {sportsEnum.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <div className="input-group" style={{ flex: 1 }}>
-                    <label className="input-label">Team 1</label>
-                    <select
-                      className="input-field"
-                      value={newMatch.team1_id}
-                      onChange={e => setNewMatch({ ...newMatch, team1_id: e.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {teams.filter(t => t.sport_id === newMatch.sport_id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="input-group" style={{ flex: 1 }}>
-                    <label className="input-label">Team 2</label>
-                    <select
-                      className="input-field"
-                      value={newMatch.team2_id}
-                      onChange={e => setNewMatch({ ...newMatch, team2_id: e.target.value })}
-                    >
-                      <option value="">Select</option>
-                      {teams
-                        .filter(t => t.sport_id === newMatch.sport_id)
-                        .filter(t => String(t.id) !== String(newMatch.team1_id))
-                        .map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="input-group">
-                  <label className="input-label">Scheduled Time</label>
-                  <input type="datetime-local" className="input-field" onChange={e => setNewMatch({...newMatch, scheduled_time: new Date(e.target.value).toISOString()})} required />
-                </div>
-                <button className="btn-primary">Create Match</button>
-              </form>
+              <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+                Select a sport to schedule a new dedicated match setup.
+              </p>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+                  gap: '0.75rem',
+                  marginTop: '1.25rem',
+                }}
+              >
+                {SPORTS.map((s) => (
+                  <Link key={s.id} to={`/admin/create-match/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
+                    ➕ {s.icon} {s.name}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -290,7 +299,7 @@ function AdminDashboard() {
                   <th style={{ padding: '1rem' }}>Sport</th>
                   <th style={{ padding: '1rem' }}>Teams</th>
                   <th style={{ padding: '1rem' }}>Status</th>
-                  <th style={{ padding: '1rem' }}>Score</th>
+                  <th style={{ padding: '1rem' }}>Summary</th>
                   <th style={{ padding: '1rem' }}>Actions</th>
                 </tr>
               </thead>
@@ -299,33 +308,17 @@ function AdminDashboard() {
                   <tr key={m.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     <td style={{ padding: '1rem' }}>{m.sport_id}</td>
                     <td style={{ padding: '1rem' }}>{m.team1} vs {m.team2}</td>
+                    <td style={{ padding: '1rem', textTransform: 'capitalize' }}>{m.status}</td>
                     <td style={{ padding: '1rem' }}>
-                      <select 
-                        style={{ background: 'var(--color-bg-base)', color: 'white', border: '1px solid var(--color-border)', padding: '0.2rem' }}
-                        value={m.status} 
-                        onChange={(e) => updateMatchScore(m.id, m.score_t1, m.score_t2, e.target.value)}
-                      >
-                        <option value="upcoming">Upcoming</option>
-                        <option value="live">Live</option>
-                        <option value="completed">Completed</option>
-                      </select>
+                      {m.score_t1} — {m.score_t2}
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                        Canonical (for points)
+                      </span>
                     </td>
-                    <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input type="number" style={{ width: '50px', padding: '0.2rem' }} className="input-field" defaultValue={m.score_t1} id={`score1-${m.id}`} />
-                      -
-                      <input type="number" style={{ width: '50px', padding: '0.2rem' }} className="input-field" defaultValue={m.score_t2} id={`score2-${m.id}`} />
-                    </td>
-                    <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
-                      <button 
-                        className="btn-outline btn-sm"
-                        onClick={() => {
-                          const s1 = parseInt(document.getElementById(`score1-${m.id}`).value);
-                          const s2 = parseInt(document.getElementById(`score2-${m.id}`).value);
-                          updateMatchScore(m.id, s1, s2, m.status);
-                        }}
-                      >
-                        Update
-                      </button>
+                    <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <Link to={`/admin/score/${m.sport_id}?match=${m.id}`} className="btn-outline btn-sm">
+                        Edit score
+                      </Link>
                       <button 
                         className="btn-outline btn-sm"
                         onClick={() => handleDeleteMatch(m.id)}
@@ -347,7 +340,7 @@ function AdminDashboard() {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
             <div className="card">
-              <h2>Add New Team</h2>
+              <h2>Add New Team & Roster</h2>
               <form onSubmit={handleAddTeam} style={{ marginTop: '1rem' }}>
                 <div className="input-group">
                   <label className="input-label">Sport</label>
@@ -355,11 +348,44 @@ function AdminDashboard() {
                     {sportsEnum.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                <div className="input-group">
-                  <label className="input-label">Team Name / Player Name</label>
-                  <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
-                </div>
-                <button className="btn-primary">Register Team</button>
+                
+                {newTeam.sport_id !== 'cricket' ? (
+                  <>
+                    <div className="input-group">
+                      <label className="input-label">Team Name / Player Name</label>
+                      <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="input-group">
+                      <label className="input-label">Team Name</label>
+                      <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
+                    </div>
+                    
+                    <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <h4>Team Squad ({newTeam.squad?.length || 0})</h4>
+                      <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0', fontSize: '0.85rem' }}>
+                        {newTeam.squad?.map((p, i) => (
+                          <li key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <span>
+                              {p.name}
+                              {p.is_substitute && <span style={{ color: 'var(--color-primary)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>[Substitute]</span>}
+                            </span>
+                            <button type="button" onClick={() => removePlayerFromSquad(i)} style={{ background: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer' }}>×</button>
+                          </li>
+                        ))}
+                      </ul>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        <input type="text" className="input-field" style={{ flex: 1, padding: '0.5rem' }} placeholder="Player Name" value={tempPlayerName} onChange={e => setTempPlayerName(e.target.value)} />
+                        <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(false)}>Add Player</button>
+                        <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(true)}>Add Sub</button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <button className="btn-primary" style={{ width: '100%' }}>Register Team</button>
               </form>
             </div>
           </div>
@@ -396,13 +422,22 @@ function AdminDashboard() {
                     </td>
                     <td style={{ padding: '1rem' }}>
                       {t.is_disqualified ? (
-                        <button
-                          className="btn-outline btn-sm"
-                          onClick={() => handleReinstate(t.id)}
-                          style={{ color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
-                        >
-                          Reinstate
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <button
+                            className="btn-outline btn-sm"
+                            onClick={() => handleReinstate(t.id)}
+                            style={{ color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
+                          >
+                            Reinstate
+                          </button>
+                          <button
+                            className="btn-outline btn-sm"
+                            onClick={() => handleDeleteTeam(t.id)}
+                            style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       ) : (
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           <input
@@ -419,6 +454,13 @@ function AdminDashboard() {
                             style={{ color: '#ff4444', borderColor: '#ff4444', whiteSpace: 'nowrap' }}
                           >
                             Disqualify
+                          </button>
+                          <button
+                            className="btn-outline btn-sm"
+                            onClick={() => handleDeleteTeam(t.id)}
+                            style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                          >
+                            Delete
                           </button>
                         </div>
                       )}
