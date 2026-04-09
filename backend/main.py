@@ -1,14 +1,66 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
-from . import models, schemas, database, auth
+from sqlalchemy import inspect, text
+
+from . import models, schemas, database, auth, scoring
 
 models.Base.metadata.create_all(bind=database.engine)
 
+
+def ensure_db_migrations():
+    insp = inspect(database.engine)
+    tables = insp.get_table_names()
+    
+    if "matches" in tables:
+        cols = {c["name"] for c in insp.get_columns("matches")}
+        if "score_detail" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE matches ADD COLUMN score_detail TEXT"))
+                
+    if "teams" in tables:
+        cols = {c["name"] for c in insp.get_columns("teams")}
+        if "squad" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE teams ADD COLUMN squad TEXT"))
+
+
+ensure_db_migrations()
+
 app = FastAPI(title="SportsFest INFINITO API")
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast_json(self, data: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(data)
+            except Exception:
+                pass
+
+manager = ConnectionManager()
+
+@app.websocket("/api/ws/matches")
+async def websocket_matches(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 app.add_middleware(
     CORSMiddleware,
@@ -92,11 +144,30 @@ def get_teams_by_sport(sport_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/teams", response_model=schemas.Team)
 def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
-    db_team = models.Team(**team.dict())
+    db_team = models.Team(**team.model_dump())
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
     return db_team
+
+@app.delete("/api/teams/{team_id}")
+def delete_team(team_id: int, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    team = db.query(models.Team).filter(models.Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    linked_match = db.query(models.Match).filter(
+        (models.Match.team1_id == team_id) | (models.Match.team2_id == team_id)
+    ).first()
+    if linked_match:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete team that is linked to existing matches. Delete those matches first.",
+        )
+
+    db.delete(team)
+    db.commit()
+    return {"detail": "Team deleted"}
 
 @app.put("/api/teams/{team_id}/disqualify", response_model=schemas.Team)
 def disqualify_team(team_id: int, req: schemas.DisqualifyRequest, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
@@ -122,12 +193,21 @@ def reinstate_team(team_id: int, db: Session = Depends(get_db), current_user: st
 
 # --- MATCH ROUTES ---
 def map_match_names(m, db):
-    match_dict = m.__dict__.copy()
     t1 = db.query(models.Team).filter(models.Team.id == m.team1_id).first()
     t2 = db.query(models.Team).filter(models.Team.id == m.team2_id).first()
-    match_dict['team1'] = t1.name if t1 else "Unknown"
-    match_dict['team2'] = t2.name if t2 else "Unknown"
-    return match_dict
+    return {
+        "id": m.id,
+        "sport_id": m.sport_id,
+        "team1_id": m.team1_id,
+        "team2_id": m.team2_id,
+        "scheduled_time": m.scheduled_time,
+        "score_t1": m.score_t1,
+        "score_t2": m.score_t2,
+        "status": m.status,
+        "score_detail": m.score_detail,
+        "team1": t1.name if t1 else "Unknown",
+        "team2": t2.name if t2 else "Unknown",
+    }
 
 def _apply_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int, score_t2: int):
     t1 = db.query(models.Team).filter(models.Team.id == team1_id).first()
@@ -177,14 +257,27 @@ def get_matches_by_sport(sport_id: str, db: Session = Depends(get_db)):
 def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
     if match.team1_id == match.team2_id:
         raise HTTPException(status_code=400, detail="Team 1 and Team 2 must be different")
-    db_match = models.Match(**match.dict())
+    data = match.model_dump()
+    detail = data.get("score_detail")
+    if not detail:
+        detail = scoring.default_score_detail(data["sport_id"])
+    t1, t2 = scoring.derive_primary_scores(data["sport_id"], detail)
+    db_match = models.Match(
+        sport_id=data["sport_id"],
+        team1_id=data["team1_id"],
+        team2_id=data["team2_id"],
+        scheduled_time=data["scheduled_time"],
+        score_detail=detail,
+        score_t1=t1,
+        score_t2=t2,
+    )
     db.add(db_match)
     db.commit()
     db.refresh(db_match)
     return map_match_names(db_match, db)
 
 @app.put("/api/matches/{match_id}", response_model=schemas.Match)
-def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -193,7 +286,12 @@ def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Session =
     old_score_t1 = db_match.score_t1
     old_score_t2 = db_match.score_t2
 
-    for key, value in match_update.dict().items():
+    payload = match_update.model_dump(exclude_unset=True)
+    if "score_detail" in payload and payload["score_detail"] is not None:
+        t1, t2 = scoring.derive_primary_scores(db_match.sport_id, payload["score_detail"])
+        payload["score_t1"] = t1
+        payload["score_t2"] = t2
+    for key, value in payload.items():
         setattr(db_match, key, value)
 
     # Points logic:
@@ -207,7 +305,10 @@ def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Session =
             
     db.commit()
     db.refresh(db_match)
-    return map_match_names(db_match, db)
+    
+    result = map_match_names(db_match, db)
+    await manager.broadcast_json({"type": "match_updated", "match": result})
+    return result
 
 @app.delete("/api/matches/{match_id}")
 def delete_match(match_id: int, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
