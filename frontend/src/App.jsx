@@ -3,8 +3,11 @@ import { useState } from 'react';
 import Home from './pages/Home';
 import SportDetails from './pages/SportDetails';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminCreateMatch from './pages/AdminCreateMatch';
+import AdminSportScore from './pages/AdminSportScore';
 import Login from './pages/Login';
 import Leaderboard from './pages/Leaderboard';
+import MatchDetailsCricket from './pages/MatchDetailsCricket';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './App.css';
 
@@ -69,8 +72,11 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="sport/:id" element={<SportDetails />} />
+            <Route path="match/:id" element={<MatchDetailsCricket />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="admin" element={<AdminDashboard />} />
+            <Route path="admin/create-match/:sportId" element={<AdminCreateMatch />} />
+            <Route path="admin/score/:sportId" element={<AdminSportScore />} />
             <Route path="login" element={<Login />} />
           </Route>
         </Routes>
