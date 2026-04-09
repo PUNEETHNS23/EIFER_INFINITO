@@ -88,3 +88,6 @@ logs/
 # Misc
 .env.local
 .env.production.local
+
+# Database
+sports.db
