@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../api';
 import { SPORTS } from '../sports/sportsConfig';
 import { useMatchSocket } from '../hooks/useMatchSocket';

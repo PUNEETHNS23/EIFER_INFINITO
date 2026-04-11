@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import api from '../api';
 import { SPORTS, getSportMeta } from '../sports/sportsConfig';
 import SportScoreEditor from '../components/SportScoreEditor';
