@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { SPORTS } from '../sports/sportsConfig';
+import { useMatchSocket } from '../hooks/useMatchSocket';
 
 function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, authLoading } = useAuth();
   const [matches, setMatches] = useState([]);
   const [teams, setTeams] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -20,6 +21,7 @@ function AdminDashboard() {
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '' });
   const [adminMsg, setAdminMsg] = useState('');
   const [dqReason, setDqReason] = useState({});
+  const teamsRefreshTimeoutRef = useRef(null);
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
 
@@ -46,6 +48,30 @@ function AdminDashboard() {
       fetchAdmins();
     }
   }, [user]);
+
+  useMatchSocket((updatedMatch) => {
+    setMatches((prev) => {
+      const idx = prev.findIndex((m) => m.id === updatedMatch.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updatedMatch;
+        return next;
+      }
+      return [...prev, updatedMatch].sort((a, b) => new Date(a.scheduled_time) - new Date(b.scheduled_time));
+    });
+
+    // Team points can change when match status/result changes; debounce to avoid request spam during live scoring.
+    if (teamsRefreshTimeoutRef.current) clearTimeout(teamsRefreshTimeoutRef.current);
+    teamsRefreshTimeoutRef.current = setTimeout(() => {
+      fetchTeams();
+    }, 500);
+  });
+
+  useEffect(() => {
+    return () => {
+      if (teamsRefreshTimeoutRef.current) clearTimeout(teamsRefreshTimeoutRef.current);
+    };
+  }, []);
 
   const fetchMatches = async () => {
     try {
@@ -171,6 +197,10 @@ function AdminDashboard() {
       alert(e.response?.data?.detail || 'Error deleting team');
     }
   };
+
+  if (authLoading) {
+    return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
+  }
 
   if (!user) {
     return <Navigate to="/login" />;
@@ -349,7 +379,7 @@ function AdminDashboard() {
                   </select>
                 </div>
                 
-                {newTeam.sport_id !== 'cricket' ? (
+                {!['cricket', 'badminton', 'table-tennis'].includes(newTeam.sport_id) ? (
                   <>
                     <div className="input-group">
                       <label className="input-label">Team Name / Player Name</label>

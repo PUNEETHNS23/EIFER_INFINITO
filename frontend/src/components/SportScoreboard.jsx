@@ -222,16 +222,89 @@ export default function SportScoreboard({ match, compact = false }) {
       );
     case 'badminton':
     case 'table-tennis': {
-      const label = sportId === 'badminton' ? 'BADMINTON' : 'TABLE TENNIS';
+      const serverIcon = sportId === 'badminton' ? '🏸' : '🏓';
+      if (compact) {
+          return wrap(
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.5rem 0' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+                   {team1} {d.serving === 't1' && <span style={{ fontSize: '1rem', color: 'var(--color-primary)' }}>{serverIcon}</span>}
+                 </div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                   <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Sets: {d.games_t1 ?? 0}</span>
+                   <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: d.serving === 't1' ? 'var(--color-text-main)' : 'var(--color-text-muted)', minWidth: '30px', textAlign: 'right' }}>{d.current_p1 ?? 0}</span>
+                 </div>
+               </div>
+               
+               <div style={{ width: '100%', height: '1px', background: 'var(--color-border)', opacity: 0.5 }}></div>
+               
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+                   {team2} {d.serving === 't2' && <span style={{ fontSize: '1rem', color: '#ef4444' }}>{serverIcon}</span>}
+                 </div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                   <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Sets: {d.games_t2 ?? 0}</span>
+                   <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: d.serving === 't2' ? 'var(--color-text-main)' : 'var(--color-text-muted)', minWidth: '30px', textAlign: 'right' }}>{d.current_p2 ?? 0}</span>
+                 </div>
+               </div>
+             </div>
+          );
+      }
+
       return wrap(
-        <>
-          <Row labelL={team1} labelR={team2} valL={d.games_t1 ?? 0} valR={d.games_t2 ?? 0} sub={`${label} · GAMES WON`} />
-          <div className="sb-rally">
-            <span>
-              Current: {d.current_p1 ?? 0} — {d.current_p2 ?? 0}
-            </span>
+        <div className="sb-badminton-premium">
+          <div className="sb-cricket-header-row">
+             <span className="cricket-status-badge">{match.status.toUpperCase()}</span>
+             <span className="cricket-toss" style={{ fontSize: '0.85rem' }}>{d.toss || 'Pre-match setup pending'}</span>
+             <span className="cricket-toss" style={{ fontSize: '0.85rem', color: 'var(--color-primary)' }}>{d.match_format || 'Best of 3'}</span>
           </div>
-        </>
+
+          <div style={{ display: 'flex', marginTop: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            
+            {/* PAST GAMES */}
+            <div style={{ display: 'flex', gap: '0.5rem', paddingRight: '1rem', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+              {(d.past_games || []).map((g, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.5rem', borderRadius: '4px', minWidth: '40px' }}>
+                   <div style={{ fontSize: '0.9rem', color: g.t1 > g.t2 ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>{g.t1}</div>
+                   <div style={{ width: '100%', height: '1px', background: 'var(--color-border)', margin: '4px 0'}}></div>
+                   <div style={{ fontSize: '0.9rem', color: g.t2 > g.t1 ? '#ef4444' : 'var(--color-text-muted)' }}>{g.t2}</div>
+                </div>
+              ))}
+              {(d.past_games || []).length === 0 && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Set Scores</div>
+              )}
+            </div>
+
+            {/* LIVE POINTS / MAIN CONTENT */}
+            <div style={{ flex: 1, display: 'flex', paddingLeft: '1.5rem', justifyContent: 'center', alignItems: 'center', gap: '2rem' }}>
+               
+               <div style={{ textAlign: 'right', minWidth: '120px' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{d.p1_name || 'Player 1'}</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>{team1}</span>
+                    {d.serving === 't1' && <span style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>{serverIcon}</span>}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--color-primary)', marginTop: '0.2rem' }}>Games: {d.games_t1 ?? 0}</div>
+               </div>
+
+               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <div style={{ fontSize: '3.5rem', fontWeight: 900, lineHeight: 1, color: d.serving === 't1' ? 'var(--color-text-main)' : 'var(--color-text-muted)' }}>{d.current_p1 ?? 0}</div>
+                  <div style={{ fontSize: '1.5rem', opacity: 0.3 }}>-</div>
+                  <div style={{ fontSize: '3.5rem', fontWeight: 900, lineHeight: 1, color: d.serving === 't2' ? 'var(--color-text-main)' : 'var(--color-text-muted)' }}>{d.current_p2 ?? 0}</div>
+               </div>
+
+               <div style={{ textAlign: 'left', minWidth: '120px' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{d.p2_name || 'Player 1'}</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {d.serving === 't2' && <span style={{ fontSize: '1.2rem', color: '#ef4444' }}>{serverIcon}</span>}
+                    <span>{team2}</span>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#ef4444', marginTop: '0.2rem' }}>Games: {d.games_t2 ?? 0}</div>
+               </div>
+
+            </div>
+          </div>
+        </div>
       );
     }
     case 'arm-wrestling':

@@ -7,7 +7,7 @@ import { getSportMeta } from '../sports/sportsConfig';
 function AdminCreateMatch() {
   const { sportId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, authLoading } = useAuth();
   
   const [teams, setTeams] = useState([]);
   const [newMatch, setNewMatch] = useState({
@@ -21,8 +21,9 @@ function AdminCreateMatch() {
   const meta = getSportMeta(sportId);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
-      navigate('/login');
+      navigate('/login', { replace: true });
       return;
     }
     const fetchTeams = async () => {
@@ -34,7 +35,11 @@ function AdminCreateMatch() {
       }
     };
     fetchTeams();
-  }, [user, navigate, sportId]);
+  }, [user, authLoading, navigate, sportId]);
+
+  if (authLoading) {
+    return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
+  }
 
   const handleCreate = async (e) => {
     e.preventDefault();

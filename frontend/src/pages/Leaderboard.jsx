@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { useMatchSocket } from '../hooks/useMatchSocket';
 
 function Leaderboard() {
   const [teams, setTeams] = useState([]);
 
+  const fetchTeams = async () => {
+    try {
+      const res = await api.get('/teams');
+      setTeams(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    const fetchTeams = async () => {
-      try {
-        const res = await api.get('/teams');
-        setTeams(res.data);
-      } catch (e) {
-        console.error(e);
-      }
-    };
     fetchTeams();
   }, []);
+
+  useMatchSocket(() => {
+    fetchTeams();
+  });
 
   return (
     <div className="container">

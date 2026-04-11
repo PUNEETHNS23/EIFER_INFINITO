@@ -12,14 +12,22 @@ function SportDetails() {
   const [teams, setTeams] = useState([]);
   const [activeTab, setActiveTab] = useState('matches');
 
+  const fetchTeamsForSport = async () => {
+    try {
+      const teamsRes = await api.get(`/teams/sport/${id}`);
+      setTeams(teamsRes.data);
+    } catch (err) {
+      console.error('Failed to fetch sport teams', err);
+    }
+  };
+
   useEffect(() => {
     const fetchDetails = async () => {
       try {
         const matchesRes = await api.get(`/matches/sport/${id}`);
         setMatches(matchesRes.data);
-        
-        const teamsRes = await api.get(`/teams/sport/${id}`);
-        setTeams(teamsRes.data);
+
+        await fetchTeamsForSport();
       } catch (err) {
         console.error('Failed to fetch sport details', err);
       }
@@ -38,6 +46,7 @@ function SportDetails() {
         }
         return [...prev, updatedMatch];
       });
+      fetchTeamsForSport();
     }
   });
 
@@ -76,7 +85,7 @@ function SportDetails() {
                   </span>
                   <span>{new Date(match.scheduled_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
-                <SportScoreboard match={match} />
+                <SportScoreboard match={match} compact />
               </div>
             );
 

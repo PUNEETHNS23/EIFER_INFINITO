@@ -1,6 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export function useMatchSocket(onUpdate) {
+  const savedCallback = useRef(onUpdate);
+
+  useEffect(() => {
+    savedCallback.current = onUpdate;
+  }, [onUpdate]);
+
   useEffect(() => {
     let wsUrl = import.meta.env.VITE_WS_BASE_URL;
     if (!wsUrl) {
@@ -17,7 +23,9 @@ export function useMatchSocket(onUpdate) {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'match_updated' && data.match) {
-          onUpdate(data.match);
+          if (savedCallback.current) {
+            savedCallback.current(data.match);
+          }
         }
       } catch (e) {
         console.error('Failed to parse websocket message', e);
@@ -25,7 +33,16 @@ export function useMatchSocket(onUpdate) {
     };
 
     return () => {
-      ws.close();
+      // If we attempt to synchronously close a CONNECTING socket (readyState 0), 
+      // the browser throws a noisy aborted connection warning. 
+      // React Strict Mode forces an immediate unmount, so we must defer closure if it's currently connecting.
+      if (ws.readyState === 1) {
+        ws.close();
+      } else if (ws.readyState === 0) {
+        ws.onopen = () => ws.close();
+      } else {
+        ws.close();
+      }
     };
-  }, [onUpdate]);
+  }, []); // Mounts exactly once
 }

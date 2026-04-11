@@ -6,7 +6,7 @@ import { SPORTS, getSportMeta } from '../sports/sportsConfig';
 import SportScoreEditor from '../components/SportScoreEditor';
 
 function AdminSportScore() {
-  const { user } = useAuth();
+  const { user, authLoading } = useAuth();
   const { sportId } = useParams();
   const [searchParams] = useSearchParams();
   const matchParam = searchParams.get('match');
@@ -39,6 +39,10 @@ function AdminSportScore() {
     const el = document.getElementById(`match-editor-${matchParam}`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [matchParam, matches]);
+
+  if (authLoading) {
+    return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />;

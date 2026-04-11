@@ -177,7 +177,6 @@ function MatchDetailsCricket() {
 
       {/* CB-Style Header */}
       <div style={{
-        background: 'var(--color-surface)',
         padding: '1.25rem 1.5rem',
         borderRadius: '12px 12px 0 0',
         borderBottom: '1px solid var(--color-border)',
@@ -315,7 +314,7 @@ function MatchDetailsCricket() {
                       const isExtra = b === 'WD' || b === 'NB';
                       return (
                         <span key={i} style={{
-                          padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold',
+                          padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 'bold',
                           background: b === 'W' ? '#ef4444' : b === '6' ? '#10b981' : b === '4' ? '#3b82f6'
                             : isExtra ? '#f59e0b' : isPrev ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.12)',
                           color: 'white',

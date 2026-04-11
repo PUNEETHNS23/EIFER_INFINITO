@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../api';
 import { hydrateScoreDetail } from '../sports/sportsConfig';
 import LiveCricketScorer from './LiveCricketScorer';
+import LiveBadmintonScorer from './LiveBadmintonScorer';
 import './sportScoreboards.css';
 
 function Num({ label, value, onChange, step = 1 }) {
@@ -47,7 +48,7 @@ export default function SportScoreEditor({ match, onSaved }) {
   }, [match.id, sid, match.score_detail, match.status, match.score_t1, match.score_t2]);
 
   useEffect(() => {
-    if (sid === 'cricket') {
+    if (sid === 'cricket' || sid === 'badminton' || sid === 'table-tennis') {
       api.get(`/teams`).then(res => {
          setTeam1Data(res.data.find(t => String(t.id) === String(match.team1_id)) || null);
          setTeam2Data(res.data.find(t => String(t.id) === String(match.team2_id)) || null);
@@ -59,15 +60,16 @@ export default function SportScoreEditor({ match, onSaved }) {
   detailRef.current = detail;
 
   const save = useCallback(async (overrideDetail) => {
-    const toSave = overrideDetail || detailRef.current;
+    const isEvent = overrideDetail && typeof overrideDetail.preventDefault === 'function';
+    const toSave = (!overrideDetail || isEvent) ? detailRef.current : overrideDetail;
     await api.put(`/matches/${match.id}`, { score_detail: toSave, status });
     onSaved?.();
   }, [match.id, status, onSaved]);
 
-  // For cricket: auto-save whenever detail changes (each ball action)
+  // For interactive sports: auto-save whenever detail changes (each point)
   const saveTimeoutRef = useRef(null);
   useEffect(() => {
-    if (sid !== 'cricket') return;
+    if (!['cricket', 'badminton', 'table-tennis'].includes(sid)) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       api.put(`/matches/${match.id}`, { score_detail: detail, status });
@@ -140,19 +142,7 @@ export default function SportScoreEditor({ match, onSaved }) {
       break;
     case 'badminton':
     case 'table-tennis':
-      form = (
-        <div className="sbe-badminton">
-          <div className="sbe-grid">
-            <Num label={`${team1} games won`} value={detail.games_t1} onChange={(v) => patch({ games_t1: v })} />
-            <Num label={`${team2} games won`} value={detail.games_t2} onChange={(v) => patch({ games_t2: v })} />
-          </div>
-          <p className="sbe-hint">Current game (rally points)</p>
-          <div className="sbe-grid">
-            <Num label={`${team1} current`} value={detail.current_p1} onChange={(v) => patch({ current_p1: v })} />
-            <Num label={`${team2} current`} value={detail.current_p2} onChange={(v) => patch({ current_p2: v })} />
-          </div>
-        </div>
-      );
+      form = <LiveBadmintonScorer sid={sid} detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} />;
       break;
     case 'arm-wrestling':
     case 'tug-of-war':
