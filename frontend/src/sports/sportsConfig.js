@@ -23,7 +23,11 @@ export function getSportMeta(sportId) {
 export function defaultScoreDetail(sportId) {
   const defaults = {
     football: { goals_t1: 0, goals_t2: 0 },
-    volleyball: { sets_t1: 0, sets_t2: 0 },
+    volleyball: {
+      sets_t1: 0, sets_t2: 0,
+      setsA: 0, setsB: 0, pointsA: 0, pointsB: 0,
+      currentSet: 1, setHistory: [], servingTeam: 'A', status: 'upcoming', winner: null
+    },
     cricket: {
       runs_t1: 0, wickets_t1: 0, runs_t2: 0, wickets_t2: 0,
       overs_t1: '0.0', overs_t2: '0.0', innings: 1, target: 0,
@@ -59,7 +63,11 @@ export function hydrateScoreDetail(sportId, match) {
   const t2 = match.score_t2 ?? 0;
   const map = {
     football: { goals_t1: t1, goals_t2: t2 },
-    volleyball: { sets_t1: t1, sets_t2: t2 },
+    volleyball: {
+      sets_t1: t1, sets_t2: t2,
+      setsA: t1, setsB: t2, pointsA: 0, pointsB: 0,
+      currentSet: 1, setHistory: [], servingTeam: 'A', status: 'upcoming', winner: null
+    },
     cricket: {
       ...defaultScoreDetail('cricket'),
       runs_t1: t1,

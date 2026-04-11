@@ -98,7 +98,7 @@ function WicketModal({ striker, nonStriker, bowler, onConfirm, onCancel }) {
 
 // ── Main Scorer ─────────────────────────────────────────────────────────────
 export default function LiveCricketScorer({ detail, patch, team1, team2, team1Data, team2Data }) {
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(() => detail.history || []);
   const [wicketModal, setWicketModal] = useState(false);
 
   // Toss UI States
@@ -150,12 +150,24 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   };
 
   // ── History helpers ──────────────────────────────────────────────────────
-  const saveHistory = () => setHistory(h => [...h, JSON.stringify(detail)]);
+  const saveHistory = () => {
+    const snapshot = { ...detail };
+    delete snapshot.history; // prevent exponential nesting!
+    setHistory(h => {
+      const newHistory = [...h, JSON.stringify(snapshot)];
+      setTimeout(() => patch({ history: newHistory }), 0);
+      return newHistory;
+    });
+  };
 
   const popHistory = () => {
     if (history.length === 0) return;
-    patch(JSON.parse(history[history.length - 1]));
-    setHistory(h => h.slice(0, -1));
+    const prevStr = history[history.length - 1];
+    setHistory(h => {
+      const newHistory = h.slice(0, -1);
+      patch({ ...JSON.parse(prevStr), history: newHistory });
+      return newHistory;
+    });
   };
 
   const getOversBalls = (oversFloat) => {

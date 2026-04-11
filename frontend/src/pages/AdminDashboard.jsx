@@ -76,6 +76,20 @@ function AdminDashboard() {
 
   const handleAddTeam = async (e) => {
     e.preventDefault();
+
+    if (newTeam.sport_id === 'volleyball') {
+      const players = (newTeam.squad || []).filter(p => !p.is_substitute);
+      const subs = (newTeam.squad || []).filter(p => p.is_substitute);
+      if (players.length !== 6) {
+        alert(`A volleyball team must have exactly 6 main players. Currently you have ${players.length}.`);
+        return;
+      }
+      if (subs.length > 3) {
+        alert(`A volleyball team can have a maximum of 3 substitutes. Currently you have ${subs.length}.`);
+        return;
+      }
+    }
+
     try {
       await api.post('/teams', newTeam);
       fetchTeams();
@@ -107,12 +121,12 @@ function AdminDashboard() {
   };
 
   const handleDeleteMatch = async (id) => {
-    if (!confirm('Are you sure you want to delete this match?')) return;
     try {
       await api.delete(`/matches/${id}`);
       fetchMatches();
     } catch (e) {
-      alert(e.response?.data?.detail || 'Error deleting match');
+      console.error(e);
+      alert(e.response?.data?.detail || e.message || 'Error deleting match. Check console for details.');
     }
   };
 
@@ -130,7 +144,6 @@ function AdminDashboard() {
   };
 
   const handleDeleteAdmin = async (id) => {
-    if (!confirm('Are you sure you want to remove this admin?')) return;
     try {
       await api.delete(`/admins/${id}`);
       fetchAdmins();
@@ -152,7 +165,6 @@ function AdminDashboard() {
   };
 
   const handleReinstate = async (teamId) => {
-    if (!confirm('Reinstate this team?')) return;
     try {
       await api.put(`/teams/${teamId}/reinstate`);
       fetchTeams();
@@ -162,13 +174,13 @@ function AdminDashboard() {
   };
 
   const handleDeleteTeam = async (teamId) => {
-    if (!confirm('Are you sure you want to delete this team?')) return;
     try {
       await api.delete(`/teams/${teamId}`);
       fetchTeams();
       fetchMatches();
     } catch (e) {
-      alert(e.response?.data?.detail || 'Error deleting team');
+      console.error(e);
+      alert(e.response?.data?.detail || e.message || 'Error deleting team');
     }
   };
 
@@ -349,7 +361,7 @@ function AdminDashboard() {
                   </select>
                 </div>
                 
-                {newTeam.sport_id !== 'cricket' ? (
+                {newTeam.sport_id !== 'cricket' && newTeam.sport_id !== 'volleyball' ? (
                   <>
                     <div className="input-group">
                       <label className="input-label">Team Name / Player Name</label>

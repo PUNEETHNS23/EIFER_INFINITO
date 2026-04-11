@@ -1,5 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Outlet, useLocation, useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Home from './pages/Home';
 import SportDetails from './pages/SportDetails';
 import AdminDashboard from './pages/AdminDashboard';
@@ -8,7 +9,8 @@ import AdminSportScore from './pages/AdminSportScore';
 import Login from './pages/Login';
 import Leaderboard from './pages/Leaderboard';
 import MatchDetailsCricket from './pages/MatchDetailsCricket';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import MatchDetailsVolleyball from './pages/MatchDetailsVolleyball';
+import api from './api';
 import './App.css';
 
 function Layout() {
@@ -64,6 +66,30 @@ function Layout() {
   );
 }
 
+function MatchDetailsBridge() {
+  const { id } = useParams();
+  const [sportId, setSportId] = useState(null);
+
+  useEffect(() => {
+    api.get(`/matches`).then(res => {
+      const match = res.data.find(m => String(m.id) === id);
+      if (match) setSportId(match.sport_id);
+    });
+  }, [id]);
+
+  if (!sportId) return (
+    <div className="container" style={{ padding: '4rem 1rem', textAlign: 'center' }}>
+      <p>Loading Match Details...</p>
+    </div>
+  );
+
+  if (sportId === 'cricket') return <MatchDetailsCricket />;
+  if (sportId === 'volleyball') return <MatchDetailsVolleyball />;
+  
+  // Fallback for other sports (can create a generic one later or redirect)
+  return <SportDetails />;
+}
+
 function App() {
   return (
     <Router>
@@ -72,7 +98,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="sport/:id" element={<SportDetails />} />
-            <Route path="match/:id" element={<MatchDetailsCricket />} />
+            <Route path="match/:id" element={<MatchDetailsBridge />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="admin/create-match/:sportId" element={<AdminCreateMatch />} />
