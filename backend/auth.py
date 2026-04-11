@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -6,7 +7,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
 # SECRET_KEY for JWT
-SECRET_KEY = "sportsfest_infinito_super_secret_key"
+SECRET_KEY = os.environ.get("SECRET_KEY", "sportsfest_infinito_super_secret_key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 

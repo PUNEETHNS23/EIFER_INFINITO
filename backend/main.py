@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -5,9 +6,7 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 
 from sqlalchemy import inspect, text
-
-from . import models, schemas, database, auth, scoring
-
+import models, schemas, database, auth, scoring
 models.Base.metadata.create_all(bind=database.engine)
 
 
@@ -62,9 +61,12 @@ async def websocket_matches(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+cors_origins_str = os.environ.get("CORS_ORIGINS", "*")
+origins = [origin.strip() for origin in cors_origins_str.split(",")] if cors_origins_str != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For dev. In prod, specify the origins
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

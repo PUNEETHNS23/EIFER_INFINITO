@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: . # Use root context so we can access requirements.txt
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=changethisinsomethingverysecure
+      - CORS_ORIGINS=http://localhost:3000,http://localhost
+      # Uncomment and change this to your Postgres URL if you are using Postgres
+      # - DATABASE_URL=postgresql://user:password@host/database
+    volumes:
+      # This mount keeps the sqlite db persisted locally if you stick with sqlite
+      - ./backend/sports.db:/app/sports.db
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      # The VITE variables must be passed during BUILD time for Vite
+      args:
+        - VITE_API_BASE_URL=http://localhost:8000/api
+        - VITE_WS_BASE_URL=ws://localhost:8000/api/ws/matches
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always
