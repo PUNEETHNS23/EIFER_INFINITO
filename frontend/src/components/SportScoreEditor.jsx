@@ -39,12 +39,14 @@ export default function SportScoreEditor({ match, onSaved }) {
   const sid = match.sport_id;
   const [detail, setDetail] = useState(() => hydrateScoreDetail(sid, match));
   const [status, setStatus] = useState(match.status || 'upcoming');
+  const [manualStatusOverride, setManualStatusOverride] = useState(false);
   const [team1Data, setTeam1Data] = useState(null);
   const [team2Data, setTeam2Data] = useState(null);
 
   useEffect(() => {
     setDetail(hydrateScoreDetail(sid, match));
     setStatus(match.status || 'upcoming');
+    setManualStatusOverride(false);
   }, [match.id, sid, match.score_detail, match.status, match.score_t1, match.score_t2]);
 
   useEffect(() => {
@@ -76,6 +78,26 @@ export default function SportScoreEditor({ match, onSaved }) {
     }, 600); // debounce 600ms
     return () => clearTimeout(saveTimeoutRef.current);
   }, [detail, sid, match.id, status]);
+
+  useEffect(() => {
+    if (!['badminton', 'table-tennis'].includes(sid)) return;
+    if (manualStatusOverride) return;
+
+    const format = detail.match_format || 'Best of 3';
+    const gamesToWin = format === 'Best of 5' ? 3 : format === '1 Game' ? 1 : 2;
+    const t1Games = Number(detail.games_t1 || 0);
+    const t2Games = Number(detail.games_t2 || 0);
+    const hasWinner = t1Games >= gamesToWin || t2Games >= gamesToWin;
+
+    if (hasWinner && status !== 'completed') {
+      setStatus('completed');
+      return;
+    }
+
+    if (!hasWinner && detail.toss_decided && status === 'upcoming') {
+      setStatus('live');
+    }
+  }, [sid, detail.match_format, detail.games_t1, detail.games_t2, detail.toss_decided, status, manualStatusOverride]);
 
   const patch = (partial) => setDetail((prev) => ({ ...prev, ...partial }));
 
@@ -182,7 +204,14 @@ export default function SportScoreEditor({ match, onSaved }) {
       <div className="sbe-status">
         <label className="sbe-field">
           <span>Status</span>
-          <select className="input-field" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select
+            className="input-field"
+            value={status}
+            onChange={(e) => {
+              setManualStatusOverride(true);
+              setStatus(e.target.value);
+            }}
+          >
             <option value="upcoming">Upcoming</option>
             <option value="live">Live</option>
             <option value="completed">Completed</option>
