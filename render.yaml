@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: eifer-backend
+    name: placeholdername
     runtime: docker
     plan: free
     dockerfilePath: ./backend/Dockerfile
