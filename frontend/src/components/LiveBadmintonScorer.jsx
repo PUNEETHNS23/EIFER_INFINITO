@@ -3,6 +3,7 @@ import './LiveCricketScorer.css'; // Just re-use the cool buttons and structure
 
 export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, team1Data, team2Data }) {
   const [history, setHistory] = useState([]);
+  const serverIcon = sid === 'table-tennis' ? '🏓' : '🏸';
   
   // Toss UI States
   const [tossWinner, setTossWinner] = useState(team1);
@@ -13,6 +14,29 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
 
   const saveHistory = () => setHistory(h => [...h, JSON.stringify(detail)]);
 
+  const getInitialServer = (state) => {
+    if (state.initial_server === 't1' || state.initial_server === 't2') return state.initial_server;
+    if (state.serving === 't1' || state.serving === 't2') return state.serving;
+    return 't1';
+  };
+
+  const getOppositeServer = (server) => (server === 't1' ? 't2' : 't1');
+
+  const getNextTableTennisServer = (state, previousServer) => {
+    const p1 = Number(state.current_p1 || 0);
+    const p2 = Number(state.current_p2 || 0);
+    const totalPoints = p1 + p2;
+
+    // At deuce (10-10 and beyond), service alternates every point.
+    if (p1 >= 10 && p2 >= 10) {
+      return getOppositeServer(previousServer === 't2' ? 't2' : 't1');
+    }
+
+    // Before deuce, service alternates every 2 points.
+    const initialServer = getInitialServer(state);
+    return Math.floor(totalPoints / 2) % 2 === 0 ? initialServer : getOppositeServer(initialServer);
+  };
+
   const popHistory = () => {
     if (history.length === 0) return;
     patch(JSON.parse(history[history.length - 1]));
@@ -20,11 +44,13 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
   };
 
   const handleStartMatch = () => {
+    const initialServer = tossWinner === team1 ? (tossDecision === 'Serve' ? 't1' : 't2') : (tossDecision === 'Serve' ? 't2' : 't1');
     patch({
       toss_decided: true,
       toss_winner: tossWinner,
       toss_decision: tossDecision,
-      serving: tossWinner === team1 ? (tossDecision === 'Serve' ? 't1' : 't2') : (tossDecision === 'Serve' ? 't2' : 't1'),
+      serving: initialServer,
+      initial_server: initialServer,
       match_format: matchFormat,
       toss: `${tossWinner} won the toss and elected to ${tossDecision.toLowerCase()} first`
     });
@@ -33,13 +59,18 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
   const handlePoint = (team) => {
     saveHistory();
     let updates = JSON.parse(JSON.stringify(detail));
+    const previousServer = updates.serving;
     
     if (team === 't1') {
       updates.current_p1 += 1;
-      updates.serving = 't1';
     } else {
       updates.current_p2 += 1;
-      updates.serving = 't2';
+    }
+
+    if (sid === 'table-tennis') {
+      updates.serving = getNextTableTennisServer(updates, previousServer);
+    } else {
+      updates.serving = team;
     }
 
     const limit = parseInt(updates.point_limit === 'Custom' ? updates.custom_limit : updates.point_limit) || (sid === 'badminton' ? 21 : 11);
@@ -173,7 +204,7 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
         {/* TEAM 1 */}
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: detail.serving === 't1' ? '#10b981' : 'var(--color-text-main)' }}>
-             {team1} {detail.serving === 't1' && '🏸'}
+             {team1} {detail.serving === 't1' && serverIcon}
           </div>
           <div style={{ fontSize: '3rem', fontWeight: 900, textShadow: '0 0 20px rgba(255,255,255,0.1)' }}>{detail.current_p1}</div>
           <div style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>Games: {detail.games_t1}</div>
@@ -185,7 +216,7 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
         {/* TEAM 2 */}
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: detail.serving === 't2' ? '#10b981' : 'var(--color-text-main)' }}>
-             {detail.serving === 't2' && '🏸'} {team2}
+             {detail.serving === 't2' && serverIcon} {team2}
           </div>
           <div style={{ fontSize: '3rem', fontWeight: 900, textShadow: '0 0 20px rgba(255,255,255,0.1)' }}>{detail.current_p2}</div>
           <div style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>Games: {detail.games_t2}</div>
