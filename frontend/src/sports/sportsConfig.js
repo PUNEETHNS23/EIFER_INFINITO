@@ -22,7 +22,7 @@ export function getSportMeta(sportId) {
 
 export function defaultScoreDetail(sportId) {
   const defaults = {
-    football: { goals_t1: 0, goals_t2: 0 },
+    football: { goals_t1: 0, goals_t2: 0, venue: '', match_minutes: 90 },
     volleyball: {
       sets_t1: 0, sets_t2: 0,
       setsA: 0, setsB: 0, pointsA: 0, pointsB: 0,
@@ -62,7 +62,7 @@ export function hydrateScoreDetail(sportId, match) {
   const t1 = match.score_t1 ?? 0;
   const t2 = match.score_t2 ?? 0;
   const map = {
-    football: { goals_t1: t1, goals_t2: t2 },
+    football: { ...defaultScoreDetail('football'), goals_t1: t1, goals_t2: t2 },
     volleyball: {
       sets_t1: t1, sets_t2: t2,
       setsA: t1, setsB: t2, pointsA: 0, pointsB: 0,

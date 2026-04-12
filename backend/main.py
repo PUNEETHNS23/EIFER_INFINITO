@@ -169,6 +169,13 @@ def get_teams_by_sport(sport_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/teams", response_model=schemas.Team)
 def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    if team.sport_id == "football":
+        squad = team.squad or []
+        player_names = [(p.get("name") or "").strip() for p in squad]
+        if len(player_names) != 11 or any(not name for name in player_names):
+            raise HTTPException(status_code=400, detail="Football teams must include exactly 11 player names.")
+        if len(set(player_names)) != 11:
+            raise HTTPException(status_code=400, detail="Football player names must be unique.")
     db_team = models.Team(**team.model_dump())
     db.add(db_team)
     db.commit()
