@@ -44,6 +44,9 @@ def ensure_db_migrations():
         if "squad" not in cols:
             with database.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE teams ADD COLUMN squad TEXT"))
+        if "category" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE teams ADD COLUMN category TEXT"))
 
 
 ensure_db_migrations()
@@ -84,13 +87,20 @@ async def websocket_matches(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-cors_origins_str = os.environ.get("CORS_ORIGINS", "*")
-origins = [origin.strip() for origin in cors_origins_str.split(",")] if cors_origins_str != "*" else ["*"]
+cors_origins_str = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+cors_origin_regex = os.environ.get("CORS_ORIGIN_REGEX", "").strip() or None
+
+# Browsers reject wildcard origin with credentials, so force credentials off in that case.
+cors_allow_credentials = os.environ.get("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
+if "*" in origins:
+    cors_allow_credentials = False
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_origin_regex=cors_origin_regex,
+    allow_credentials=cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -169,6 +179,35 @@ def get_teams_by_sport(sport_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/teams", response_model=schemas.Team)
 def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    racket_categories = {
+        "Mens Singles",
+        "Mens Doubles",
+        "Womens Singles",
+        "Womens Doubles",
+        "Mixed Doubles",
+    }
+
+    if team.sport_id in {"badminton", "table-tennis"}:
+        category = (team.category or "").strip()
+        if category not in racket_categories:
+            raise HTTPException(status_code=400, detail="Badminton/Table Tennis teams require a valid category.")
+
+        squad = team.squad or []
+        player_names = [(p.get("name") or "").strip() for p in squad]
+        if any(not name for name in player_names):
+            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
+        if len(set(player_names)) != len(player_names):
+            raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
+        if any(bool(p.get("is_substitute")) for p in squad):
+            raise HTTPException(status_code=400, detail="Substitute players are not allowed for badminton/table-tennis teams.")
+
+        required_count = 2 if "Doubles" in category else 1
+        if len(player_names) != required_count:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{category} requires exactly {required_count} player(s) per team.",
+            )
+
     if team.sport_id == "football":
         squad = team.squad or []
         player_names = [(p.get("name") or "").strip() for p in squad]
@@ -289,10 +328,30 @@ def get_matches_by_sport(sport_id: str, db: Session = Depends(get_db)):
 def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
     if match.team1_id == match.team2_id:
         raise HTTPException(status_code=400, detail="Team 1 and Team 2 must be different")
+
+    team1 = db.query(models.Team).filter(models.Team.id == match.team1_id).first()
+    team2 = db.query(models.Team).filter(models.Team.id == match.team2_id).first()
+    if not team1 or not team2:
+        raise HTTPException(status_code=404, detail="One or both teams not found")
+
+    if team1.sport_id != match.sport_id or team2.sport_id != match.sport_id:
+        raise HTTPException(status_code=400, detail="Teams must belong to the selected sport")
+
     data = match.model_dump()
     detail = data.get("score_detail")
     if not detail:
         detail = scoring.default_score_detail(data["sport_id"])
+
+    if data["sport_id"] in {"badminton", "table-tennis"}:
+        category = (detail.get("category") if isinstance(detail, dict) else None) or team1.category or team2.category
+        if not category:
+            raise HTTPException(status_code=400, detail="Subcategory is required for badminton/table-tennis matches")
+
+        if team1.category != category or team2.category != category:
+            raise HTTPException(status_code=400, detail="Both teams must be from the same selected subcategory")
+
+        detail["category"] = category
+
     t1, t2 = scoring.derive_primary_scores(data["sport_id"], detail)
     db_match = models.Match(
         sport_id=data["sport_id"],

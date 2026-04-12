@@ -18,6 +18,7 @@ class Team(Base):
     id = Column(Integer, primary_key=True, index=True)
     sport_id = Column(String, index=True)
     name = Column(String, index=True)
+    category = Column(String, nullable=True)
     points = Column(Integer, default=0)
     is_disqualified = Column(Boolean, default=False)
     disqualification_reason = Column(String, default=None, nullable=True)

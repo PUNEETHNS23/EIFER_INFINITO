@@ -5,6 +5,7 @@ from datetime import datetime
 class TeamBase(BaseModel):
     sport_id: str
     name: str
+    category: Optional[str] = None
 
 class TeamCreate(TeamBase):
     squad: Optional[list[dict[str, Any]]] = None

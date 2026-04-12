@@ -2,10 +2,85 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../api';
 import { hydrateScoreDetail } from '../sports/sportsConfig';
 import LiveCricketScorer from './LiveCricketScorer';
-import LiveBadmintonScorer from './LiveBadmintonScorer';
 import LiveVolleyballScorer from './LiveVolleyballScorer';
 import LiveFootballScorer from './LiveFootballScorer';
 import './sportScoreboards.css';
+
+function racketToVolleyballDetail(detail, sid) {
+  const d = detail || {};
+  const target = Number(d.point_limit === 'Custom' ? d.custom_limit : d.point_limit) || (sid === 'badminton' ? 21 : 11);
+  const currentSet = Number(d.currentSet || ((d.past_games || []).length + 1) || 1);
+  const setTargets = d.setTargets || { [currentSet]: target };
+  const setHistory = Array.isArray(d.past_games)
+    ? d.past_games.map((g) => ({
+        a: Number(g.t1 || 0),
+        b: Number(g.t2 || 0),
+        winner: Number(g.t1 || 0) >= Number(g.t2 || 0) ? 'A' : 'B',
+      }))
+    : [];
+
+  const category = d.category || 'Mens Singles';
+  const isDoubles = category.includes('Doubles');
+  const rosterSize = isDoubles ? 2 : 1;
+  const rosterA = isDoubles ? [d.p1_name || '', d.p1_partner || ''] : [d.p1_name || ''];
+  const rosterB = isDoubles ? [d.p2_name || '', d.p2_partner || ''] : [d.p2_name || ''];
+
+  return {
+    max_sets: d.match_format === 'Best of 5' ? 5 : d.match_format === '1 Game' ? 1 : 3,
+    sets_t1: Number(d.games_t1 || 0),
+    sets_t2: Number(d.games_t2 || 0),
+    setsA: Number(d.games_t1 || 0),
+    setsB: Number(d.games_t2 || 0),
+    pointsA: Number(d.current_p1 || 0),
+    pointsB: Number(d.current_p2 || 0),
+    currentSet,
+    setTargets,
+    setHistory,
+    servingTeam: d.serving === 't2' ? 'B' : 'A',
+    status: d.status || 'upcoming',
+    winner: d.winner || null,
+    history: d.history || [],
+    rosterSize,
+    rosterA,
+    rosterB,
+    category,
+    match_format: d.match_format || 'Best of 3',
+  };
+}
+
+function volleyballPatchToRacket(prevDetail, partial, sid) {
+  const next = { ...prevDetail };
+
+  if (partial.sets_t1 != null || partial.setsA != null) next.games_t1 = Number(partial.sets_t1 ?? partial.setsA ?? next.games_t1 ?? 0);
+  if (partial.sets_t2 != null || partial.setsB != null) next.games_t2 = Number(partial.sets_t2 ?? partial.setsB ?? next.games_t2 ?? 0);
+  if (partial.pointsA != null) next.current_p1 = Number(partial.pointsA);
+  if (partial.pointsB != null) next.current_p2 = Number(partial.pointsB);
+  if (partial.currentSet != null) next.currentSet = Number(partial.currentSet);
+  if (partial.setTargets != null) next.setTargets = partial.setTargets;
+  if (partial.setHistory != null) {
+    next.past_games = partial.setHistory.map((h) => ({ t1: Number(h.a || 0), t2: Number(h.b || 0) }));
+  }
+  if (partial.servingTeam != null) next.serving = partial.servingTeam === 'B' ? 't2' : 't1';
+  if (partial.status != null) next.status = partial.status;
+  if (partial.winner != null) next.winner = partial.winner;
+  if (partial.history != null) next.history = partial.history;
+  if (partial.max_sets != null) next.match_format = Number(partial.max_sets) === 5 ? 'Best of 5' : Number(partial.max_sets) === 1 ? '1 Game' : 'Best of 3';
+
+  if (Array.isArray(partial.rosterA) && partial.rosterA.length > 0) {
+    next.p1_name = partial.rosterA[0] || next.p1_name || '';
+    next.p1_partner = partial.rosterA[1] || '';
+  }
+  if (Array.isArray(partial.rosterB) && partial.rosterB.length > 0) {
+    next.p2_name = partial.rosterB[0] || next.p2_name || '';
+    next.p2_partner = partial.rosterB[1] || '';
+  }
+
+  if (!next.point_limit) {
+    next.point_limit = sid === 'badminton' ? '21' : '11';
+  }
+
+  return next;
+}
 
 function Num({ label, value, onChange, step = 1 }) {
   return (
@@ -108,7 +183,14 @@ export default function SportScoreEditor({ match, onSaved }) {
     }
   }, [sid, detail.match_format, detail.games_t1, detail.games_t2, detail.toss_decided, status, manualStatusOverride]);
 
-  const patch = useCallback((partial) => setDetail((prev) => ({ ...prev, ...partial })), []);
+  const patch = useCallback((partial) => {
+    setDetail((prev) => {
+      if (sid === 'badminton' || sid === 'table-tennis') {
+        return volleyballPatchToRacket(prev, partial, sid);
+      }
+      return { ...prev, ...partial };
+    });
+  }, [sid]);
 
   const team1 = match.team1 || 'Team 1';
   const team2 = match.team2 || 'Team 2';
@@ -133,6 +215,7 @@ export default function SportScoreEditor({ match, onSaved }) {
             team2={team2}
             team1Data={team1Data}
             team2Data={team2Data}
+            serveIcon="🏐"
           />
           <div className="sbe-status" style={{ marginTop: '1rem' }}>
             <label className="sbe-field">
@@ -187,9 +270,22 @@ export default function SportScoreEditor({ match, onSaved }) {
       );
       break;
     case 'badminton':
-    case 'table-tennis':
-      form = <LiveBadmintonScorer sid={sid} detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} />;
+    case 'table-tennis': {
+      const adaptedDetail = racketToVolleyballDetail(detail, sid);
+      form = (
+        <LiveVolleyballScorer
+          key={match.id}
+          detail={adaptedDetail}
+          patch={patch}
+          team1={team1}
+          team2={team2}
+          team1Data={team1Data}
+          team2Data={team2Data}
+          serveIcon={sid === 'badminton' ? '🏸' : '🏓'}
+        />
+      );
       break;
+    }
     case 'arm-wrestling':
     case 'tug-of-war':
       form = (
@@ -242,7 +338,7 @@ export default function SportScoreEditor({ match, onSaved }) {
           </select>
         </label>
       </div>
-      {sid !== 'cricket' && sid !== 'volleyball' && sid !== 'football' && (
+      {sid !== 'cricket' && sid !== 'volleyball' && sid !== 'football' && sid !== 'badminton' && sid !== 'table-tennis' && (
         <button type="button" className="btn-primary sbe-save" onClick={save}>
           Save score
         </button>
