@@ -84,13 +84,18 @@ async def websocket_matches(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-cors_origins_str = os.environ.get("CORS_ORIGINS", "*")
-origins = [origin.strip() for origin in cors_origins_str.split(",")] if cors_origins_str != "*" else ["*"]
+cors_origins_str = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+
+# Browsers reject wildcard origin with credentials, so force credentials off in that case.
+cors_allow_credentials = os.environ.get("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
+if "*" in origins:
+    cors_allow_credentials = False
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

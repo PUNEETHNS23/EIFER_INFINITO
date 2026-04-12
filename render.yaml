@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: eifer-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://your-app.vercel.app
+      - key: CORS_ALLOW_CREDENTIALS
+        value: "false"
