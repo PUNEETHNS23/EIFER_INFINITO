@@ -3,19 +3,38 @@ import { useEffect, useRef } from 'react';
 export function useMatchSocket(onUpdate) {
   const savedCallback = useRef(onUpdate);
 
+  const resolveWsUrl = () => {
+    if (import.meta.env.VITE_WS_BASE_URL) {
+      return import.meta.env.VITE_WS_BASE_URL;
+    }
+
+    const apiBase = import.meta.env.VITE_API_BASE_URL;
+    if (apiBase) {
+      try {
+        // Expected API base is like http://host:port/api
+        const parsed = new URL(apiBase);
+        const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${wsProtocol}//${parsed.host}/api/ws/matches`;
+      } catch {
+        // Ignore invalid URL and fallback below.
+      }
+    }
+
+    // Final fallback from browser location.
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const localHosts = ['localhost', '127.0.0.1'];
+    const host = localHosts.includes(window.location.hostname)
+      ? `${window.location.hostname}:8000`
+      : window.location.host;
+    return `${wsProtocol}//${host}/api/ws/matches`;
+  };
+
   useEffect(() => {
     savedCallback.current = onUpdate;
   }, [onUpdate]);
 
   useEffect(() => {
-    let wsUrl = import.meta.env.VITE_WS_BASE_URL;
-    if (!wsUrl) {
-      // Determine the base URL for websockets from the current window location
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // If dev localhost, target the backend 8000, else use current host
-      const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
-      wsUrl = `${protocol}//${host}/api/ws/matches`;
-    }
+    const wsUrl = resolveWsUrl();
 
     let ws = null;
     let reconnectTimer = null;

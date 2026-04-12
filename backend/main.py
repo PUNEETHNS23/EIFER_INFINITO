@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -62,11 +63,15 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast_json(self, data: dict):
+        payload = jsonable_encoder(data)
+        stale_connections = []
         for connection in self.active_connections:
             try:
-                await connection.send_json(data)
+                await connection.send_json(payload)
             except Exception:
-                pass
+                stale_connections.append(connection)
+        for connection in stale_connections:
+            self.disconnect(connection)
 
 manager = ConnectionManager()
 
