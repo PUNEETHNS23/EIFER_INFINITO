@@ -58,10 +58,49 @@ export default function SportScoreboard({ match, compact = false }) {
   );
 
   switch (sportId) {
-    case 'football':
+    case 'football': {
+      const goalEvents = Array.isArray(d.goal_events) ? d.goal_events : [];
+      const sortByMinute = (a, b) => {
+        const am = Number.isFinite(Number(a?.minute)) ? Number(a.minute) : 999;
+        const bm = Number.isFinite(Number(b?.minute)) ? Number(b.minute) : 999;
+        return am - bm;
+      };
+      const team1Events = goalEvents.filter((ev) => ev.team === 't1').sort(sortByMinute);
+      const team2Events = goalEvents.filter((ev) => ev.team === 't2').sort(sortByMinute);
+
       return wrap(
-        <Row labelL={team1} labelR={team2} valL={d.goals_t1 ?? 0} valR={d.goals_t2 ?? 0} sub="GOALS" />
+        <>
+          <Row labelL={team1} labelR={team2} valL={d.goals_t1 ?? 0} valR={d.goals_t2 ?? 0} sub="GOALS" />
+          {goalEvents.length > 0 && (
+            <div className={`sb-football-events ${compact ? 'compact' : ''}`}>
+              <div className="sb-football-events-split">
+                <div className="sb-football-team-events left">
+                  {team1Events.map((ev, idx) => {
+                    const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
+                    return (
+                      <div key={`${ev.created_at || 'evt'}-l-${idx}`} className="sb-football-line left">
+                        {ev.scorer || 'Unknown'} {minuteLabel}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="sb-football-ball" aria-hidden="true">⚽</div>
+                <div className="sb-football-team-events right">
+                  {team2Events.map((ev, idx) => {
+                    const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
+                    return (
+                      <div key={`${ev.created_at || 'evt'}-r-${idx}`} className="sb-football-line right">
+                        {ev.scorer || 'Unknown'} {minuteLabel}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       );
+    }
     case 'volleyball': {
       // Bypass the generic Row if compact, so we always show the neon neon tech theme  
 

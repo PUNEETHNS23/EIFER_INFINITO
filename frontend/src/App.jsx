@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Leaderboard from './pages/Leaderboard';
 import MatchDetailsCricket from './pages/MatchDetailsCricket';
 import MatchDetailsVolleyball from './pages/MatchDetailsVolleyball';
+import MatchDetailsFootball from './pages/MatchDetailsFootball';
 import api from './api';
 import './App.css';
 
@@ -86,6 +87,7 @@ function MatchDetailsBridge() {
 
   if (sportId === 'cricket') return <MatchDetailsCricket />;
   if (sportId === 'volleyball') return <MatchDetailsVolleyball />;
+  if (sportId === 'football') return <MatchDetailsFootball />;
   
   // Fallback for other sports (can create a generic one later or redirect)
   return <SportDetails />;
