@@ -233,3 +233,28 @@ button {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-dim);
 }
+
+.datetime-field-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.datetime-field-shell .input-field {
+  padding-right: 2.8rem;
+  cursor: pointer;
+}
+
+.datetime-field-shell:focus-within .input-field {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-dim);
+}
+
+.datetime-picker-icon {
+  position: absolute;
+  right: 0.85rem;
+  font-size: 1rem;
+  opacity: 0.85;
+  pointer-events: none;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
@@ -17,6 +17,8 @@ function AdminCreateMatch() {
     scheduled_time: '',
     score_detail: sportId === 'cricket' ? { match_type: 'T20' } : (sportId === 'volleyball' ? { max_sets: 5 } : {})
   });
+  const [scheduledLocal, setScheduledLocal] = useState('');
+  const scheduledInputRef = useRef(null);
 
   const meta = getSportMeta(sportId);
 
@@ -65,6 +67,19 @@ function AdminCreateMatch() {
     }));
   };
 
+  const openDateTimePicker = () => {
+    const input = scheduledInputRef.current;
+    if (!input) return;
+    input.focus();
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+      } catch {
+        // Fallback for browsers that block showPicker unless triggered in specific contexts.
+      }
+    }
+  };
+
   return (
     <div className="container">
       <div className="page-header">
@@ -105,12 +120,37 @@ function AdminCreateMatch() {
 
           <div className="input-group">
             <label className="input-label">Scheduled Time (Local)</label>
-            <input 
-              type="datetime-local" 
-              className="input-field" 
-              onChange={e => setNewMatch({...newMatch, scheduled_time: new Date(e.target.value).toISOString()})} 
-              required 
-            />
+            <div
+              className="datetime-field-shell"
+              onClick={openDateTimePicker}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openDateTimePicker();
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Open date and time picker"
+            >
+              <input
+                ref={scheduledInputRef}
+                type="datetime-local"
+                className="input-field"
+                value={scheduledLocal}
+                onClick={openDateTimePicker}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setScheduledLocal(value);
+                  setNewMatch({
+                    ...newMatch,
+                    scheduled_time: value ? new Date(value).toISOString() : ''
+                  });
+                }}
+                required
+              />
+              <span className="datetime-picker-icon" aria-hidden="true">🗓</span>
+            </div>
           </div>
 
           {/* CRICKET SPECIFIC CONFIGS */}
