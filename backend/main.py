@@ -6,10 +6,25 @@ from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocke
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy.engine.url import make_url
 from datetime import timedelta
 
 from sqlalchemy import inspect, text
 import models, schemas, database, auth, scoring
+
+
+def _db_target_string(url: str) -> str:
+    try:
+        parsed = make_url(url)
+        if parsed.drivername.startswith("sqlite"):
+            return f"{parsed.drivername}:///{parsed.database or ''}"
+        return f"{parsed.drivername}://{parsed.host}:{parsed.port}/{parsed.database}"
+    except Exception:
+        return "unparseable DATABASE_URL"
+
+
+print(f"[DB] Target: {_db_target_string(database.SQLALCHEMY_DATABASE_URL)}")
+
 models.Base.metadata.create_all(bind=database.engine)
 
 

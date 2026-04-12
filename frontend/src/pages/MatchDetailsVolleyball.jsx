@@ -56,7 +56,6 @@ function MatchDetailsVolleyball() {
 
       {/* Header */}
       <div style={{
-        background: 'var(--color-surface)',
         padding: '1.5rem',
         borderRadius: '16px 16px 0 0',
         borderBottom: '1px solid var(--color-border)',

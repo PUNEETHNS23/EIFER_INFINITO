@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Link, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import Home from './pages/Home';
 import SportDetails from './pages/SportDetails';
 import AdminDashboard from './pages/AdminDashboard';
