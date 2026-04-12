@@ -11,7 +11,7 @@ from sqlalchemy.engine.url import make_url
 from datetime import timedelta
 
 from sqlalchemy import inspect, text
-import models, schemas, database, auth, scoring
+from . import models, schemas, database, auth, scoring
 
 
 def _db_target_string(url: str) -> str:
