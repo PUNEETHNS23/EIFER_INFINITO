@@ -11,6 +11,8 @@ services:
       - key: SECRET_KEY
         sync: false
       - key: CORS_ORIGINS
-        value: https://your-app.vercel.app
+        value: https://eifer-frontend.vercel.app,http://localhost:5173,http://localhost:3000
+      - key: CORS_ORIGIN_REGEX
+        value: https://.*\.vercel\.app
       - key: CORS_ALLOW_CREDENTIALS
         value: "false"
