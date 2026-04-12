@@ -4,6 +4,7 @@ import { hydrateScoreDetail } from '../sports/sportsConfig';
 import LiveCricketScorer from './LiveCricketScorer';
 import LiveBadmintonScorer from './LiveBadmintonScorer';
 import LiveVolleyballScorer from './LiveVolleyballScorer';
+import LiveFootballScorer from './LiveFootballScorer';
 import './sportScoreboards.css';
 
 function Num({ label, value, onChange, step = 1 }) {
@@ -51,7 +52,7 @@ export default function SportScoreEditor({ match, onSaved }) {
   }, [match.id, sid, match.score_detail, match.status, match.score_t1, match.score_t2]);
 
   useEffect(() => {
-    if (['cricket', 'volleyball', 'badminton', 'table-tennis'].includes(sid)) {
+    if (['cricket', 'volleyball', 'badminton', 'table-tennis', 'football'].includes(sid)) {
       api.get(`/teams`).then(res => {
          setTeam1Data(res.data.find(t => String(t.id) === String(match.team1_id)) || null);
          setTeam2Data(res.data.find(t => String(t.id) === String(match.team2_id)) || null);
@@ -69,10 +70,17 @@ export default function SportScoreEditor({ match, onSaved }) {
     onSaved?.();
   }, [match.id, status, onSaved]);
 
+  const endMatch = useCallback(async () => {
+    setManualStatusOverride(true);
+    setStatus('completed');
+    await api.put(`/matches/${match.id}`, { score_detail: detailRef.current, status: 'completed' });
+    onSaved?.();
+  }, [match.id, onSaved]);
+
   // For interactive sports: auto-save whenever detail changes (each point)
   const saveTimeoutRef = useRef(null);
   useEffect(() => {
-    if (!['cricket', 'volleyball', 'badminton', 'table-tennis'].includes(sid)) return;
+    if (!['cricket', 'volleyball', 'badminton', 'table-tennis', 'football'].includes(sid)) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       api.put(`/matches/${match.id}`, { score_detail: detail, status });
@@ -108,12 +116,7 @@ export default function SportScoreEditor({ match, onSaved }) {
   let form = null;
   switch (sid) {
     case 'football':
-      form = (
-        <div className="sbe-grid">
-          <Num label={`${team1} goals`} value={detail.goals_t1} onChange={(v) => patch({ goals_t1: v })} />
-          <Num label={`${team2} goals`} value={detail.goals_t2} onChange={(v) => patch({ goals_t2: v })} />
-        </div>
-      );
+      form = <LiveFootballScorer detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} matchStatus={status} onEndMatch={endMatch} />;
       break;
     case 'volleyball':
       return (
@@ -239,7 +242,7 @@ export default function SportScoreEditor({ match, onSaved }) {
           </select>
         </label>
       </div>
-      {sid !== 'cricket' && sid !== 'volleyball' && (
+      {sid !== 'cricket' && sid !== 'volleyball' && sid !== 'football' && (
         <button type="button" className="btn-primary sbe-save" onClick={save}>
           Save score
         </button>
