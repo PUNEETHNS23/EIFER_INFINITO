@@ -169,20 +169,48 @@ export default function SportScoreboard({ match, compact = false }) {
     }
     case 'cricket':
       if (compact) {
+        const inn = d.innings || 1;
+        const curOvers = inn === 1 ? d.overs_t1 : d.overs_t2;
+        const balls = (d.over_progression || '').split(' ').filter(Boolean);
+
         return wrap(
           <>
             <div className="sb-cricket">
-              <div>
-                <div className="sb-cr-label">{team1}</div>
+              <div style={{ flex: 1 }}>
+                <div className="sb-cr-label">
+                  {team1}
+                  {inn === 1 && <span className="sb-batting-indicator" title="Batting" />}
+                </div>
                 <div className="sb-cr-line">{d.runs_t1 ?? 0}/{d.wickets_t1 ?? 0}</div>
               </div>
-              <div className="sb-vs">vs</div>
-              <div>
-                <div className="sb-cr-label">{team2}</div>
+              <div className="sb-vs">VS</div>
+              <div style={{ flex: 1, textAlign: 'right' }}>
+                <div className="sb-cr-label">
+                  {inn === 2 && <span className="sb-batting-indicator" style={{ marginLeft: 0, marginRight: '0.5rem' }} title="Batting" />}
+                  {team2}
+                </div>
                 <div className="sb-cr-line">{d.runs_t2 ?? 0}/{d.wickets_t2 ?? 0}</div>
               </div>
             </div>
-            <div className="sb-rally" style={{ fontSize: '0.85rem' }}>Over: {d.over_progression || '-'} | Last: {d.current_ball_result || '-'}</div>
+            
+            <div className="sb-rally">
+              <div className="sb-cr-compact-info">
+                <span className="sb-cr-inn-badge">INN {inn}</span>
+                <span style={{ fontWeight: 800, color: 'var(--color-text-main)' }}>{curOvers || '0.0'} OV</span>
+              </div>
+              
+              <div className="sb-cr-balls-list-compact">
+                {balls.map((b, i) => (
+                  <span 
+                    key={i} 
+                    className={`sb-cr-ball-compact ${b === 'W' ? 'ball-w' : (['4', '6'].includes(b) ? 'ball-boundary' : '')}`}
+                  >
+                    {b}
+                  </span>
+                ))}
+                {balls.length === 0 && <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>Waiting for over...</span>}
+              </div>
+            </div>
           </>
         );
       }
