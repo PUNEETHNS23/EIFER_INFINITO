@@ -3,45 +3,46 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { useMatchSocket } from '../hooks/useMatchSocket';
 import SportScoreboard from '../components/SportScoreboard';
+import './MatchDetails.css';
 
 function ScorecardInnings({ title, battingCard, bowlingCard, strikerName, nonStrikerName, currentBowler, totalRuns, totalWickets, extras = 0 }) {
   const rows = Object.entries(battingCard || {});
   return (
-    <div style={{ marginBottom: '2.5rem' }}>
-      <h3 style={{ margin: '0 0 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.5rem', color: 'var(--color-primary)', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+    <div className="scorecard-section">
+      <h3 className="scorecard-title">
         {title}
       </h3>
 
       {/* Batting Table */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', marginBottom: '0.5rem', minWidth: '420px' }}>
+      <div className="table-responsive">
+        <table className="leaderboard-table">
           <thead>
-            <tr style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-              <th style={{ padding: '0.6rem 0.75rem' }}>Batter</th>
-              <th style={{ padding: '0.6rem 0.75rem' }}>Status</th>
-              <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>R</th>
-              <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>B</th>
-              <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>4s</th>
-              <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>6s</th>
-              <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>SR</th>
+            <tr>
+              <th>Batter</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>R</th>
+              <th style={{ textAlign: 'right' }}>B</th>
+              <th style={{ textAlign: 'right' }}>4s</th>
+              <th style={{ textAlign: 'right' }}>6s</th>
+              <th style={{ textAlign: 'right' }}>SR</th>
             </tr>
           </thead>
           <tbody>
             {rows.map(([name, stats]) => {
               const isAtCrease = name === strikerName || name === nonStrikerName;
               return (
-                <tr key={name} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.9rem', background: isAtCrease ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
-                  <td style={{ padding: '0.65rem 0.75rem', fontWeight: isAtCrease ? 'bold' : 'normal' }}>
+                <tr key={name} style={{ background: isAtCrease ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
+                  <td style={{ fontWeight: isAtCrease ? 'bold' : 'normal' }}>
                     {name} {name === strikerName ? '🏏' : isAtCrease ? '●' : ''}
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem', color: stats.out ? '#ef4444' : '#10b981', fontSize: '0.82rem' }}>
+                  <td style={{ color: stats.out ? '#ef4444' : '#10b981', fontSize: '0.82rem' }}>
                     {stats.out ? stats.dismissal || 'out' : 'not out'}
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem', fontWeight: 'bold', textAlign: 'right' }}>{stats.runs}</td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>{stats.balls}</td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', color: stats.fours > 0 ? '#3b82f6' : 'inherit' }}>{stats.fours}</td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', color: stats.sixes > 0 ? '#10b981' : 'inherit' }}>{stats.sixes}</td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', fontSize: '0.85rem' }}>{stats.sr || '0.00'}</td>
+                  <td style={{ fontWeight: 'bold', textAlign: 'right' }}>{stats.runs}</td>
+                  <td style={{ textAlign: 'right' }}>{stats.balls}</td>
+                  <td style={{ textAlign: 'right', color: stats.fours > 0 ? '#3b82f6' : 'inherit' }}>{stats.fours}</td>
+                  <td style={{ textAlign: 'right', color: stats.sixes > 0 ? '#10b981' : 'inherit' }}>{stats.sixes}</td>
+                  <td style={{ textAlign: 'right', fontSize: '0.85rem' }}>{stats.sr || '0.00'}</td>
                 </tr>
               );
             })}
@@ -50,13 +51,13 @@ function ScorecardInnings({ title, battingCard, bowlingCard, strikerName, nonStr
             )}
           </tbody>
           <tfoot>
-            <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              <td style={{ padding: '0.6rem 0.75rem' }} colSpan={2}>Extras</td>
-              <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }} colSpan={5}>{extras}</td>
+            <tr style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+              <td colSpan={2}>Extras</td>
+              <td style={{ textAlign: 'right' }} colSpan={5}>{extras}</td>
             </tr>
-            <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)', fontWeight: 'bold' }}>
-              <td style={{ padding: '0.6rem 0.75rem' }} colSpan={2}>Total</td>
-              <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', fontSize: '1rem' }} colSpan={5}>
+            <tr style={{ fontWeight: 'bold' }}>
+              <td colSpan={2}>Total</td>
+              <td className="points-cell" style={{ textAlign: 'right', fontSize: '1rem' }} colSpan={5}>
                 {totalRuns}/{totalWickets}
               </td>
             </tr>
@@ -66,27 +67,27 @@ function ScorecardInnings({ title, battingCard, bowlingCard, strikerName, nonStr
 
       {/* Bowling Table  */}
       {Object.keys(bowlingCard || {}).length > 0 && (
-        <div style={{ overflowX: 'auto', marginTop: '1rem' }}>
-          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', minWidth: '320px' }}>
+        <div className="table-responsive" style={{ marginTop: '1rem' }}>
+          <table className="leaderboard-table">
             <thead>
-              <tr style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-                <th style={{ padding: '0.6rem 0.75rem' }}>Bowler</th>
-                <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>O</th>
-                <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>R</th>
-                <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>W</th>
-                <th style={{ padding: '0.6rem 0.75rem', textAlign: 'right' }}>ECON</th>
+              <tr>
+                <th>Bowler</th>
+                <th style={{ textAlign: 'right' }}>O</th>
+                <th style={{ textAlign: 'right' }}>R</th>
+                <th style={{ textAlign: 'right' }}>W</th>
+                <th style={{ textAlign: 'right' }}>ECON</th>
               </tr>
             </thead>
             <tbody>
               {Object.entries(bowlingCard).map(([name, stats]) => (
-                <tr key={name} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.9rem', background: name === currentBowler ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
-                  <td style={{ padding: '0.65rem 0.75rem', fontWeight: name === currentBowler ? 'bold' : 'normal' }}>
+                <tr key={name} style={{ background: name === currentBowler ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
+                  <td style={{ fontWeight: name === currentBowler ? 'bold' : 'normal' }}>
                     {name} {name === currentBowler ? '⚾' : ''}
                   </td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>{stats.overs}</td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>{stats.runs}</td>
-                  <td style={{ padding: '0.65rem 0.75rem', fontWeight: 'bold', textAlign: 'right', color: stats.wickets > 0 ? '#ef4444' : 'inherit' }}>{stats.wickets}</td>
-                  <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', fontSize: '0.85rem' }}>{stats.econ || '0.00'}</td>
+                  <td style={{ textAlign: 'right' }}>{stats.overs}</td>
+                  <td style={{ textAlign: 'right' }}>{stats.runs}</td>
+                  <td style={{ fontWeight: 'bold', textAlign: 'right', color: stats.wickets > 0 ? '#ef4444' : 'inherit' }}>{stats.wickets}</td>
+                  <td style={{ textAlign: 'right', fontSize: '0.85rem' }}>{stats.econ || '0.00'}</td>
                 </tr>
               ))}
             </tbody>
@@ -166,72 +167,44 @@ function MatchDetailsCricket() {
   const innings = Number(d.innings || 1);
 
   return (
-    <div className="container" style={{ maxWidth: '820px', margin: '0 auto', padding: '1rem 1rem 4rem' }}>
+    <div className="match-details-container">
       
       {/* Back button */}
-      <div style={{ marginBottom: '1rem' }}>
-        <Link to={`/sport/cricket`} style={{ color: 'var(--color-text-muted)', textDecoration: 'none', fontSize: '0.9rem' }}>
-          ← Back to Cricket
-        </Link>
-      </div>
+      <Link to={`/sport/cricket`} className="match-back-link">
+        ← Back to Cricket
+      </Link>
 
       {/* CB-Style Header */}
-      <div style={{
-        padding: '1.25rem 1.5rem',
-        borderRadius: '12px 12px 0 0',
-        borderBottom: '1px solid var(--color-border)',
-        background: 'linear-gradient(135deg, var(--color-surface) 0%, rgba(255,255,255,0.03) 100%)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+      <div className="match-header-section">
+        <div className="match-header-glow"></div>
+        <div className="match-header-content">
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{match.team1} vs {match.team2}</h2>
-            <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              {d.match_type || 'T20'} {d.custom_overs ? `(${d.custom_overs} overs)` : ''} • {d.venue || 'Stadium'}
-            </p>
+            <h2 className="match-header-title">{match.team1} vs {match.team2}</h2>
+            <div className="match-header-meta">
+              <span>{d.match_type || 'T20'} {d.custom_overs ? `(${d.custom_overs} overs)` : ''}</span>
+              <span>•</span>
+              <span>{d.venue || 'Stadium'}</span>
+            </div>
             {d.toss && (
               <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
                 🪙 {d.toss}
               </p>
             )}
           </div>
-          <span style={{
-            flexShrink: 0,
-            fontSize: '0.8rem',
-            background: match.status === 'live' ? '#16a34a' : match.status === 'completed' ? '#6b7280' : 'var(--color-primary)',
-            color: '#fff',
-            padding: '0.3rem 0.7rem',
-            borderRadius: '20px',
-            fontWeight: 'bold',
-            letterSpacing: '0.5px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}>
-            {match.status === 'live' && <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fff', display: 'inline-block', animation: 'pulse 1.2s infinite' }}></span>}
+          <span className={`match-status-badge match-status-${match.status}`}>
+            {match.status === 'live' && <span className="live-dot"></span>}
             {match.status.toUpperCase()}
           </span>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', background: 'var(--color-surface)', padding: '0 0.5rem', borderBottom: '1px solid var(--color-border)', gap: '0.25rem' }}>
+      <div className="match-tabs-container">
         {['info', 'live', 'scorecard', 'highlights'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === tab ? '3px solid var(--color-primary)' : '3px solid transparent',
-              color: activeTab === tab ? 'var(--color-text-main)' : 'var(--color-text-muted)',
-              padding: '0.9rem 1rem',
-              fontWeight: activeTab === tab ? '700' : 'normal',
-              textTransform: 'uppercase',
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              letterSpacing: '0.5px',
-            }}
+            className={`match-tab-btn ${activeTab === tab ? 'active' : ''}`}
           >
             {tab === 'highlights' ? '✨ ' : ''}{tab}
           </button>
@@ -239,13 +212,13 @@ function MatchDetailsCricket() {
       </div>
 
       {/* Content */}
-      <div style={{ background: 'var(--color-surface)', padding: '1.5rem', borderRadius: '0 0 12px 12px', minHeight: '50vh' }}>
+      <div className="match-content-card">
 
         {/* INFO TAB */}
         {activeTab === 'info' && (
           <div>
-            <h3 style={{ margin: '0 0 1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Match Info</h3>
-            <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '2rem', fontSize: '0.92rem' }}>
+            <h3 className="admin-section-title">Match Info</h3>
+            <div className="match-info-grid" style={{ marginBottom: '2rem' }}>
               {[
                 ['Match', `${match.team1} vs ${match.team2}, ${d.match_type || 'T20'}${d.custom_overs ? ` (${d.custom_overs} overs)` : ''}`],
                 ['Date', new Date(match.scheduled_time).toLocaleString()],
@@ -253,24 +226,24 @@ function MatchDetailsCricket() {
                 ['Venue', d.venue || 'TBD'],
                 ['Batting First', battingFirst || 'TBD'],
               ].map(([label, val]) => (
-                <div key={label} style={{ display: 'flex', gap: '0.5rem' }}>
+                <div key={label} className="match-info-item" style={{ display: 'flex', gap: '0.5rem', padding: '1rem' }}>
                   <strong style={{ minWidth: '120px', color: 'var(--color-text-muted)', flexShrink: 0 }}>{label}</strong>
                   <span>{val}</span>
                 </div>
               ))}
             </div>
 
-            <h3 style={{ margin: '0 0 1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Playing Squads</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+            <h3 className="admin-section-title">Playing Squads</h3>
+            <div className="match-squad-grid">
               {[
                 { name: match.team1, data: team1Data },
                 { name: match.team2, data: team2Data },
               ].map(({ name, data }) => (
                 <div key={name}>
-                  <h4 style={{ color: 'var(--color-primary)', marginBottom: '0.5rem' }}>{name}</h4>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  <h4 style={{ color: 'var(--color-primary)', marginBottom: '1rem', fontFamily: 'var(--font-heading)' }}>{name}</h4>
+                  <ul className="admin-squad-list">
                     {data?.squad?.length > 0 ? data.squad.map((p, i) => (
-                      <li key={i} style={{ padding: '0.4rem 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.88rem', display: 'flex', justifyContent: 'space-between' }}>
+                      <li key={i} className="admin-squad-item">
                         <span>{p.name}</span>
                         {p.is_substitute && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>SUB</span>}
                       </li>

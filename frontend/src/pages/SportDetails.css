@@ -44,7 +44,7 @@
 }
 
 .sd-hero-title {
-  font-size: 2.5rem;
+  font-size: clamp(1.8rem, 6vw, 2.5rem);
   font-weight: 800;
   margin: 0;
   letter-spacing: -0.02em;
@@ -57,12 +57,14 @@
 
 .sd-tabs {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-bottom: 2rem;
   background: rgba(255, 255, 255, 0.03);
-  padding: 0.5rem;
+  padding: 0.4rem;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sd-tab-btn {
@@ -70,23 +72,24 @@
   background: transparent;
   border: none;
   color: var(--color-text-muted);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  padding: 0.75rem 0;
+  padding: 0.75rem 0.5rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .sd-tab-btn:hover {
-  color: var(--color-text);
+  color: #fff;
   background: rgba(255, 255, 255, 0.05);
 }
 
 .sd-tab-btn.active {
   color: #fff;
   background: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
+  box-shadow: 0 4px 12px rgba(255, 26, 26, 0.3);
 }
 
 .sd-match-card-wrapper {
@@ -102,7 +105,7 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1.25rem;
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -126,7 +129,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding-bottom: 0.75rem;
@@ -153,19 +156,20 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   backdrop-filter: blur(10px);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .sd-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  min-width: 400px;
 }
 
 .sd-table th {
   background: rgba(255, 255, 255, 0.03);
-  padding: 1rem 1.5rem;
-  font-size: 0.85rem;
+  padding: 1rem 1.25rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   color: var(--color-text-muted);
   letter-spacing: 0.05em;
@@ -173,9 +177,10 @@
 }
 
 .sd-table td {
-  padding: 1rem 1.5rem;
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   transition: background 0.2s;
+  font-size: 0.9rem;
 }
 
 .sd-table tr:last-child td {
@@ -194,19 +199,29 @@
 
 .sd-team-name {
   font-weight: 600;
-  font-size: 1rem;
 }
 
 .sd-points-badge {
   background: rgba(255, 255, 255, 0.1);
-  padding: 0.3rem 0.8rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-weight: 700;
   display: inline-block;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .sd-hero {
+    padding: 2rem 1.5rem;
+  }
+  
+  .sd-hero-icon {
+    font-size: 3rem;
+  }
 }
 
 @media (max-width: 640px) {
   .sd-tabs {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 }

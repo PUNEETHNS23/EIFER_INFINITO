@@ -4,6 +4,7 @@ import { useAuth } from '../context/useAuth';
 import api from '../api';
 import { SPORTS } from '../sports/sportsConfig';
 import { useMatchSocket } from '../hooks/useMatchSocket';
+import './AdminDashboard.css';
 
 function AdminDashboard() {
   const { user, authLoading } = useAuth();
@@ -287,20 +288,12 @@ function AdminDashboard() {
       </div>
 
       {/* Section Tabs */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '0' }}>
+      <div className="admin-tabs-container">
         {['matches', 'teams', 'admins'].map(section => (
           <button
             key={section}
-            className="nav-link"
+            className={`admin-tab ${activeSection === section ? 'active' : ''}`}
             onClick={() => setActiveSection(section)}
-            style={{
-              padding: '1rem 1.5rem',
-              borderBottom: activeSection === section ? '2px solid var(--color-primary)' : '2px solid transparent',
-              color: activeSection === section ? 'var(--color-text-main)' : 'var(--color-text-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              fontSize: '1rem',
-            }}
           >
             {section === 'matches' ? '🏟️ Matches' : section === 'teams' ? '👥 Teams' : '🔐 Admin Users'}
           </button>
@@ -311,18 +304,11 @@ function AdminDashboard() {
       {activeSection === 'matches' && (
         <>
           <div className="card" style={{ marginBottom: '2rem' }}>
-            <h2>Sport score desks</h2>
-            <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+            <h2 className="admin-section-title">Sport score desks</h2>
+            <p className="admin-section-desc">
               Each sport has its own scoreboard layout and fields. Open a desk to update live scores and status.
             </p>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-                gap: '0.75rem',
-                marginTop: '1.25rem',
-              }}
-            >
+            <div className="admin-grid-desks">
               {SPORTS.map((s) => (
                 <Link key={s.id} to={`/admin/score/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center' }}>
                   {s.icon} {s.name}
@@ -333,18 +319,11 @@ function AdminDashboard() {
 
           <div style={{ marginBottom: '4rem' }}>
             <div className="card">
-              <h2>Schedule Match</h2>
-              <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+              <h2 className="admin-section-title">Schedule Match</h2>
+              <p className="admin-section-desc">
                 Select a sport to schedule a new dedicated match setup.
               </p>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-                  gap: '0.75rem',
-                  marginTop: '1.25rem',
-                }}
-              >
+              <div className="admin-grid-desks">
                 {SPORTS.map((s) => (
                   <Link key={s.id} to={`/admin/create-match/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
                     ➕ {s.icon} {s.name}
@@ -356,25 +335,23 @@ function AdminDashboard() {
 
           <h2>Manage Matches</h2>
           <div className="card" style={{ marginTop: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
+            <div className="admin-filter-bar">
+              <div className="input-group form-group-compact">
                 <label className="input-label">Filter by Date</label>
                 <input
                   type="date"
                   className="input-field"
                   value={matchDateFilter}
                   onChange={(e) => setMatchDateFilter(e.target.value)}
-                  style={{ maxWidth: '240px' }}
                 />
               </div>
 
-              <div className="input-group" style={{ marginBottom: 0 }}>
+              <div className="input-group form-group-compact">
                 <label className="input-label">Filter by Sport</label>
                 <select
                   className="input-field"
                   value={matchSportFilter}
                   onChange={(e) => setMatchSportFilter(e.target.value)}
-                  style={{ maxWidth: '260px' }}
                 >
                   <option value="">All</option>
                   {sportsEnum.map((s) => (
@@ -396,45 +373,49 @@ function AdminDashboard() {
               </button>
             </div>
           </div>
-          <div className="card" style={{ marginTop: '1rem', overflowX: 'auto' }}>
-            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', whiteSpace: 'nowrap' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={{ padding: '1rem' }}>Sport</th>
-                  <th style={{ padding: '1rem' }}>Teams</th>
-                  <th style={{ padding: '1rem' }}>Status</th>
-                  <th style={{ padding: '1rem' }}>Summary</th>
-                  <th style={{ padding: '1rem' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMatches.map(m => (
-                  <tr key={m.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ padding: '1rem' }}>{m.sport_id}</td>
-                    <td style={{ padding: '1rem' }}>{m.team1} vs {m.team2}</td>
-                    <td style={{ padding: '1rem', textTransform: 'capitalize' }}>{m.status}</td>
-                    <td style={{ padding: '1rem' }}>
-                      {m.score_t1} — {m.score_t2}
-                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                        Canonical (for points)
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <Link to={`/admin/score/${m.sport_id}?match=${m.id}`} className="btn-outline btn-sm">
-                        Edit score
-                      </Link>
-                      <button 
-                        className="btn-outline btn-sm"
-                        onClick={() => handleDeleteMatch(m.id)}
-                        style={{ color: '#ff4444', borderColor: '#ff4444' }}
-                      >
-                        🗑️
-                      </button>
-                    </td>
+          <div className="card" style={{ marginTop: '1rem' }}>
+            <div className="table-responsive">
+              <table className="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Sport</th>
+                    <th>Teams</th>
+                    <th>Status</th>
+                    <th>Summary</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredMatches.map(m => (
+                    <tr key={m.id}>
+                      <td>{m.sport_id}</td>
+                      <td>{m.team1} vs {m.team2}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{m.status}</td>
+                      <td>
+                        {m.score_t1} — {m.score_t2}
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                          Canonical (for points)
+                        </span>
+                      </td>
+                      <td>
+                        <div className="admin-actions-cell">
+                          <Link to={`/admin/score/${m.sport_id}?match=${m.id}`} className="btn-outline btn-sm">
+                            Edit score
+                          </Link>
+                          <button 
+                            className="btn-outline btn-sm"
+                            onClick={() => handleDeleteMatch(m.id)}
+                            style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
@@ -442,9 +423,9 @@ function AdminDashboard() {
       {/* TEAMS MANAGEMENT SECTION */}
       {activeSection === 'teams' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
+          <div className="admin-form-two-col">
             <div className="card">
-              <h2>Add New Team & Roster</h2>
+              <h2 className="admin-section-title">Add New Team & Roster</h2>
               <form onSubmit={handleAddTeam} style={{ marginTop: '1rem' }}>
                 <div className="input-group">
                   <label className="input-label">Sport</label>
@@ -475,11 +456,11 @@ function AdminDashboard() {
                       </div>
 
                       <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <h4>Football Squad (11 players)</h4>
-                        <p style={{ margin: '0.25rem 0 1rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                        <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>Football Squad (11 players)</h4>
+                        <p className="admin-section-desc" style={{ marginBottom: '1rem' }}>
                           Enter all 11 player names separately before registering the team.
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                        <div className="football-squad-grid">
                           {newTeam.squad.map((player, index) => (
                             <div key={index} className="input-group" style={{ marginBottom: 0 }}>
                               <label className="input-label">Player {index + 1}</label>
@@ -542,7 +523,7 @@ function AdminDashboard() {
                     )}
                     
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <h4>
+                      <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>
                         Team Squad ({newTeam.squad?.length || 0}
                         {racketSports.includes(newTeam.sport_id) ? ` / ${getRacketCategoryPlayerLimit(newTeam.category)}` : ''})
                       </h4>
@@ -551,14 +532,14 @@ function AdminDashboard() {
                           {newTeam.category || 'Mens Singles'} requires exactly {getRacketCategoryPlayerLimit(newTeam.category)} player{getRacketCategoryPlayerLimit(newTeam.category) > 1 ? 's' : ''} per team.
                         </p>
                       )}
-                      <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0', fontSize: '0.85rem' }}>
+                      <ul className="admin-squad-list">
                         {newTeam.squad?.map((p, i) => (
-                          <li key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <li key={i} className="admin-squad-item">
                             <span>
                               {p.name}
                               {p.is_substitute && <span style={{ color: 'var(--color-primary)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>[Substitute]</span>}
                             </span>
-                            <button type="button" onClick={() => removePlayerFromSquad(i)} style={{ background: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer' }}>×</button>
+                            <button type="button" onClick={() => removePlayerFromSquad(i)} className="player-remove-btn">×</button>
                           </li>
                         ))}
                       </ul>
@@ -598,8 +579,8 @@ function AdminDashboard() {
 
           <h2>All Teams</h2>
           <div className="card" style={{ marginTop: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div className="input-group" style={{ marginBottom: 0 }}>
+            <div className="admin-filter-bar">
+              <div className="input-group form-group-compact">
                 <label className="input-label">Filter by Sport</label>
                 <select
                   className="input-field"
@@ -611,7 +592,7 @@ function AdminDashboard() {
                       setTeamCategoryFilter('');
                     }
                   }}
-                  style={{ maxWidth: '260px' }}
+                  style={{ minWidth: '200px' }}
                 >
                   <option value="">All</option>
                   {sportsEnum.map((s) => (
@@ -620,14 +601,14 @@ function AdminDashboard() {
                 </select>
               </div>
 
-              <div className="input-group" style={{ marginBottom: 0 }}>
+              <div className="input-group form-group-compact">
                 <label className="input-label">Filter by Category</label>
                 <select
                   className="input-field"
                   value={teamCategoryFilter}
                   onChange={(e) => setTeamCategoryFilter(e.target.value)}
                   disabled={teamSportFilter !== '' && !racketSports.includes(teamSportFilter)}
-                  style={{ maxWidth: '260px' }}
+                  style={{ minWidth: '200px' }}
                 >
                   <option value="">All</option>
                   {racketCategories.map((cat) => (
@@ -649,96 +630,100 @@ function AdminDashboard() {
               </button>
             </div>
           </div>
-          <div className="card" style={{ marginTop: '1rem', overflowX: 'auto' }}>
-            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <th style={{ padding: '1rem' }}>Team</th>
-                  <th style={{ padding: '1rem' }}>Sport</th>
-                  <th style={{ padding: '1rem' }}>Category</th>
-                  <th style={{ padding: '1rem' }}>Points</th>
-                  <th style={{ padding: '1rem' }}>Status</th>
-                  <th style={{ padding: '1rem' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTeams.map(t => (
-                  <tr key={t.id} style={{ borderBottom: '1px solid var(--color-border)', opacity: t.is_disqualified ? 0.6 : 1 }}>
-                    <td style={{ padding: '1rem', fontWeight: 'bold' }}>{t.name}</td>
-                    <td style={{ padding: '1rem', textTransform: 'capitalize' }}>{t.sport_id.replace('-', ' ')}</td>
-                    <td style={{ padding: '1rem' }}>{t.category || '-'}</td>
-                    <td style={{ padding: '1rem' }}>{t.points}</td>
-                    <td style={{ padding: '1rem' }}>
-                      {t.is_disqualified ? (
-                        <div>
-                          <span style={{ color: '#ff4444', fontWeight: 'bold', fontSize: '0.85rem' }}>⛔ DISQUALIFIED</span>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-                            Reason: {t.disqualification_reason}
-                          </div>
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--color-success)', fontWeight: 'bold', fontSize: '0.85rem' }}>✅ Active</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      {t.is_disqualified ? (
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <button
-                            className="btn-outline btn-sm"
-                            onClick={() => handleReinstate(t.id)}
-                            style={{ color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
-                          >
-                            Reinstate
-                          </button>
-                          <button
-                            className="btn-outline btn-sm"
-                            onClick={() => handleDeleteTeam(t.id)}
-                            style={{ color: '#ff4444', borderColor: '#ff4444' }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                          <input
-                            type="text"
-                            className="input-field"
-                            placeholder="Reason..."
-                            value={dqReason[t.id] || ''}
-                            onChange={e => setDqReason(prev => ({ ...prev, [t.id]: e.target.value }))}
-                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.85rem', width: '140px' }}
-                          />
-                          <button
-                            className="btn-outline btn-sm"
-                            onClick={() => handleDisqualify(t.id)}
-                            style={{ color: '#ff4444', borderColor: '#ff4444', whiteSpace: 'nowrap' }}
-                          >
-                            Disqualify
-                          </button>
-                          <button
-                            className="btn-outline btn-sm"
-                            onClick={() => handleDeleteTeam(t.id)}
-                            style={{ color: '#ff4444', borderColor: '#ff4444' }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
+          <div className="card" style={{ marginTop: '1rem' }}>
+            <div className="table-responsive">
+              <table className="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>Sport</th>
+                    <th>Category</th>
+                    <th>Points</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredTeams.map(t => (
+                    <tr key={t.id} style={{ opacity: t.is_disqualified ? 0.6 : 1 }}>
+                      <td className="team-name-cell">{t.name}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{t.sport_id.replace('-', ' ')}</td>
+                      <td>{t.category || '-'}</td>
+                      <td className="points-cell">{t.points}</td>
+                      <td>
+                        {t.is_disqualified ? (
+                          <div>
+                            <span style={{ color: '#ff4444', fontWeight: 'bold', fontSize: '0.85rem' }}>⛔ DISQUALIFIED</span>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                              Reason: {t.disqualification_reason}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--color-success)', fontWeight: 'bold', fontSize: '0.85rem' }}>✅ Active</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="admin-actions-cell">
+                          {t.is_disqualified ? (
+                            <>
+                              <button
+                                className="btn-outline btn-sm"
+                                onClick={() => handleReinstate(t.id)}
+                                style={{ color: 'var(--color-success)', borderColor: 'var(--color-success)' }}
+                              >
+                                Reinstate
+                              </button>
+                              <button
+                                className="btn-outline btn-sm"
+                                onClick={() => handleDeleteTeam(t.id)}
+                                style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="text"
+                                className="input-field"
+                                placeholder="Reason..."
+                                value={dqReason[t.id] || ''}
+                                onChange={e => setDqReason(prev => ({ ...prev, [t.id]: e.target.value }))}
+                                style={{ padding: '0.3rem 0.5rem', fontSize: '0.85rem', width: '120px' }}
+                              />
+                              <button
+                                className="btn-outline btn-sm"
+                                onClick={() => handleDisqualify(t.id)}
+                                style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                              >
+                                Disqualify
+                              </button>
+                              <button
+                                className="btn-outline btn-sm"
+                                onClick={() => handleDeleteTeam(t.id)}
+                                style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
 
       {/* ADMIN MANAGEMENT SECTION */}
       {activeSection === 'admins' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+        <div className="admin-form-two-col">
           <div className="card">
-            <h2>Create New Admin</h2>
-            <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+            <h2 className="admin-section-title">Create New Admin</h2>
+            <p className="admin-section-desc">
               Grant admin access to another user. They will be able to manage matches, teams, and scores.
             </p>
             {adminMsg && (
@@ -781,50 +766,40 @@ function AdminDashboard() {
           </div>
 
           <div className="card">
-            <h2>Current Admins</h2>
-            <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem', fontSize: '0.9rem' }}>
-              {admins.length} admin account{admins.length !== 1 ? 's' : ''} registered. The root "admin" account cannot be removed.
+            <h2 className="admin-section-title">Current Admins</h2>
+            <p className="admin-section-desc">
+              {admins.length} admin account{admins.length !== 1 ? 's' : ''} registered.
             </p>
-            <div style={{ marginTop: '1.5rem' }}>
-              {admins.map(a => (
-                <div
-                  key={a.id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '1rem',
-                    borderBottom: '1px solid var(--color-border)',
-                  }}
-                >
-                  <div>
-                    <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{a.username}</span>
-                    {a.username === 'admin' && (
-                      <span style={{
-                        marginLeft: '0.75rem',
-                        fontSize: '0.7rem',
-                        padding: '0.2rem 0.5rem',
-                        borderRadius: '4px',
-                        background: 'var(--color-primary-dim)',
-                        color: 'var(--color-primary)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                      }}>
-                        Root
-                      </span>
-                    )}
-                  </div>
-                  {a.username !== 'admin' && (
-                    <button
-                      className="btn-outline btn-sm"
-                      onClick={() => handleDeleteAdmin(a.id)}
-                      style={{ color: '#ff4444', borderColor: '#ff4444' }}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div className="table-responsive">
+              <table className="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {admins.map(a => (
+                    <tr key={a.id}>
+                      <td className="team-name-cell">
+                        {a.username}
+                        {a.username === 'admin' && <span style={{ color: 'var(--color-primary)', fontSize: '0.7rem', marginLeft: '0.5rem' }}>[Root]</span>}
+                      </td>
+                      <td>
+                        {a.username !== 'admin' && (
+                          <button 
+                            className="btn-outline btn-sm"
+                            onClick={() => handleDeleteAdmin(a.id)}
+                            style={{ color: '#ff4444', borderColor: '#ff4444' }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

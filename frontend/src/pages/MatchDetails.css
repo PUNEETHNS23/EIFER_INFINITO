@@ -1,0 +1,191 @@
+/* Shared Match Details Styles */
+
+.match-details-container {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 1rem 1rem 4rem;
+}
+
+.match-back-link {
+  display: block;
+  margin-bottom: 1rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+
+.match-back-link:hover {
+  color: var(--color-primary);
+}
+
+.match-header-section {
+  padding: 1.5rem;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  overflow: hidden;
+  background: var(--color-bg-surface);
+}
+
+.match-header-glow {
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 200px;
+  height: 200px;
+  background: var(--color-primary);
+  filter: blur(80px);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.match-header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.match-header-title {
+  margin: 0;
+  font-size: clamp(1.2rem, 4vw, 1.6rem);
+  font-weight: 800;
+  font-family: var(--font-heading);
+}
+
+.match-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.match-status-badge {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 99px;
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.match-status-live { background: #ef4444; }
+.match-status-completed { background: #6b7280; }
+.match-status-upcoming { background: var(--color-primary); }
+
+.match-tabs-container {
+  display: flex;
+  background: var(--color-bg-base);
+  padding: 0 0.5rem;
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  gap: 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.match-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--color-text-muted);
+  padding: 1rem 1.25rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.match-tab-btn.active {
+  border-bottom: 3px solid var(--color-primary);
+  color: var(--color-text-main);
+}
+
+.match-content-card {
+  background: var(--color-bg-surface);
+  padding: 2rem;
+  border-radius: 0 0 16px 16px;
+  border: 1px solid var(--color-border);
+  border-top: none;
+  min-height: 400px;
+}
+
+.match-squad-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+}
+
+.match-info-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.match-info-item {
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Cricket Specific Scorecard */
+.scorecard-section {
+  margin-bottom: 2.5rem;
+}
+
+.scorecard-title {
+  margin: 0 0 1rem;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.5rem;
+  color: var(--color-primary);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+@media (max-width: 768px) {
+  .match-squad-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .match-content-card {
+    padding: 1.5rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .match-header-section {
+    padding: 1.25rem;
+  }
+  
+  .match-header-title {
+    font-size: 1.2rem;
+  }
+  
+  .match-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .match-status-badge {
+    align-self: flex-start;
+  }
+}
