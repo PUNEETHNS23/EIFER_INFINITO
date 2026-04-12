@@ -496,7 +496,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   };
 
   // ── Squad list builders ──────────────────────────────────────────────────
-  const buildSquadOptions = (teamData, suffix = '') => {
+  const buildSquadOptions = (teamData, suffix = '', battingCard = {}, excludeName = '') => {
     const squad = teamData?.squad;
     if (!squad || squad.length === 0) return (
       <>
@@ -506,12 +506,16 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
     );
     return (
       <>
-        {squad.filter(p => !p.is_substitute).map((p, i) =>
-          <option key={i} value={p.name}>{p.name}{suffix}</option>
-        )}
-        {squad.filter(p => p.is_substitute).map((p, i) =>
-          <option key={`sub-${i}`} value={p.name}>{p.name} (Sub)</option>
-        )}
+        {squad.filter(p => !p.is_substitute).map((p, i) => {
+          const isOut = battingCard && battingCard[p.name]?.out === true;
+          if (isOut || p.name === excludeName) return null;
+          return <option key={i} value={p.name}>{p.name}{suffix}</option>;
+        })}
+        {squad.filter(p => p.is_substitute).map((p, i) => {
+          const isOut = battingCard && battingCard[p.name]?.out === true;
+          if (isOut || p.name === excludeName) return null;
+          return <option key={`sub-${i}`} value={p.name}>{p.name} (Sub)</option>;
+        })}
       </>
     );
   };
@@ -634,7 +638,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
               style={{ borderColor: !detail.striker ? '#ef4444' : '' }}
             >
               <option value="">-- Striker --</option>
-              {buildSquadOptions(battingTeamData)}
+              {buildSquadOptions(battingTeamData, '', detail[battingCardKey] || {}, detail.non_striker)}
             </select>
           </div>
           <div>
@@ -646,7 +650,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
               style={{ borderColor: !detail.non_striker ? '#ef4444' : '' }}
             >
               <option value="">-- Non-Striker --</option>
-              {buildSquadOptions(battingTeamData)}
+              {buildSquadOptions(battingTeamData, '', detail[battingCardKey] || {}, detail.striker)}
             </select>
           </div>
         </div>
