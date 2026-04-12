@@ -19,6 +19,13 @@ def _as_int(v: Any, default: int = 0) -> int:
         return default
 
 
+def _first_non_none(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
 def derive_primary_scores(sport_id: str, detail: Optional[dict]) -> Tuple[int, int]:
     """
     Map sport-specific JSON to two integers for win/loss/draw logic.
@@ -38,8 +45,8 @@ def derive_primary_scores(sport_id: str, detail: Optional[dict]) -> Tuple[int, i
 
     if sid == "volleyball":
         return (
-            _as_int(detail.get("sets_t1", detail.get("setsA"))),
-            _as_int(detail.get("sets_t2", detail.get("setsB"))),
+            _as_int(_first_non_none(detail.get("sets_t1"), detail.get("setsA"))),
+            _as_int(_first_non_none(detail.get("sets_t2"), detail.get("setsB"))),
         )
 
     if sid == "cricket":
@@ -90,8 +97,8 @@ def derive_primary_scores(sport_id: str, detail: Optional[dict]) -> Tuple[int, i
 
     if sid in ("badminton", "table-tennis"):
         return (
-            _as_int(detail.get("games_t1", detail.get("sets_t1", detail.get("setsA")))),
-            _as_int(detail.get("games_t2", detail.get("sets_t2", detail.get("setsB")))),
+            _as_int(_first_non_none(detail.get("games_t1"), detail.get("sets_t1"), detail.get("setsA"))),
+            _as_int(_first_non_none(detail.get("games_t2"), detail.get("sets_t2"), detail.get("setsB"))),
         )
 
     if sid in ("arm-wrestling", "tug-of-war"):

@@ -10,7 +10,13 @@ function racketToVolleyballDetail(detail, sid) {
   const d = detail || {};
   const target = Number(d.point_limit === 'Custom' ? d.custom_limit : d.point_limit) || (sid === 'badminton' ? 21 : 11);
   const currentSet = Number(d.currentSet || ((d.past_games || []).length + 1) || 1);
-  const setTargets = d.setTargets || { [currentSet]: target };
+  const existingSetTargets = d.setTargets;
+  const hasSetTargets =
+    existingSetTargets &&
+    typeof existingSetTargets === 'object' &&
+    !Array.isArray(existingSetTargets) &&
+    Object.keys(existingSetTargets).length > 0;
+  const setTargets = hasSetTargets ? existingSetTargets : { [currentSet]: target };
   const setHistory = Array.isArray(d.past_games)
     ? d.past_games.map((g) => ({
         a: Number(g.t1 || 0),

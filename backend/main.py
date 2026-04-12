@@ -191,14 +191,20 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
         category = (team.category or "").strip()
         if category not in racket_categories:
             raise HTTPException(status_code=400, detail="Badminton/Table Tennis teams require a valid category.")
+        team.category = category
 
         squad = team.squad or []
-        player_names = [(p.get("name") or "").strip() for p in squad]
+        normalized_squad = []
+        for player in squad:
+            normalized_player = dict(player)
+            normalized_player["name"] = (player.get("name") or "").strip()
+            normalized_squad.append(normalized_player)
+        player_names = [p.get("name") or "" for p in normalized_squad]
         if any(not name for name in player_names):
             raise HTTPException(status_code=400, detail="Player names cannot be empty.")
         if len(set(player_names)) != len(player_names):
             raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
-        if any(bool(p.get("is_substitute")) for p in squad):
+        if any(bool(p.get("is_substitute")) for p in normalized_squad):
             raise HTTPException(status_code=400, detail="Substitute players are not allowed for badminton/table-tennis teams.")
 
         required_count = 2 if "Doubles" in category else 1
@@ -207,14 +213,21 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
                 status_code=400,
                 detail=f"{category} requires exactly {required_count} player(s) per team.",
             )
+        team.squad = normalized_squad
 
     if team.sport_id == "football":
         squad = team.squad or []
-        player_names = [(p.get("name") or "").strip() for p in squad]
+        normalized_squad = []
+        for player in squad:
+            normalized_player = dict(player)
+            normalized_player["name"] = (player.get("name") or "").strip()
+            normalized_squad.append(normalized_player)
+        player_names = [p.get("name") or "" for p in normalized_squad]
         if len(player_names) != 11 or any(not name for name in player_names):
             raise HTTPException(status_code=400, detail="Football teams must include exactly 11 player names.")
         if len(set(player_names)) != 11:
             raise HTTPException(status_code=400, detail="Football player names must be unique.")
+        team.squad = normalized_squad
     db_team = models.Team(**team.model_dump())
     db.add(db_team)
     db.commit()
@@ -343,11 +356,15 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
         detail = scoring.default_score_detail(data["sport_id"])
 
     if data["sport_id"] in {"badminton", "table-tennis"}:
-        category = (detail.get("category") if isinstance(detail, dict) else None) or team1.category or team2.category
+        raw_category = detail.get("category") if isinstance(detail, dict) else None
+        category = raw_category.strip() if isinstance(raw_category, str) else raw_category
+        team1_category = (team1.category or "").strip() if isinstance(team1.category, str) else team1.category
+        team2_category = (team2.category or "").strip() if isinstance(team2.category, str) else team2.category
+        category = category or team1_category or team2_category
         if not category:
             raise HTTPException(status_code=400, detail="Subcategory is required for badminton/table-tennis matches")
 
-        if team1.category != category or team2.category != category:
+        if team1_category != category or team2_category != category:
             raise HTTPException(status_code=400, detail="Both teams must be from the same selected subcategory")
 
         detail["category"] = category

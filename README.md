@@ -27,10 +27,10 @@ From the repository root, activate your virtual environment and start FastAPI wi
 uvicorn backend.main:app --reload
 ```
 
-If you prefer to run from inside the backend folder, make sure the repository root is still on the Python path and use the same module path:
+If you prefer to run from inside the backend folder, use the module path relative to that directory:
 
 ```bash
-uvicorn backend.main:app --reload
+uvicorn main:app --reload
 ```
 
 ### Frontend
