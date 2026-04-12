@@ -13,7 +13,7 @@ function SportDetails() {
   const [activeTab, setActiveTab] = useState('matches');
 
   const getMatchRoute = (match) => (
-    ['cricket', 'volleyball'].includes(match.sport_id)
+    ['cricket', 'volleyball', 'football'].includes(match.sport_id)
       ? `/match/${match.id}`
       : `/sport/${match.sport_id}`
   );

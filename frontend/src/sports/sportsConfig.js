@@ -4,7 +4,7 @@ export const SPORTS = [
   { id: 'athletics', name: 'Athletics', icon: '🏃', theme: 'track' },
   { id: 'cricket', name: 'Cricket', icon: '🏏', theme: 'pitch' },
   { id: 'volleyball', name: 'Volleyball', icon: '🏐', theme: 'court' },
-  { id: 'football', name: 'Football', icon: '⚽', theme: 'pitch' },
+  { id: 'football', name: 'Football', icon: '⚽', theme: 'court' },
   { id: 'carrom', name: 'Carrom', icon: '🥏', theme: 'board' },
   { id: 'chess', name: 'Chess', icon: '♟️', theme: 'chess' },
   { id: 'arm-wrestling', name: 'Arm Wrestling', icon: '💪', theme: 'duel' },

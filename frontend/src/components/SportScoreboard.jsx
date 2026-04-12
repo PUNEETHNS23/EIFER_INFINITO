@@ -67,13 +67,30 @@ export default function SportScoreboard({ match, compact = false }) {
       };
       const team1Events = goalEvents.filter((ev) => ev.team === 't1').sort(sortByMinute);
       const team2Events = goalEvents.filter((ev) => ev.team === 't2').sort(sortByMinute);
+      const goalsT1 = d.goals_t1 ?? 0;
+      const goalsT2 = d.goals_t2 ?? 0;
 
       return wrap(
-        <>
-          <Row labelL={team1} labelR={team2} valL={d.goals_t1 ?? 0} valR={d.goals_t2 ?? 0} sub="GOALS" />
+        <div className={`sb-vball sb-football-vball ${compact ? 'compact' : ''}`}>
+          <div className="sb-vball-top">
+            <div className="sb-vball-team left">
+              <span className="sb-vball-name">{team1}</span>
+              <span className="sb-vball-sets-num">{goalsT1}</span>
+            </div>
+
+            <div className="sb-vball-center">
+              <div className="sb-vball-set-lbl">GOALS</div>
+            </div>
+
+            <div className="sb-vball-team right">
+              <span className="sb-vball-name">{team2}</span>
+              <span className="sb-vball-sets-num">{goalsT2}</span>
+            </div>
+          </div>
+
           {goalEvents.length > 0 && (
-            <div className={`sb-football-events ${compact ? 'compact' : ''}`}>
-              <div className="sb-football-events-split">
+            <div className="sb-vball-hist sb-football-hist">
+              <div className="sb-football-events-split sb-football-events-split--vball">
                 <div className="sb-football-team-events left">
                   {team1Events.map((ev, idx) => {
                     const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
@@ -84,7 +101,6 @@ export default function SportScoreboard({ match, compact = false }) {
                     );
                   })}
                 </div>
-                <div className="sb-football-ball" aria-hidden="true">⚽</div>
                 <div className="sb-football-team-events right">
                   {team2Events.map((ev, idx) => {
                     const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
@@ -98,7 +114,7 @@ export default function SportScoreboard({ match, compact = false }) {
               </div>
             </div>
           )}
-        </>
+        </div>
       );
     }
     case 'volleyball':
