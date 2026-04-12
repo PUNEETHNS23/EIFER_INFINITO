@@ -17,25 +17,43 @@ export function useMatchSocket(onUpdate) {
       wsUrl = `${protocol}//${host}/api/ws/matches`;
     }
 
-    const ws = new WebSocket(wsUrl);
+    let ws = null;
+    let reconnectTimer = null;
+    let isDisposed = false;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'match_updated' && data.match) {
-          if (savedCallback.current) {
+    const connect = () => {
+      if (isDisposed) return;
+      ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'match_updated' && data.match && savedCallback.current) {
             savedCallback.current(data.match);
           }
+        } catch (e) {
+          console.error('Failed to parse websocket message', e);
         }
-      } catch (e) {
-        console.error('Failed to parse websocket message', e);
-      }
+      };
+
+      ws.onclose = () => {
+        if (isDisposed) return;
+        reconnectTimer = setTimeout(connect, 1200);
+      };
+
+      ws.onerror = () => {
+        // Ensure close handler runs and reconnects.
+        ws?.close();
+      };
     };
 
+    connect();
+
     return () => {
-      // If we attempt to synchronously close a CONNECTING socket (readyState 0), 
-      // the browser throws a noisy aborted connection warning. 
-      // React Strict Mode forces an immediate unmount, so we must defer closure if it's currently connecting.
+      isDisposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+
+      if (!ws) return;
       if (ws.readyState === 1) {
         ws.close();
       } else if (ws.readyState === 0) {

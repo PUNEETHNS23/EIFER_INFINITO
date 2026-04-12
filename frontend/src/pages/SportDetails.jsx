@@ -12,6 +12,12 @@ function SportDetails() {
   const [teams, setTeams] = useState([]);
   const [activeTab, setActiveTab] = useState('matches');
 
+  const getMatchRoute = (match) => (
+    ['cricket', 'volleyball'].includes(match.sport_id)
+      ? `/match/${match.id}`
+      : `/sport/${match.sport_id}`
+  );
+
   const fetchTeamsForSport = async () => {
     try {
       const teamsRes = await api.get(`/teams/sport/${id}`);
@@ -91,7 +97,7 @@ function SportDetails() {
 
             return (
               <div key={match.id} className="sd-match-card-wrapper">
-                <Link to={`/match/${match.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link to={getMatchRoute(match)} style={{ textDecoration: 'none', color: 'inherit' }}>
                   {cardContent}
                 </Link>
               </div>

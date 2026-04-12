@@ -10,6 +10,12 @@ function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
 
+  const getMatchDetailsRoute = (match) => (
+    ['cricket', 'volleyball'].includes(match.sport_id)
+      ? `/match/${match.id}`
+      : `/sport/${match.sport_id}`
+  );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -141,7 +147,7 @@ function Home() {
                 <div className="match-card-live-body">
                   <SportScoreboard match={match} compact />
                 </div>
-                <Link to={`/match/${match.id}`} className="match-card-live-link">
+                <Link to={getMatchDetailsRoute(match)} className="match-card-live-link">
                   Watch Details →
                 </Link>
               </div>
