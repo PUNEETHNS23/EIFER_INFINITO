@@ -83,6 +83,8 @@ function SportDetails() {
       {activeTab === 'matches' && (
         <div className="live-matches-grid">
           {matches.map((match) => {
+            const team1Data = teams.find((team) => team.id === match.team1_id) || null;
+            const team2Data = teams.find((team) => team.id === match.team2_id) || null;
             const cardContent = (
               <div className={`sd-match-card ${match.status === 'live' ? 'live' : ''}`}>
                 <div className="sd-match-header">
@@ -91,7 +93,7 @@ function SportDetails() {
                   </span>
                   <span>{new Date(match.scheduled_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
-                <SportScoreboard match={match} compact />
+                <SportScoreboard match={match} compact team1Data={team1Data} team2Data={team2Data} />
               </div>
             );
 

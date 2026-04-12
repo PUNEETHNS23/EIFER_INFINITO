@@ -130,7 +130,7 @@ def default_score_detail(sport_id: str) -> dict:
             "current_ball_result": "", "over_progression": "", "last_wickets": "", "fall_of_wickets": "", "top_performers": "", "events_feed": "",
             "team1_logo": "", "team2_logo": "",
         },
-        "carrom": {"points_t1": 0, "points_t2": 0},
+        "carrom": {"points_t1": 0, "points_t2": 0, "match_type": "individuals", "color_assignment": {"t1": "black", "t2": "white"}},
         "kho-kho": {"points_t1": 0, "points_t2": 0},
         "chess": {"winner": "draw"},
         "athletics": {"time_t1_sec": 0, "time_t2_sec": 0},
@@ -148,7 +148,7 @@ def default_score_detail(sport_id: str) -> dict:
             "toss_winner": "", "toss_decision": "", "point_limit": "11", "match_format": "Best of 3"
         },
         "arm-wrestling": {"rounds_t1": 0, "rounds_t2": 0},
-        "tug-of-war": {"rounds_t1": 0, "rounds_t2": 0},
+        "tug-of-war": {"rounds_t1": 0, "rounds_t2": 0, "match_format": "Best of 3"},
         "esports": {"maps_t1": 0, "maps_t2": 0},
     }
     return dict(defaults.get(sid, {"score_t1": 0, "score_t2": 0}))

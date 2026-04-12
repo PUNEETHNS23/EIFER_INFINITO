@@ -40,7 +40,7 @@ export function defaultScoreDetail(sportId) {
       current_ball_result: '', over_progression: '', last_wickets: '', fall_of_wickets: '', top_performers: '', events_feed: '',
       team1_logo: '', team2_logo: '',
     },
-    carrom: { points_t1: 0, points_t2: 0 },
+    carrom: { points_t1: 0, points_t2: 0, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' } },
     'kho-kho': { points_t1: 0, points_t2: 0 },
     chess: { winner: 'draw' },
     athletics: { time_t1_sec: 0, time_t2_sec: 0 },
@@ -58,7 +58,7 @@ export function defaultScoreDetail(sportId) {
       toss_winner: "", toss_decision: "", point_limit: "11", match_format: "Best of 3"
     },
     'arm-wrestling': { rounds_t1: 0, rounds_t2: 0 },
-    'tug-of-war': { rounds_t1: 0, rounds_t2: 0 },
+    'tug-of-war': { rounds_t1: 0, rounds_t2: 0, match_format: 'Best of 3' },
     esports: { maps_t1: 0, maps_t2: 0 },
   };
   return { ...(defaults[sportId] || { score_t1: 0, score_t2: 0 }) };
@@ -83,7 +83,7 @@ export function hydrateScoreDetail(sportId, match) {
       runs_t1: t1,
       runs_t2: t2,
     },
-    carrom: { points_t1: t1, points_t2: t2 },
+    carrom: { points_t1: t1, points_t2: t2, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' } },
     'kho-kho': { points_t1: t1, points_t2: t2 },
     chess: { winner: t1 === t2 ? 'draw' : t1 > t2 ? 't1' : 't2' },
     athletics: { time_t1_sec: t1 || 0, time_t2_sec: t2 || 0 },
@@ -91,7 +91,7 @@ export function hydrateScoreDetail(sportId, match) {
     badminton: { ...defaultScoreDetail('badminton'), games_t1: t1, games_t2: t2 },
     'table-tennis': { ...defaultScoreDetail('table-tennis'), games_t1: t1, games_t2: t2 },
     'arm-wrestling': { rounds_t1: t1, rounds_t2: t2 },
-    'tug-of-war': { rounds_t1: t1, rounds_t2: t2 },
+    'tug-of-war': { ...defaultScoreDetail('tug-of-war'), rounds_t1: t1, rounds_t2: t2 },
     esports: { maps_t1: t1, maps_t2: t2 },
   };
   return { ...(map[sportId] || { score_t1: t1, score_t2: t2 }) };
