@@ -116,7 +116,7 @@ def derive_primary_scores(sport_id: str, detail: Optional[dict]) -> Tuple[int, i
 def default_score_detail(sport_id: str) -> dict:
     sid = (sport_id or "").strip()
     defaults = {
-        "football": {"goals_t1": 0, "goals_t2": 0, "venue": "", "match_minutes": 90},
+        "football": {"goals_t1": 0, "goals_t2": 0, "venue": "", "match_minutes": 90, "period": "1st Half", "goal_events": []},
         "volleyball": {"sets_t1": 0, "sets_t2": 0},
         "cricket": {
             "runs_t1": 0, "wickets_t1": 0, "runs_t2": 0, "wickets_t2": 0,

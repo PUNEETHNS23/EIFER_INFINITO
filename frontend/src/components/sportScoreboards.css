@@ -318,6 +318,66 @@
   text-align: right;
 }
 
+.sb-football-period {
+  font-size: 0.68rem;
+  color: #fbbf24;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-top: 0.3rem;
+}
+
+.sb-football-event-info {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sb-football-event-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  background: rgba(255, 193, 7, 0.25);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #fcd34d;
+  letter-spacing: 0.05em;
+}
+
+.sb-football-event-tag--penalty {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+}
+
+.sb-football-event-tag--own_goal {
+  background: rgba(167, 139, 250, 0.25);
+  border-color: rgba(167, 139, 250, 0.5);
+  color: #c4b5fd;
+}
+
+.sb-football-event-tag--yellow_card {
+  background: rgba(236, 252, 3, 0.25);
+  border-color: rgba(236, 252, 3, 0.5);
+  color: #facc15;
+}
+
+.sb-football-event-tag--red_card {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+}
+
+.sb-football-event-minute {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 700;
+}
+
 .sb-football-ball {
   align-self: center;
   opacity: 0.95;

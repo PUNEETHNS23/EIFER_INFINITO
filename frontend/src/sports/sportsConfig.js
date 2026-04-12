@@ -22,7 +22,7 @@ export function getSportMeta(sportId) {
 
 export function defaultScoreDetail(sportId) {
   const defaults = {
-    football: { goals_t1: 0, goals_t2: 0, venue: '', match_minutes: 90 },
+    football: { goals_t1: 0, goals_t2: 0, venue: '', match_minutes: 90, period: '1st Half', goal_events: [] },
     volleyball: {
       sets_t1: 0, sets_t2: 0,
       setsA: 0, setsB: 0, pointsA: 0, pointsB: 0,

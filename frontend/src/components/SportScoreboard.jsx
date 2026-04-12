@@ -69,6 +69,16 @@ export default function SportScoreboard({ match, compact = false }) {
       const team2Events = goalEvents.filter((ev) => ev.team === 't2').sort(sortByMinute);
       const goalsT1 = d.goals_t1 ?? 0;
       const goalsT2 = d.goals_t2 ?? 0;
+      const period = d.period || '1st Half';
+      const displayPeriod = match.status === 'completed' ? 'Full-Time' : period;
+
+      const eventTypeMap = {
+        goal: '',
+        penalty: 'P',
+        own_goal: 'OG',
+        yellow_card: 'YC',
+        red_card: 'RC',
+      };
 
       return wrap(
         <div className={`sb-vball sb-football-vball ${compact ? 'compact' : ''}`}>
@@ -80,6 +90,7 @@ export default function SportScoreboard({ match, compact = false }) {
 
             <div className="sb-vball-center">
               <div className="sb-vball-set-lbl">GOALS</div>
+              <div className="sb-football-period">{displayPeriod}</div>
             </div>
 
             <div className="sb-vball-team right">
@@ -94,9 +105,13 @@ export default function SportScoreboard({ match, compact = false }) {
                 <div className="sb-football-team-events left">
                   {team1Events.map((ev, idx) => {
                     const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
+                    const tagText = eventTypeMap[ev.type] || '';
                     return (
                       <div key={`${ev.created_at || 'evt'}-l-${idx}`} className="sb-football-line left">
-                        {ev.scorer || 'Unknown'} {minuteLabel}
+                        <span className="sb-football-event-info">
+                          {ev.scorer || 'Unknown'} {tagText && <span className={`sb-football-event-tag sb-football-event-tag--${ev.type}`}>{tagText}</span>}
+                        </span>
+                        <span className="sb-football-event-minute">{minuteLabel}</span>
                       </div>
                     );
                   })}
@@ -104,9 +119,13 @@ export default function SportScoreboard({ match, compact = false }) {
                 <div className="sb-football-team-events right">
                   {team2Events.map((ev, idx) => {
                     const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
+                    const tagText = eventTypeMap[ev.type] || '';
                     return (
                       <div key={`${ev.created_at || 'evt'}-r-${idx}`} className="sb-football-line right">
-                        {ev.scorer || 'Unknown'} {minuteLabel}
+                        <span className="sb-football-event-minute">{minuteLabel}</span>
+                        <span className="sb-football-event-info">
+                          {tagText && <span className={`sb-football-event-tag sb-football-event-tag--${ev.type}`}>{tagText}</span>} {ev.scorer || 'Unknown'}
+                        </span>
                       </div>
                     );
                   })}

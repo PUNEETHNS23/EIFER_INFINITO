@@ -12,9 +12,19 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
   const [t1Scorer, setT1Scorer] = useState('');
   const [t2Scorer, setT2Scorer] = useState('');
   const [note, setNote] = useState('');
+  const [eventType, setEventType] = useState('goal');
+  const [period, setPeriod] = useState(detail?.period || '1st Half');
 
   const team1Names = useMemo(() => getSquadNames(team1Data), [team1Data]);
   const team2Names = useMemo(() => getSquadNames(team2Data), [team2Data]);
+
+  const eventTypeLabels = {
+    goal: 'Goal',
+    penalty: 'P - Penalty',
+    own_goal: 'OG - Own Goal',
+    yellow_card: 'YC - Yellow Card',
+    red_card: 'RC - Red Card',
+  };
 
   const pushHistory = () => {
     setHistory((h) => [...h, JSON.stringify(detail)]);
@@ -40,7 +50,7 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
     const scorer = teamKey === 't1' ? t1Scorer : t2Scorer;
 
     const newEvent = {
-      type: 'goal',
+      type: eventType,
       team: teamKey,
       minute: nowMinute,
       scorer: scorer || 'Unknown',
@@ -48,15 +58,34 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
       created_at: new Date().toISOString(),
     };
 
-    const updates = {
-      ...detail,
-      status: detail.status === 'upcoming' ? 'live' : detail.status,
-      goals_t1: Number(detail.goals_t1 || 0) + (teamKey === 't1' ? 1 : 0),
-      goals_t2: Number(detail.goals_t2 || 0) + (teamKey === 't2' ? 1 : 0),
-      goal_events: [newEvent, ...currentEvents],
-    };
+    // Only increment goals if it's an actual goal (not just a card)
+    const isGoal = eventType === 'goal' || eventType === 'penalty' || eventType === 'own_goal';
+    const goalIncrementT1 = teamKey === 't1' && isGoal ? 1 : 0;
+    const goalIncrementT2 = teamKey === 't2' && isGoal ? 1 : 0;
 
-    patch(updates);
+    // Handle own goals: goal counts for opponent
+    if (eventType === 'own_goal') {
+      const updates = {
+        ...detail,
+        status: detail.status === 'upcoming' ? 'live' : detail.status,
+        goals_t1: Number(detail.goals_t1 || 0) + (teamKey === 't2' ? 1 : 0),
+        goals_t2: Number(detail.goals_t2 || 0) + (teamKey === 't1' ? 1 : 0),
+        period: period,
+        goal_events: [newEvent, ...currentEvents],
+      };
+      patch(updates);
+    } else {
+      const updates = {
+        ...detail,
+        status: detail.status === 'upcoming' ? 'live' : detail.status,
+        goals_t1: Number(detail.goals_t1 || 0) + goalIncrementT1,
+        goals_t2: Number(detail.goals_t2 || 0) + goalIncrementT2,
+        period: period,
+        goal_events: [newEvent, ...currentEvents],
+      };
+      patch(updates);
+    }
+
     setNote('');
     if (teamKey === 't1') setT1Scorer('');
     else setT2Scorer('');
@@ -103,6 +132,21 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
           />
         </label>
         <label className="sbe-field">
+          <span>Period</span>
+          <select 
+            className="input-field" 
+            value={period} 
+            onChange={(e) => {
+              setPeriod(e.target.value);
+              patch({ period: e.target.value });
+            }}
+          >
+            <option value="1st Half">1st Half</option>
+            <option value="Half-Time">Half-Time</option>
+            <option value="2nd Half">2nd Half</option>
+          </select>
+        </label>
+        <label className="sbe-field">
           <span>Event minute</span>
           <input
             type="number"
@@ -114,6 +158,18 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
             placeholder="e.g. 67"
           />
         </label>
+        <label className="sbe-field">
+          <span>Event Type</span>
+          <select 
+            className="input-field" 
+            value={eventType} 
+            onChange={(e) => setEventType(e.target.value)}
+          >
+            {Object.entries(eventTypeLabels).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="lfs-scorebar">
@@ -121,13 +177,15 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
           <div className="lfs-team-name">{team1}</div>
           <div className="lfs-big">{Number(detail.goals_t1 || 0)}</div>
           <div className="lfs-actions">
-            <button type="button" className="btn-score lfs-goal-btn t1" onClick={() => addGoal('t1')}>+ Goal</button>
-            <button type="button" className="btn-outline lfs-minus-btn" onClick={() => removeGoal('t1')}>- Goal</button>
+            <button type="button" className="btn-score lfs-goal-btn t1" onClick={() => addGoal('t1')}>+ {eventTypeLabels[eventType]}</button>
+            {eventType === 'goal' || eventType === 'penalty' || eventType === 'own_goal' ? (
+              <button type="button" className="btn-outline lfs-minus-btn" onClick={() => removeGoal('t1')}>- Goal</button>
+            ) : null}
           </div>
           <label className="sbe-field">
-            <span>Scorer ({team1})</span>
+            <span>Player ({team1})</span>
             <select className="input-field" value={t1Scorer} onChange={(e) => setT1Scorer(e.target.value)}>
-              <option value="">Select scorer</option>
+              <option value="">Select player</option>
               {team1Names.map((name) => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -141,13 +199,15 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
           <div className="lfs-team-name">{team2}</div>
           <div className="lfs-big">{Number(detail.goals_t2 || 0)}</div>
           <div className="lfs-actions">
-            <button type="button" className="btn-score lfs-goal-btn t2" onClick={() => addGoal('t2')}>+ Goal</button>
-            <button type="button" className="btn-outline lfs-minus-btn" onClick={() => removeGoal('t2')}>- Goal</button>
+            <button type="button" className="btn-score lfs-goal-btn t2" onClick={() => addGoal('t2')}>+ {eventTypeLabels[eventType]}</button>
+            {eventType === 'goal' || eventType === 'penalty' || eventType === 'own_goal' ? (
+              <button type="button" className="btn-outline lfs-minus-btn" onClick={() => removeGoal('t2')}>- Goal</button>
+            ) : null}
           </div>
           <label className="sbe-field">
-            <span>Scorer ({team2})</span>
+            <span>Player ({team2})</span>
             <select className="input-field" value={t2Scorer} onChange={(e) => setT2Scorer(e.target.value)}>
-              <option value="">Select scorer</option>
+              <option value="">Select player</option>
               {team2Names.map((name) => (
                 <option key={name} value={name}>{name}</option>
               ))}
@@ -181,17 +241,29 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
       </div>
 
       <div className="lfs-timeline">
-        <h4>Goal Timeline</h4>
-        {!events.length && <p className="lfs-empty">No goal events yet.</p>}
-        {events.map((ev, idx) => (
-          <div key={`${ev.created_at || 'evt'}-${idx}`} className={`lfs-event ${ev.team}`}>
-            <div className="lfs-event-time">{ev.minute === null || ev.minute === undefined ? 'NA' : `${ev.minute}'`}</div>
-            <div className="lfs-event-main">
-              <div className="lfs-event-title">{ev.team === 't1' ? team1 : team2} goal</div>
-              <div className="lfs-event-sub">{ev.scorer || 'Unknown'}{ev.note ? ` - ${ev.note}` : ''}</div>
+        <h4>Event Timeline</h4>
+        {!events.length && <p className="lfs-empty">No events yet.</p>}
+        {events.map((ev, idx) => {
+          const typeTag = {
+            goal: '',
+            penalty: 'P',
+            own_goal: 'OG',
+            yellow_card: 'YC',
+            red_card: 'RC',
+          }[ev.type] || '';
+          return (
+            <div key={`${ev.created_at || 'evt'}-${idx}`} className={`lfs-event ${ev.team}`}>
+              <div className="lfs-event-time">{ev.minute === null || ev.minute === undefined ? 'NA' : `${ev.minute}'`}</div>
+              <div className="lfs-event-main">
+                <div className="lfs-event-title">
+                  {ev.team === 't1' ? team1 : team2} {ev.type.replace('_', ' ')}
+                  {typeTag && <span className={`lfs-event-tag lfs-event-tag--${ev.type}`}>{typeTag}</span>}
+                </div>
+                <div className="lfs-event-sub">{ev.scorer || 'Unknown'}{ev.note ? ` - ${ev.note}` : ''}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
