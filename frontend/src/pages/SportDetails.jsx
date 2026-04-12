@@ -91,13 +91,9 @@ function SportDetails() {
 
             return (
               <div key={match.id} className="sd-match-card-wrapper">
-                {match.sport_id === 'cricket' ? (
-                  <Link to={`/match/${match.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    {cardContent}
-                  </Link>
-                ) : (
-                  cardContent
-                )}
+                <Link to={`/match/${match.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  {cardContent}
+                </Link>
               </div>
             );
           })}

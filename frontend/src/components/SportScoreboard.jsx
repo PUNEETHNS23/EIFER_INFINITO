@@ -62,10 +62,72 @@ export default function SportScoreboard({ match, compact = false }) {
       return wrap(
         <Row labelL={team1} labelR={team2} valL={d.goals_t1 ?? 0} valR={d.goals_t2 ?? 0} sub="GOALS" />
       );
-    case 'volleyball':
+    case 'volleyball': {
+      // Bypass the generic Row if compact, so we always show the neon neon tech theme  
+
+      const pA = d.pointsA ?? 0;
+      const pB = d.pointsB ?? 0;
+      const sA = d.setsA ?? d.sets_t1 ?? 0;
+      const sB = d.setsB ?? d.sets_t2 ?? 0;
+      const curSet = d.currentSet ?? 1;
+      const target = d.setTargets?.[curSet] ?? (curSet === 5 ? 15 : 25);
+      const maxSets = d.max_sets ?? 5;
+      const serving = d.servingTeam ?? 'A';
+      
+      let deuceLabel = '';
+      if (d.status === 'live' && pA >= target - 1 && pB >= target - 1) {
+        if (pA === pB) deuceLabel = '⚡ DEUCE';
+        else if (pA > pB) deuceLabel = `✨ ADV ${team1.toUpperCase()}`;
+        else deuceLabel = `✨ ADV ${team2.toUpperCase()}`;
+      }
+
       return wrap(
-        <Row labelL={team1} labelR={team2} valL={d.sets_t1 ?? 0} valR={d.sets_t2 ?? 0} sub="SETS WON" />
+        <div className={`sb-vball ${compact ? 'compact' : ''}`}>
+          <div className="sb-vball-top">
+            <div className="sb-vball-team left">
+              <span className="sb-vball-name">{team1}</span>
+              <span className="sb-vball-sets-num">{sA}</span>
+              <div className="sb-vball-pips">
+                {[...Array(3)].map((_, i) => <div key={i} className={`sb-pip ${i < sA ? 'on' : ''}`} />)}
+              </div>
+              <div className={`sb-vball-serving-row ${serving !== 'A' ? 'hidden' : ''}`}>🏐 SERVING</div>
+            </div>
+
+            <div className="sb-vball-center">
+               <div className="sb-vball-set-lbl">SET {curSet} OF {maxSets}</div>
+               <div className="sb-vball-pts">
+                 <span className="pa">{pA}</span>
+                 <span className="pc">:</span>
+                 <span className="pb">{pB}</span>
+               </div>
+               <div className="sb-vball-deuce-row" style={{ opacity: deuceLabel ? 1 : 0 }}>
+                 {deuceLabel || '\u00A0'}
+               </div>
+            </div>
+
+            <div className="sb-vball-team right">
+              <span className="sb-vball-name">{team2}</span>
+              <span className="sb-vball-sets-num">{sB}</span>
+              <div className="sb-vball-pips">
+                {[...Array(3)].map((_, i) => <div key={i} className={`sb-pip ${i < sB ? 'on' : ''}`} />)}
+              </div>
+              <div className={`sb-vball-serving-row ${serving !== 'B' ? 'hidden' : ''}`}>SERVING 🏐</div>
+            </div>
+          </div>
+
+          {(d.setHistory || []).length > 0 && (
+            <div className="sb-vball-hist">
+              <span className="sb-vball-hist-lbl">SET HISTORY</span>
+              {d.setHistory.map((h, i) => (
+                <div key={i} className="sb-vball-hist-chip">
+                  S{i+1}: {h.a}-{h.b} {h.winner === 'A' ? '(A)' : '(B)'}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       );
+    }
     case 'cricket':
       if (compact) {
         return wrap(

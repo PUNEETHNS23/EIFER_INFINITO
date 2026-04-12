@@ -141,7 +141,7 @@ function Home() {
                 <div className="match-card-live-body">
                   <SportScoreboard match={match} compact />
                 </div>
-                <Link to={match.sport_id === 'cricket' ? `/match/${match.id}` : `/sport/${match.sport_id}`} className="match-card-live-link">
+                <Link to={`/match/${match.id}`} className="match-card-live-link">
                   Watch Details →
                 </Link>
               </div>

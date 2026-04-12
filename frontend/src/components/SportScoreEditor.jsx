@@ -3,6 +3,7 @@ import api from '../api';
 import { hydrateScoreDetail } from '../sports/sportsConfig';
 import LiveCricketScorer from './LiveCricketScorer';
 import LiveBadmintonScorer from './LiveBadmintonScorer';
+import LiveVolleyballScorer from './LiveVolleyballScorer';
 import './sportScoreboards.css';
 
 function Num({ label, value, onChange, step = 1 }) {
@@ -50,7 +51,7 @@ export default function SportScoreEditor({ match, onSaved }) {
   }, [match.id, sid, match.score_detail, match.status, match.score_t1, match.score_t2]);
 
   useEffect(() => {
-    if (sid === 'cricket' || sid === 'badminton' || sid === 'table-tennis') {
+    if (['cricket', 'volleyball', 'badminton', 'table-tennis'].includes(sid)) {
       api.get(`/teams`).then(res => {
          setTeam1Data(res.data.find(t => String(t.id) === String(match.team1_id)) || null);
          setTeam2Data(res.data.find(t => String(t.id) === String(match.team2_id)) || null);
@@ -71,7 +72,7 @@ export default function SportScoreEditor({ match, onSaved }) {
   // For interactive sports: auto-save whenever detail changes (each point)
   const saveTimeoutRef = useRef(null);
   useEffect(() => {
-    if (!['cricket', 'badminton', 'table-tennis'].includes(sid)) return;
+    if (!['cricket', 'volleyball', 'badminton', 'table-tennis'].includes(sid)) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       api.put(`/matches/${match.id}`, { score_detail: detail, status });
@@ -99,7 +100,7 @@ export default function SportScoreEditor({ match, onSaved }) {
     }
   }, [sid, detail.match_format, detail.games_t1, detail.games_t2, detail.toss_decided, status, manualStatusOverride]);
 
-  const patch = (partial) => setDetail((prev) => ({ ...prev, ...partial }));
+  const patch = useCallback((partial) => setDetail((prev) => ({ ...prev, ...partial })), []);
 
   const team1 = match.team1 || 'Team 1';
   const team2 = match.team2 || 'Team 2';
@@ -115,13 +116,33 @@ export default function SportScoreEditor({ match, onSaved }) {
       );
       break;
     case 'volleyball':
-      form = (
-        <div className="sbe-grid">
-          <Num label={`${team1} sets`} value={detail.sets_t1} onChange={(v) => patch({ sets_t1: v })} />
-          <Num label={`${team2} sets`} value={detail.sets_t2} onChange={(v) => patch({ sets_t2: v })} />
+      return (
+        <div className="sport-editor-card" data-sport={sid}>
+          <div className="sbe-head">
+            <h3>{team1} <span className="sbe-vs">vs</span> {team2}</h3>
+            <span className="sbe-id">Match #{match.id}</span>
+          </div>
+          <LiveVolleyballScorer
+            key={match.id}
+            detail={detail}
+            patch={patch}
+            team1={team1}
+            team2={team2}
+            team1Data={team1Data}
+            team2Data={team2Data}
+          />
+          <div className="sbe-status" style={{ marginTop: '1rem' }}>
+            <label className="sbe-field">
+              <span>Status</span>
+              <select className="input-field" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="upcoming">Upcoming</option>
+                <option value="live">Live</option>
+                <option value="completed">Completed</option>
+              </select>
+            </label>
+          </div>
         </div>
       );
-      break;
     case 'cricket':
       form = <LiveCricketScorer detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} />;
       break;
@@ -218,9 +239,11 @@ export default function SportScoreEditor({ match, onSaved }) {
           </select>
         </label>
       </div>
-      <button type="button" className="btn-primary sbe-save" onClick={save}>
-        Save score
-      </button>
+      {sid !== 'cricket' && sid !== 'volleyball' && (
+        <button type="button" className="btn-primary sbe-save" onClick={save}>
+          Save score
+        </button>
+      )}
     </div>
   );
 }

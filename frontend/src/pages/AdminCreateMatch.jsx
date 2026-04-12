@@ -15,7 +15,7 @@ function AdminCreateMatch() {
     team1_id: '',
     team2_id: '',
     scheduled_time: '',
-    score_detail: sportId === 'cricket' ? { match_type: 'T20' } : {}
+    score_detail: sportId === 'cricket' ? { match_type: 'T20' } : (sportId === 'volleyball' ? { max_sets: 5 } : {})
   });
 
   const meta = getSportMeta(sportId);
@@ -138,6 +138,30 @@ function AdminCreateMatch() {
                   />
                 </div>
               )}
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Venue / Stadium</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="Enter stadium name" 
+                  onChange={e => handleScoreDetailChange('venue', e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* VOLLEYBALL SPECIFIC CONFIGS */}
+          {sportId === 'volleyball' && (
+            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 style={{ margin: '0 0 1rem', fontSize: '1rem' }}>Volleyball specific settings</h3>
+              <div className="input-group">
+                <label className="input-label">Number of Sets</label>
+                <select className="input-field" onChange={e => handleScoreDetailChange('max_sets', parseInt(e.target.value, 10))} value={newMatch.score_detail.max_sets || 5}>
+                  <option value={3}>Best of 3</option>
+                  <option value={5}>Best of 5</option>
+                  <option value={1}>Single Set</option>
+                </select>
+              </div>
               <div className="input-group" style={{ marginBottom: 0 }}>
                 <label className="input-label">Venue / Stadium</label>
                 <input 
