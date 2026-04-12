@@ -15,7 +15,10 @@ function AdminCreateMatch() {
     team1_id: '',
     team2_id: '',
     scheduled_time: '',
-    score_detail: sportId === 'cricket' ? { match_type: 'T20' } : (sportId === 'volleyball' ? { max_sets: 5 } : {})
+    score_detail:
+      sportId === 'cricket'
+        ? { match_type: 'T20' }
+        : (sportId === 'volleyball' ? { max_sets: 5 } : (sportId === 'football' ? { match_minutes: 90 } : {}))
   });
   const [scheduledLocal, setScheduledLocal] = useState('');
   const scheduledInputRef = useRef(null);
@@ -208,6 +211,35 @@ function AdminCreateMatch() {
                   type="text" 
                   className="input-field" 
                   placeholder="Enter stadium name" 
+                  onChange={e => handleScoreDetailChange('venue', e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* FOOTBALL SPECIFIC CONFIGS */}
+          {sportId === 'football' && (
+            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 style={{ margin: '0 0 1rem', fontSize: '1rem' }}>Football specific settings</h3>
+              <div className="input-group">
+                <label className="input-label">Match Duration (minutes)</label>
+                <select
+                  className="input-field"
+                  onChange={e => handleScoreDetailChange('match_minutes', parseInt(e.target.value, 10))}
+                  value={newMatch.score_detail.match_minutes || 90}
+                >
+                  <option value={90}>90 mins (standard)</option>
+                  <option value={80}>80 mins</option>
+                  <option value={70}>70 mins</option>
+                  <option value={60}>60 mins</option>
+                </select>
+              </div>
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Venue / Stadium</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Enter stadium name"
                   onChange={e => handleScoreDetailChange('venue', e.target.value)}
                 />
               </div>

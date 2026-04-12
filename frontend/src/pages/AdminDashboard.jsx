@@ -15,7 +15,15 @@ function AdminDashboard() {
   const [matchSportFilter, setMatchSportFilter] = useState('');
 
   // Form states
-  const [newTeam, setNewTeam] = useState({ name: '', sport_id: 'athletics', squad: [] });
+  const footballSquadSize = 11;
+  const createFootballSquad = () => Array.from({ length: footballSquadSize }, () => ({ name: '', is_substitute: false }));
+  const createTeamState = (sportId = 'athletics') => ({
+    name: '',
+    sport_id: sportId,
+    squad: sportId === 'football' ? createFootballSquad() : [],
+  });
+
+  const [newTeam, setNewTeam] = useState(createTeamState());
   const [tempPlayerName, setTempPlayerName] = useState('');
   const [newMatch, setNewMatch] = useState({ sport_id: 'athletics', team1_id: '', team2_id: '', scheduled_time: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '' });
@@ -116,10 +124,22 @@ function AdminDashboard() {
       }
     }
 
+    if (newTeam.sport_id === 'football') {
+      const players = (newTeam.squad || []).map((p) => (p.name || '').trim());
+      if (players.length !== footballSquadSize || players.some((name) => !name)) {
+        alert(`A football team must have exactly ${footballSquadSize} player names, and every field must be filled.`);
+        return;
+      }
+      if (new Set(players).size !== footballSquadSize) {
+        alert('Football player names must be unique.');
+        return;
+      }
+    }
+
     try {
       await api.post('/teams', newTeam);
       fetchTeams();
-      setNewTeam({ name: '', sport_id: 'athletics', squad: [] });
+      setNewTeam(createTeamState());
     } catch (e) {
       alert('Error adding team');
     }
@@ -386,18 +406,68 @@ function AdminDashboard() {
               <form onSubmit={handleAddTeam} style={{ marginTop: '1rem' }}>
                 <div className="input-group">
                   <label className="input-label">Sport</label>
-                  <select className="input-field" value={newTeam.sport_id} onChange={e => setNewTeam({...newTeam, sport_id: e.target.value})}>
+                  <select
+                    className="input-field"
+                    value={newTeam.sport_id}
+                    onChange={e => {
+                      const sportId = e.target.value;
+                      setNewTeam((prev) => ({
+                        ...prev,
+                        sport_id: sportId,
+                        squad: sportId === 'football' ? createFootballSquad() : [],
+                      }));
+                      setTempPlayerName('');
+                    }}
+                  >
                     {sportsEnum.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 
                 {!['cricket', 'volleyball', 'badminton', 'table-tennis'].includes(newTeam.sport_id) ? (
-                  <>
-                    <div className="input-group">
-                      <label className="input-label">Team Name / Player Name</label>
-                      <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
-                    </div>
-                  </>
+                  newTeam.sport_id === 'football' ? (
+                    <>
+                      <div className="input-group">
+                        <label className="input-label">Team Name</label>
+                        <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
+                      </div>
+
+                      <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <h4>Football Squad (11 players)</h4>
+                        <p style={{ margin: '0.25rem 0 1rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                          Enter all 11 player names separately before registering the team.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                          {newTeam.squad.map((player, index) => (
+                            <div key={index} className="input-group" style={{ marginBottom: 0 }}>
+                              <label className="input-label">Player {index + 1}</label>
+                              <input
+                                type="text"
+                                className="input-field"
+                                placeholder={`Player ${index + 1}`}
+                                value={player.name}
+                                onChange={e => {
+                                  const name = e.target.value;
+                                  setNewTeam(prev => {
+                                    const nextSquad = [...(prev.squad || createFootballSquad())];
+                                    nextSquad[index] = { ...nextSquad[index], name, is_substitute: false };
+                                    return { ...prev, squad: nextSquad };
+                                  });
+                                }}
+                                required
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="input-group">
+                        <label className="input-label">Team Name / Player Name</label>
+                        <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
+                      </div>
+                    </>
+                  )
                 ) : (
                   <>
                     <div className="input-group">
