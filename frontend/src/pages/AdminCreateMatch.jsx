@@ -4,10 +4,14 @@ import { useAuth } from '../context/useAuth';
 import api from '../api';
 import { getSportMeta } from '../sports/sportsConfig';
 
+const RACKET_SPORTS = ['badminton', 'table-tennis'];
+const RACKET_CATEGORIES = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
+
 function AdminCreateMatch() {
   const { sportId } = useParams();
   const navigate = useNavigate();
   const { user, authLoading } = useAuth();
+  const isRacketSport = RACKET_SPORTS.includes(sportId);
   
   const [teams, setTeams] = useState([]);
   const [newMatch, setNewMatch] = useState({
@@ -18,7 +22,11 @@ function AdminCreateMatch() {
     score_detail:
       sportId === 'cricket'
         ? { match_type: 'T20' }
-        : (sportId === 'volleyball' ? { max_sets: 5 } : (sportId === 'football' ? { match_minutes: 90 } : {}))
+        : (sportId === 'volleyball'
+          ? { max_sets: 5 }
+          : (sportId === 'football'
+            ? { match_minutes: 90 }
+            : (isRacketSport ? { category: 'Mens Singles' } : {})))
   });
   const [scheduledLocal, setScheduledLocal] = useState('');
   const scheduledInputRef = useRef(null);
@@ -26,6 +34,24 @@ function AdminCreateMatch() {
   const meta = getSportMeta(sportId);
 
   useEffect(() => {
+    const nextScoreDetail =
+      sportId === 'cricket'
+        ? { match_type: 'T20' }
+        : (sportId === 'volleyball'
+          ? { max_sets: 5 }
+          : (sportId === 'football'
+            ? { match_minutes: 90 }
+            : (RACKET_SPORTS.includes(sportId) ? { category: 'Mens Singles' } : {})));
+
+    setNewMatch({
+      sport_id: sportId,
+      team1_id: '',
+      team2_id: '',
+      scheduled_time: '',
+      score_detail: nextScoreDetail,
+    });
+    setScheduledLocal('');
+
     if (authLoading) return;
     if (!user) {
       navigate('/login', { replace: true });
@@ -42,6 +68,11 @@ function AdminCreateMatch() {
     fetchTeams();
   }, [user, authLoading, navigate, sportId]);
 
+  const selectedCategory = newMatch.score_detail?.category || 'Mens Singles';
+  const categoryFilteredTeams = isRacketSport
+    ? teams.filter((t) => (t.category || '') === selectedCategory)
+    : teams;
+
   if (authLoading) {
     return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
   }
@@ -52,6 +83,20 @@ function AdminCreateMatch() {
       alert("Please select both teams.");
       return;
     }
+
+    if (isRacketSport) {
+      const team1 = teams.find((t) => String(t.id) === String(newMatch.team1_id));
+      const team2 = teams.find((t) => String(t.id) === String(newMatch.team2_id));
+      if (!team1 || !team2) {
+        alert('Please select valid teams.');
+        return;
+      }
+      if ((team1.category || '') !== selectedCategory || (team2.category || '') !== selectedCategory) {
+        alert('For badminton/table-tennis, both teams must belong to the selected subcategory.');
+        return;
+      }
+    }
+
     try {
       await api.post('/matches', newMatch);
       navigate('/admin');
@@ -91,6 +136,32 @@ function AdminCreateMatch() {
       
       <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
         <form onSubmit={handleCreate}>
+          {isRacketSport && (
+            <div className="input-group">
+              <label className="input-label">Subcategory</label>
+              <select
+                className="input-field"
+                value={selectedCategory}
+                onChange={(e) => {
+                  const category = e.target.value;
+                  setNewMatch((prev) => ({
+                    ...prev,
+                    team1_id: '',
+                    team2_id: '',
+                    score_detail: {
+                      ...(prev.score_detail || {}),
+                      category,
+                    },
+                  }));
+                }}
+              >
+                {RACKET_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '1rem' }}>
             <div className="input-group" style={{ flex: 1 }}>
               <label className="input-label">Team 1</label>
@@ -101,7 +172,7 @@ function AdminCreateMatch() {
                 required
               >
                 <option value="">Select</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                {categoryFilteredTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
             
@@ -114,12 +185,18 @@ function AdminCreateMatch() {
                 required
               >
                 <option value="">Select</option>
-                {teams
+                {categoryFilteredTeams
                   .filter(t => String(t.id) !== String(newMatch.team1_id))
                   .map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
           </div>
+
+          {isRacketSport && categoryFilteredTeams.length < 2 && (
+            <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem', marginBottom: '1rem', fontSize: '0.9rem' }}>
+              Need at least two teams in {selectedCategory} to schedule this match.
+            </p>
+          )}
 
           <div className="input-group">
             <label className="input-label">Scheduled Time (Local)</label>

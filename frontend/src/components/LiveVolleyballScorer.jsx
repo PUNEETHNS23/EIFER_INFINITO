@@ -49,6 +49,7 @@ function mkSnapshot(st) {
 
 function initState(fromDetail, team1, team2) {
   const d = fromDetail || {};
+  const rosterSize = Math.max(1, Number(d.rosterSize || 6));
   return {
     teamA: team1 || 'Team A',
     teamB: team2 || 'Team B',
@@ -65,8 +66,9 @@ function initState(fromDetail, team1, team2) {
     winner:      d.winner      ?? null,
     history:     d.history     ?? [],
     lastEvent:   null,
-    rosterA:     d.rosterA     ?? Array(6).fill(''),
-    rosterB:     d.rosterB     ?? Array(6).fill(''),
+    rosterSize,
+    rosterA:     d.rosterA     ?? Array(rosterSize).fill(''),
+    rosterB:     d.rosterB     ?? Array(rosterSize).fill(''),
   };
 }
 
@@ -154,7 +156,7 @@ function Roster({ team, teamName, roster, teamData, dispatch }) {
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
 ═══════════════════════════════════════════════════════════ */
-export default function LiveVolleyballScorer({ detail, patch, team1, team2, team1Data, team2Data }) {
+export default function LiveVolleyballScorer({ detail, patch, team1, team2, team1Data, team2Data, serveIcon = '🏐' }) {
   const [state, dispatch] = useReducer(reducer, null, () =>
     initState(detail, team1, team2)
   );
@@ -164,14 +166,14 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
   // Auto-initialize rosters to starting 6 if completely empty
   useEffect(() => {
     if (state.rosterA.every(p => p === '') && team1Data?.squad) {
-      const mainA = team1Data.squad.filter(p => !p.is_substitute).map(p => p.name).slice(0, 6);
-      if (mainA.length > 0) dispatch({ type: 'UPDATE_ROSTER', team: 'A', roster: [...mainA, ...Array(6 - mainA.length).fill('')] });
+      const mainA = team1Data.squad.filter(p => !p.is_substitute).map(p => p.name).slice(0, state.rosterSize);
+      if (mainA.length > 0) dispatch({ type: 'UPDATE_ROSTER', team: 'A', roster: [...mainA, ...Array(state.rosterSize - mainA.length).fill('')] });
     }
     if (state.rosterB.every(p => p === '') && team2Data?.squad) {
-      const mainB = team2Data.squad.filter(p => !p.is_substitute).map(p => p.name).slice(0, 6);
-      if (mainB.length > 0) dispatch({ type: 'UPDATE_ROSTER', team: 'B', roster: [...mainB, ...Array(6 - mainB.length).fill('')] });
+      const mainB = team2Data.squad.filter(p => !p.is_substitute).map(p => p.name).slice(0, state.rosterSize);
+      if (mainB.length > 0) dispatch({ type: 'UPDATE_ROSTER', team: 'B', roster: [...mainB, ...Array(state.rosterSize - mainB.length).fill('')] });
     }
-  }, [team1Data, team2Data, state.rosterA, state.rosterB]);
+  }, [team1Data, team2Data, state.rosterA, state.rosterB, state.rosterSize]);
 
   // Push state up to parent whenever it changes (for auto-save)
   const stateRef = useRef(state);
@@ -196,11 +198,12 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
       status:      state.status,
       winner:      state.winner,
       history:     state.history,
+      rosterSize:  state.rosterSize,
       rosterA:     state.rosterA,
       rosterB:     state.rosterB,
     });
   }, [state.sets_t1, state.sets_t2, state.pointsA, state.pointsB,
-      state.currentSet, state.status, state.winner, state.servingTeam, state.history, state.setTargets, state.rosterA, state.rosterB]);
+      state.currentSet, state.status, state.winner, state.servingTeam, state.history, state.setTargets, state.rosterSize, state.rosterA, state.rosterB]);
 
   /* ── Animations ─────────────────────────────────────── */
   const flashRef   = useRef(null);
@@ -244,7 +247,7 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
       const t = state.lastEvent === 'setwon-a' ? state.teamA : state.teamB;
       const idx = state.setHistory.length;
       doFlash(state.lastEvent === 'setwon-a' ? 'fa' : 'fb');
-      showToast(`🏐 ${t} wins Set ${idx}!`);
+      showToast(`${serveIcon} ${t} wins Set ${idx}!`);
     }
     if (state.lastEvent?.startsWith('match')) {
       const t = state.winner === 'A' ? state.teamA : state.teamB;
@@ -305,14 +308,14 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
           <span className="lvb-team-label">{state.teamA}</span>
           <span className="lvb-sets-count">{state.sets_t1}</span>
           <span className={`lvb-serving-tag ${state.servingTeam !== 'A' ? 'hidden' : ''}`}>
-            <span className="lvb-srv-ball">🏐</span> SERVING
+            <span className="lvb-srv-ball">{serveIcon}</span> SERVING
           </span>
         </div>
         <div className="lvb-team-col right">
           <span className="lvb-team-label">{state.teamB}</span>
           <span className="lvb-sets-count">{state.sets_t2}</span>
           <span className={`lvb-serving-tag ${state.servingTeam !== 'B' ? 'hidden' : ''}`}>
-            SERVING <span className="lvb-srv-ball">🏐</span>
+            SERVING <span className="lvb-srv-ball">{serveIcon}</span>
           </span>
         </div>
       </div>
@@ -386,7 +389,7 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
           className="lvb-btn-switch"
           onClick={() => dispatch({ type: 'SWITCH_SERVER' })}
         >
-          🏐 SWITCH SERVER
+          {serveIcon} SWITCH SERVER
         </button>
       </div>
 

@@ -4,15 +4,28 @@ import './LiveCricketScorer.css'; // Just re-use the cool buttons and structure
 export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, team1Data, team2Data }) {
   const [history, setHistory] = useState([]);
   const serverIcon = sid === 'table-tennis' ? '🏓' : '🏸';
-  
-  // Toss UI States
-  const [tossWinner, setTossWinner] = useState(team1);
-  const [tossDecision, setTossDecision] = useState('Serve');
-  const [matchFormat, setMatchFormat] = useState('Best of 3');
+
+  const matchCategory = detail.category || 'Mens Singles';
+  const isDoubles = matchCategory.includes('Doubles');
 
   const isMatchStarted = !!detail.toss_decided;
 
   const saveHistory = () => setHistory(h => [...h, JSON.stringify(detail)]);
+
+  const patchSetup = (field, value) => patch({ [field]: value });
+
+  const toNumberOrDefault = (value, fallback) => {
+    const n = parseInt(value, 10);
+    return Number.isNaN(n) ? fallback : n;
+  };
+
+  const getPointLimit = (state) => {
+    const defaultLimit = sid === 'badminton' ? 21 : 11;
+    if (state.point_limit === 'Custom') {
+      return toNumberOrDefault(state.custom_limit, defaultLimit);
+    }
+    return toNumberOrDefault(state.point_limit, defaultLimit);
+  };
 
   const getInitialServer = (state) => {
     if (state.initial_server === 't1' || state.initial_server === 't2') return state.initial_server;
@@ -44,14 +57,20 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
   };
 
   const handleStartMatch = () => {
-    const initialServer = tossWinner === team1 ? (tossDecision === 'Serve' ? 't1' : 't2') : (tossDecision === 'Serve' ? 't2' : 't1');
+    const tossWinner = detail.toss_winner || team1;
+    const tossDecision = detail.toss_decision || 'Serve';
+    const initialServer = tossWinner === team1
+      ? (tossDecision === 'Serve' ? 't1' : 't2')
+      : (tossDecision === 'Serve' ? 't2' : 't1');
+
     patch({
       toss_decided: true,
       toss_winner: tossWinner,
       toss_decision: tossDecision,
       serving: initialServer,
       initial_server: initialServer,
-      match_format: matchFormat,
+      match_format: detail.match_format || 'Best of 3',
+      category: matchCategory,
       toss: `${tossWinner} won the toss and elected to ${tossDecision.toLowerCase()} first`
     });
   };
@@ -73,7 +92,7 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
       updates.serving = team;
     }
 
-    const limit = parseInt(updates.point_limit === 'Custom' ? updates.custom_limit : updates.point_limit) || (sid === 'badminton' ? 21 : 11);
+    const limit = getPointLimit(updates);
     if (updates.current_p1 >= limit || updates.current_p2 >= limit) {
       if (Math.abs(updates.current_p1 - updates.current_p2) >= 2 || Math.max(updates.current_p1, updates.current_p2) >= 30) {
         // Just an alert to notify limit reached, wait for manual End Game click
@@ -109,29 +128,43 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
     patch(updates);
 
     // Check Match Win
-    const limit = matchFormat === 'Best of 5' ? 3 : 2;
+    const format = updates.match_format || 'Best of 3';
+    const limit = format === 'Best of 5' ? 3 : format === '1 Game' ? 1 : 2;
     if (updates.games_t1 >= limit) alert(`Match over! ${team1} wins the match.`);
     if (updates.games_t2 >= limit) alert(`Match over! ${team2} wins the match.`);
   };
 
-  const buildSquadOptions = (teamData) => {
-    const squad = teamData?.squad;
-    if (!squad || squad.length === 0) return <>
-        <option value="Player 1">Player 1</option>
-        <option value="Player 2">Player 2</option>
-    </>;
-    return squad.map((p, i) => <option key={i} value={p.name}>{p.name}</option>);
+  const buildSquadNames = (teamData) => {
+    const squad = Array.isArray(teamData?.squad) ? teamData.squad : [];
+    const names = squad.map((p) => (p.name || '').trim()).filter(Boolean);
+    return Array.from(new Set(names));
   };
+
+  const team1Names = buildSquadNames(team1Data);
+  const team2Names = buildSquadNames(team2Data);
+
+  const player1Label = isDoubles ? `${team1} Player 1` : `${team1} Player`;
+  const player2Label = isDoubles ? `${team2} Player 1` : `${team2} Player`;
+
+  const team1PrimaryName = detail.p1_name || 'Player 1';
+  const team2PrimaryName = detail.p2_name || 'Player 1';
+  const team1SecondName = detail.p1_partner || 'Player 2';
+  const team2SecondName = detail.p2_partner || 'Player 2';
 
   if (!isMatchStarted) {
     return (
       <div className="lcs-container" style={{ textAlign: 'center', padding: '2rem' }}>
         <h2 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Pre-Match: Setup</h2>
         <div style={{ margin: '1.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-          
+
+          <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
+            <label className="input-label">Subcategory</label>
+            <input className="input-field" value={matchCategory} readOnly />
+          </div>
+
           <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
             <label className="input-label">Initial Point Limit</label>
-            <select className="input-field" value={detail.point_limit === 'Custom' ? 'Custom' : (detail.point_limit || (sid === 'badminton' ? '21' : '11'))} onChange={e => patch({point_limit: e.target.value})}>
+            <select className="input-field" value={detail.point_limit === 'Custom' ? 'Custom' : (detail.point_limit || (sid === 'badminton' ? '21' : '11'))} onChange={e => patchSetup('point_limit', e.target.value)}>
               {sid === 'badminton' && <option value="21">21 Points (Standard)</option>}
               {sid === 'table-tennis' && <option value="11">11 Points (Standard)</option>}
               <option value="15">15 Points</option>
@@ -143,13 +176,13 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
           {detail.point_limit === 'Custom' && (
             <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
               <label className="input-label">Custom Limit</label>
-              <input className="input-field" type="number" placeholder="Enter Custom Limit" value={detail.custom_limit || "21"} onChange={(e) => patch({custom_limit: e.target.value})} />
+              <input className="input-field" type="number" placeholder="Enter Custom Limit" value={detail.custom_limit || "21"} onChange={(e) => patchSetup('custom_limit', e.target.value)} />
             </div>
           )}
 
           <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
             <label className="input-label">Match Format</label>
-            <select className="input-field" value={matchFormat} onChange={e => setMatchFormat(e.target.value)}>
+            <select className="input-field" value={detail.match_format || 'Best of 3'} onChange={e => patchSetup('match_format', e.target.value)}>
               <option value="Best of 3">Best of 3 Games</option>
               <option value="Best of 5">Best of 5 Games</option>
               <option value="1 Game">1 Game Only</option>
@@ -160,14 +193,14 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
 
           <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
             <label className="input-label">Who won the Toss?</label>
-            <select className="input-field" value={tossWinner} onChange={e => setTossWinner(e.target.value)}>
+            <select className="input-field" value={detail.toss_winner || team1} onChange={e => patchSetup('toss_winner', e.target.value)}>
               <option value={team1}>{team1}</option>
               <option value={team2}>{team2}</option>
             </select>
           </div>
           <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
             <label className="input-label">Decision?</label>
-            <select className="input-field" value={tossDecision} onChange={e => setTossDecision(e.target.value)}>
+            <select className="input-field" value={detail.toss_decision || 'Serve'} onChange={e => patchSetup('toss_decision', e.target.value)}>
               <option value="Serve">Serve First</option>
               <option value="Receive">Receive First</option>
             </select>
@@ -181,21 +214,38 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
   return (
     <div className="lcs-container fade-in">
       {/* Player Lineup */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isDoubles ? '1fr 1fr 1fr 1fr' : '1fr 1fr', gap: '0.5rem', marginBottom: '1.5rem' }}>
         <div>
-           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{team1} Player 1</div>
-           <select className="input-field" value={detail.p1_name || ''} onChange={e => patch({p1_name: e.target.value})}>
-              <option value="">-- Select --</option>
-              {buildSquadOptions(team1Data)}
-           </select>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{player1Label}</div>
+          <input list="team1-player-list" className="input-field" value={detail.p1_name || ''} onChange={e => patch({ p1_name: e.target.value })} placeholder="Enter player name" />
+          <datalist id="team1-player-list">
+            {team1Names.map((name) => <option key={name} value={name} />)}
+          </datalist>
         </div>
         <div>
-           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{team2} Player 1</div>
-           <select className="input-field" value={detail.p2_name || ''} onChange={e => patch({p2_name: e.target.value})}>
-              <option value="">-- Select --</option>
-              {buildSquadOptions(team2Data)}
-           </select>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{player2Label}</div>
+          <input list="team2-player-list" className="input-field" value={detail.p2_name || ''} onChange={e => patch({ p2_name: e.target.value })} placeholder="Enter player name" />
+          <datalist id="team2-player-list">
+            {team2Names.map((name) => <option key={name} value={name} />)}
+          </datalist>
         </div>
+
+        {isDoubles && (
+          <>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{team1} Player 2</div>
+              <input list="team1-player-list" className="input-field" value={detail.p1_partner || ''} onChange={e => patch({ p1_partner: e.target.value })} placeholder="Enter partner name" />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.2rem' }}>{team2} Player 2</div>
+              <input list="team2-player-list" className="input-field" value={detail.p2_partner || ''} onChange={e => patch({ p2_partner: e.target.value })} placeholder="Enter partner name" />
+            </div>
+          </>
+        )}
+      </div>
+
+      <div style={{ textAlign: 'center', marginBottom: '0.8rem', color: 'var(--color-primary)', fontWeight: 700, letterSpacing: '0.02em' }}>
+        {matchCategory}
       </div>
 
       {/* Main Scoreboard Editor View */}
@@ -205,6 +255,9 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: detail.serving === 't1' ? '#10b981' : 'var(--color-text-main)' }}>
              {team1} {detail.serving === 't1' && serverIcon}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', minHeight: '1.1rem' }}>
+            {isDoubles ? `${team1PrimaryName} / ${team1SecondName}` : team1PrimaryName}
           </div>
           <div style={{ fontSize: '3rem', fontWeight: 900, textShadow: '0 0 20px rgba(255,255,255,0.1)' }}>{detail.current_p1}</div>
           <div style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>Games: {detail.games_t1}</div>
@@ -217,6 +270,9 @@ export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, 
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: detail.serving === 't2' ? '#10b981' : 'var(--color-text-main)' }}>
              {detail.serving === 't2' && serverIcon} {team2}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', minHeight: '1.1rem' }}>
+            {isDoubles ? `${team2PrimaryName} / ${team2SecondName}` : team2PrimaryName}
           </div>
           <div style={{ fontSize: '3rem', fontWeight: 900, textShadow: '0 0 20px rgba(255,255,255,0.1)' }}>{detail.current_p2}</div>
           <div style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>Games: {detail.games_t2}</div>

@@ -38,8 +38,8 @@ def derive_primary_scores(sport_id: str, detail: Optional[dict]) -> Tuple[int, i
 
     if sid == "volleyball":
         return (
-            _as_int(detail.get("sets_t1")),
-            _as_int(detail.get("sets_t2")),
+            _as_int(detail.get("sets_t1", detail.get("setsA"))),
+            _as_int(detail.get("sets_t2", detail.get("setsB"))),
         )
 
     if sid == "cricket":
@@ -90,8 +90,8 @@ def derive_primary_scores(sport_id: str, detail: Optional[dict]) -> Tuple[int, i
 
     if sid in ("badminton", "table-tennis"):
         return (
-            _as_int(detail.get("games_t1")),
-            _as_int(detail.get("games_t2")),
+            _as_int(detail.get("games_t1", detail.get("sets_t1", detail.get("setsA")))),
+            _as_int(detail.get("games_t2", detail.get("sets_t2", detail.get("setsB")))),
         )
 
     if sid in ("arm-wrestling", "tug-of-war"):
@@ -135,8 +135,18 @@ def default_score_detail(sport_id: str) -> dict:
         "chess": {"winner": "draw"},
         "athletics": {"time_t1_sec": 0, "time_t2_sec": 0},
         "weight-lifting": {"kg_t1": 0, "kg_t2": 0},
-        "badminton": {"games_t1": 0, "games_t2": 0, "current_p1": 0, "current_p2": 0, "past_games": [], "serving": "t1", "p1_name": "", "p2_name": "", "toss_winner": "", "toss_decision": "", "point_limit": "21"},
-        "table-tennis": {"games_t1": 0, "games_t2": 0, "current_p1": 0, "current_p2": 0, "past_games": [], "serving": "t1", "p1_name": "", "p2_name": "", "toss_winner": "", "toss_decision": "", "point_limit": "11"},
+        "badminton": {
+            "games_t1": 0, "games_t2": 0, "current_p1": 0, "current_p2": 0,
+            "past_games": [], "serving": "t1", "p1_name": "", "p2_name": "",
+            "p1_partner": "", "p2_partner": "", "category": "Mens Singles",
+            "toss_winner": "", "toss_decision": "", "point_limit": "21", "match_format": "Best of 3"
+        },
+        "table-tennis": {
+            "games_t1": 0, "games_t2": 0, "current_p1": 0, "current_p2": 0,
+            "past_games": [], "serving": "t1", "p1_name": "", "p2_name": "",
+            "p1_partner": "", "p2_partner": "", "category": "Mens Singles",
+            "toss_winner": "", "toss_decision": "", "point_limit": "11", "match_format": "Best of 3"
+        },
         "arm-wrestling": {"rounds_t1": 0, "rounds_t2": 0},
         "tug-of-war": {"rounds_t1": 0, "rounds_t2": 0},
         "esports": {"maps_t1": 0, "maps_t2": 0},

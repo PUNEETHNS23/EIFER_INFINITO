@@ -13,6 +13,8 @@ function AdminDashboard() {
   const [activeSection, setActiveSection] = useState('matches');
   const [matchDateFilter, setMatchDateFilter] = useState('');
   const [matchSportFilter, setMatchSportFilter] = useState('');
+  const [teamSportFilter, setTeamSportFilter] = useState('');
+  const [teamCategoryFilter, setTeamCategoryFilter] = useState('');
 
   // Form states
   const footballSquadSize = 11;
@@ -32,6 +34,12 @@ function AdminDashboard() {
   const teamsRefreshTimeoutRef = useRef(null);
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
+  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis'];
+  const allowSubstituteSports = ['volleyball'];
+  const racketSports = ['badminton', 'table-tennis'];
+  const racketCategories = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
+
+  const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
 
   const getLocalDateKey = (dateValue) => {
     if (!dateValue) return '';
@@ -46,6 +54,12 @@ function AdminDashboard() {
   const filteredMatches = matches.filter((m) => {
     if (matchDateFilter && getLocalDateKey(m.scheduled_time) !== matchDateFilter) return false;
     if (matchSportFilter && m.sport_id !== matchSportFilter) return false;
+    return true;
+  });
+
+  const filteredTeams = teams.filter((t) => {
+    if (teamSportFilter && t.sport_id !== teamSportFilter) return false;
+    if (teamCategoryFilter && (t.category || '') !== teamCategoryFilter) return false;
     return true;
   });
 
@@ -136,8 +150,26 @@ function AdminDashboard() {
       }
     }
 
+    if (racketSports.includes(newTeam.sport_id)) {
+      const players = (newTeam.squad || []).map((p) => (p.name || '').trim()).filter(Boolean);
+      const limit = getRacketCategoryPlayerLimit(newTeam.category);
+      if (players.length !== limit) {
+        alert(`${newTeam.sport_id === 'badminton' ? 'Badminton' : 'Table Tennis'} ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
+        return;
+      }
+      if (new Set(players).size !== players.length) {
+        alert('Player names must be unique within the team squad.');
+        return;
+      }
+    }
+
     try {
-      await api.post('/teams', newTeam);
+      await api.post('/teams', {
+        name: newTeam.name,
+        sport_id: newTeam.sport_id,
+        category: newTeam.category || null,
+        squad: newTeam.squad,
+      });
       fetchTeams();
       setNewTeam(createTeamState());
     } catch (e) {
@@ -147,7 +179,17 @@ function AdminDashboard() {
 
   const addPlayerToSquad = (isSubstitute = false) => {
     if (tempPlayerName.trim()) {
-      setNewTeam(prev => ({ ...prev, squad: [...(prev.squad || []), { name: tempPlayerName, is_substitute: isSubstitute }] }));
+      if (racketSports.includes(newTeam.sport_id)) {
+        const limit = getRacketCategoryPlayerLimit(newTeam.category);
+        const currentCount = (newTeam.squad || []).length;
+        if (currentCount >= limit) {
+          alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for ${newTeam.category || 'this category'}. Remove a player to add another.`);
+          return;
+        }
+      }
+
+      const withSubstituteFlag = allowSubstituteSports.includes(newTeam.sport_id) ? isSubstitute : false;
+      setNewTeam(prev => ({ ...prev, squad: [...(prev.squad || []), { name: tempPlayerName, is_substitute: withSubstituteFlag }] }));
       setTempPlayerName('');
     }
   };
@@ -414,6 +456,7 @@ function AdminDashboard() {
                       setNewTeam((prev) => ({
                         ...prev,
                         sport_id: sportId,
+                        category: racketSports.includes(sportId) ? 'Mens Singles' : '',
                         squad: sportId === 'football' ? createFootballSquad() : [],
                       }));
                       setTempPlayerName('');
@@ -423,7 +466,7 @@ function AdminDashboard() {
                   </select>
                 </div>
                 
-                {!['cricket', 'volleyball', 'badminton', 'table-tennis'].includes(newTeam.sport_id) ? (
+                {!squadSports.includes(newTeam.sport_id) ? (
                   newTeam.sport_id === 'football' ? (
                     <>
                       <div className="input-group">
@@ -474,9 +517,40 @@ function AdminDashboard() {
                       <label className="input-label">Team Name</label>
                       <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
                     </div>
+
+                    {racketSports.includes(newTeam.sport_id) && (
+                      <div className="input-group">
+                        <label className="input-label">Subcategory</label>
+                        <select
+                          className="input-field"
+                          value={newTeam.category || 'Mens Singles'}
+                          onChange={(e) => {
+                            const nextCategory = e.target.value;
+                            const nextLimit = getRacketCategoryPlayerLimit(nextCategory);
+                            setNewTeam((prev) => ({
+                              ...prev,
+                              category: nextCategory,
+                              squad: (prev.squad || []).slice(0, nextLimit),
+                            }));
+                          }}
+                        >
+                          {racketCategories.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <h4>Team Squad ({newTeam.squad?.length || 0})</h4>
+                      <h4>
+                        Team Squad ({newTeam.squad?.length || 0}
+                        {racketSports.includes(newTeam.sport_id) ? ` / ${getRacketCategoryPlayerLimit(newTeam.category)}` : ''})
+                      </h4>
+                      {racketSports.includes(newTeam.sport_id) && (
+                        <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                          {newTeam.category || 'Mens Singles'} requires exactly {getRacketCategoryPlayerLimit(newTeam.category)} player{getRacketCategoryPlayerLimit(newTeam.category) > 1 ? 's' : ''} per team.
+                        </p>
+                      )}
                       <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0', fontSize: '0.85rem' }}>
                         {newTeam.squad?.map((p, i) => (
                           <li key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -488,11 +562,31 @@ function AdminDashboard() {
                           </li>
                         ))}
                       </ul>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                        <input type="text" className="input-field" style={{ flex: 1, padding: '0.5rem' }} placeholder="Player Name" value={tempPlayerName} onChange={e => setTempPlayerName(e.target.value)} />
-                        <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(false)}>Add Player</button>
-                        <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(true)}>Add Sub</button>
-                      </div>
+                      {(!racketSports.includes(newTeam.sport_id) || (newTeam.squad?.length || 0) < getRacketCategoryPlayerLimit(newTeam.category)) ? (
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          <input
+                            type="text"
+                            className="input-field"
+                            style={{ flex: 1, padding: '0.5rem' }}
+                            placeholder="Player Name"
+                            value={tempPlayerName}
+                            onChange={e => setTempPlayerName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                              }
+                            }}
+                          />
+                          <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(false)}>Add Player</button>
+                          {allowSubstituteSports.includes(newTeam.sport_id) && (
+                            <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(true)}>Add Sub</button>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                          Player limit reached for {newTeam.category}.
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -503,22 +597,76 @@ function AdminDashboard() {
           </div>
 
           <h2>All Teams</h2>
+          <div className="card" style={{ marginTop: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Filter by Sport</label>
+                <select
+                  className="input-field"
+                  value={teamSportFilter}
+                  onChange={(e) => {
+                    const nextSport = e.target.value;
+                    setTeamSportFilter(nextSport);
+                    if (!racketSports.includes(nextSport)) {
+                      setTeamCategoryFilter('');
+                    }
+                  }}
+                  style={{ maxWidth: '260px' }}
+                >
+                  <option value="">All</option>
+                  {sportsEnum.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Filter by Category</label>
+                <select
+                  className="input-field"
+                  value={teamCategoryFilter}
+                  onChange={(e) => setTeamCategoryFilter(e.target.value)}
+                  disabled={teamSportFilter !== '' && !racketSports.includes(teamSportFilter)}
+                  style={{ maxWidth: '260px' }}
+                >
+                  <option value="">All</option>
+                  {racketCategories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="btn-outline btn-sm"
+                onClick={() => {
+                  setTeamSportFilter('');
+                  setTeamCategoryFilter('');
+                }}
+                style={{ height: 'fit-content' }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
           <div className="card" style={{ marginTop: '1rem', overflowX: 'auto' }}>
             <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                   <th style={{ padding: '1rem' }}>Team</th>
                   <th style={{ padding: '1rem' }}>Sport</th>
+                  <th style={{ padding: '1rem' }}>Category</th>
                   <th style={{ padding: '1rem' }}>Points</th>
                   <th style={{ padding: '1rem' }}>Status</th>
                   <th style={{ padding: '1rem' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {teams.map(t => (
+                {filteredTeams.map(t => (
                   <tr key={t.id} style={{ borderBottom: '1px solid var(--color-border)', opacity: t.is_disqualified ? 0.6 : 1 }}>
                     <td style={{ padding: '1rem', fontWeight: 'bold' }}>{t.name}</td>
                     <td style={{ padding: '1rem', textTransform: 'capitalize' }}>{t.sport_id.replace('-', ' ')}</td>
+                    <td style={{ padding: '1rem' }}>{t.category || '-'}</td>
                     <td style={{ padding: '1rem' }}>{t.points}</td>
                     <td style={{ padding: '1rem' }}>
                       {t.is_disqualified ? (
