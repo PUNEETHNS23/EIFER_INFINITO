@@ -1,7 +1,8 @@
 services:
   - type: web
-    name: placeholdername
+    name: eifer-backend
     runtime: docker
+    region: singapore
     plan: free
     dockerfilePath: ./backend/Dockerfile
     autoDeploy: true
