@@ -232,6 +232,36 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
         if len(set(player_names)) != 11:
             raise HTTPException(status_code=400, detail="Football player names must be unique.")
         team.squad = normalized_squad
+        
+    if team.sport_id == "chess":
+        category = (team.category or "").strip()
+        if category not in {"Rapid", "Blitz", "Hand & Brain"}:
+            raise HTTPException(status_code=400, detail="Chess teams require a valid category.")
+        team.category = category
+
+        squad = team.squad or []
+        normalized_squad = []
+        for player in squad:
+            if player.get("is_substitute"):
+                raise HTTPException(status_code=400, detail="Substitutes are not allowed in chess.")
+            normalized_player = dict(player)
+            normalized_player["name"] = (player.get("name") or "").strip()
+            normalized_squad.append(normalized_player)
+            
+        player_names = [p.get("name") or "" for p in normalized_squad]
+        if any(not name for name in player_names):
+            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
+        if len(set(player_names)) != len(player_names):
+            raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
+            
+        required_count = {"Rapid": 4, "Hand & Brain": 2}.get(category, 1)
+        if len(player_names) != required_count:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Chess {category} requires exactly {required_count} player(s) per team.",
+            )
+        team.squad = normalized_squad
+        
     db_team = models.Team(**team.model_dump())
     db.add(db_team)
     db.commit()
@@ -366,7 +396,7 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
     if not detail:
         detail = scoring.default_score_detail(data["sport_id"])
 
-    if data["sport_id"] in {"badminton", "table-tennis", "kho-kho"}:
+    if data["sport_id"] in {"badminton", "table-tennis", "kho-kho", "chess"}:
         raw_category = detail.get("category") if isinstance(detail, dict) else None
         category = raw_category.strip() if isinstance(raw_category, str) else raw_category
         team1_category = (team1.category or "").strip() if isinstance(team1.category, str) else team1.category

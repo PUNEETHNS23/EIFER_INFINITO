@@ -4,6 +4,7 @@ export const CATEGORY_SPORTS = {
   'badminton': ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'],
   'table-tennis': ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'],
   'kho-kho': ['Boys', 'Girls'],
+  'chess': ['Rapid', 'Blitz', 'Hand & Brain'],
 };
 
 export function getSportCategories(sportId) {
@@ -52,7 +53,7 @@ export function defaultScoreDetail(sportId) {
     },
     carrom: { points_t1: 0, points_t2: 0, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' } },
     'kho-kho': { winner: null, minutes: 0, seconds: 0, category: 'Boys' },
-    chess: { winner: 'draw' },
+    chess: { winner: 'draw', category: 'Rapid' },
     athletics: { time_t1_sec: 0, time_t2_sec: 0 },
     'weight-lifting': { kg_t1: 0, kg_t2: 0 },
     badminton: {

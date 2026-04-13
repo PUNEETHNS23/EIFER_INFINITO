@@ -35,12 +35,13 @@ function AdminDashboard() {
   const teamsRefreshTimeoutRef = useRef(null);
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
-  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho'];
+  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho', 'chess'];
   const allowSubstituteSports = ['volleyball', 'kho-kho'];
   const racketSports = ['badminton', 'table-tennis'];
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   
   const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
+  const getChessCategoryPlayerLimit = (category) => category === 'Rapid' ? 4 : (category === 'Hand & Brain' ? 2 : 1);
 
   const getLocalDateKey = (dateValue) => {
     if (!dateValue) return '';
@@ -177,6 +178,19 @@ function AdminDashboard() {
       }
     }
 
+    if (newTeam.sport_id === 'chess') {
+      const players = (newTeam.squad || []).filter(p => !p.is_substitute).map((p) => (p.name || '').trim()).filter(Boolean);
+      const limit = getChessCategoryPlayerLimit(newTeam.category);
+      if (players.length !== limit) {
+        alert(`Chess ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
+        return;
+      }
+      if (new Set(players).size !== players.length) {
+        alert('Player names must be unique within the team squad.');
+        return;
+      }
+    }
+
     try {
       await api.post('/teams', {
         name: newTeam.name,
@@ -198,6 +212,15 @@ function AdminDashboard() {
         const currentCount = (newTeam.squad || []).length;
         if (currentCount >= limit) {
           alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for ${newTeam.category || 'this category'}. Remove a player to add another.`);
+          return;
+        }
+      }
+
+      if (newTeam.sport_id === 'chess') {
+        const limit = getChessCategoryPlayerLimit(newTeam.category);
+        const currentCount = (newTeam.squad || []).length;
+        if (currentCount >= limit) {
+          alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for Chess - ${newTeam.category || 'this category'}. Remove a player to add another.`);
           return;
         }
       }
@@ -557,7 +580,7 @@ function AdminDashboard() {
                           </li>
                         ))}
                       </ul>
-                      {(!racketSports.includes(newTeam.sport_id) || (newTeam.squad?.length || 0) < getRacketCategoryPlayerLimit(newTeam.category)) ? (
+                      {(!racketSports.includes(newTeam.sport_id) && newTeam.sport_id !== 'chess') || (newTeam.sport_id === 'chess' && (newTeam.squad?.length || 0) < getChessCategoryPlayerLimit(newTeam.category)) || (racketSports.includes(newTeam.sport_id) && (newTeam.squad?.length || 0) < getRacketCategoryPlayerLimit(newTeam.category)) ? (
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                           <input
                             type="text"
