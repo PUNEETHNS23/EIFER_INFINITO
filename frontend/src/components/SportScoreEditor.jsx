@@ -346,24 +346,28 @@ export default function SportScoreEditor({ match, onSaved }) {
       );
       break;
     case 'kho-kho':
-      form = (
+      form = status === 'completed' ? (
         <div className="sbe-grid">
-          <Num label={`${team1} points`} value={detail.points_t1} onChange={(v) => patch({ points_t1: v })} />
-          <Num label={`${team2} points`} value={detail.points_t2} onChange={(v) => patch({ points_t2: v })} />
-          {status === 'completed' && (
-            <>
-              <label className="sbe-field">
-                <span>Winner</span>
-                <select className="input-field" value={detail.winner || ''} onChange={(e) => patch({ winner: e.target.value })}>
-                  <option value="">Select Winner</option>
-                  <option value="t1">{team1}</option>
-                  <option value="t2">{team2}</option>
-                  <option value="draw">Draw</option>
-                </select>
-              </label>
-              <Txt label="Time Taken (e.g. 15:40)" value={detail.duration} onChange={(v) => patch({ duration: v })} placeholder="MM:SS" />
-            </>
-          )}
+          <div className="sbe-field" style={{ gridColumn: '1 / -1' }}>
+            <span>Winner</span>
+            <select className="input-field" value={detail.winner || ''} onChange={(e) => patch({ winner: e.target.value })}>
+              <option value="">Select Winner...</option>
+              <option value="draw">Draw</option>
+              <option value="t1">{team1} wins</option>
+              <option value="t2">{team2} wins</option>
+            </select>
+          </div>
+          <Num label="Final Time (Minutes)" value={detail.minutes} onChange={(v) => patch({ minutes: v })} />
+          <Num label="Final Time (Seconds)" value={detail.seconds} onChange={(v) => patch({ seconds: v })} />
+        </div>
+      ) : (
+        <div className="sbe-grid">
+          <div className="sbe-field" style={{ gridColumn: '1 / -1' }}>
+            <span>Final result entry</span>
+            <p style={{ margin: '0.5rem 0 0', color: 'var(--color-text-muted)' }}>
+              Keep this match upcoming or live while it is in progress. Switch it to completed to enter the final winner and time.
+            </p>
+          </div>
         </div>
       );
       break;

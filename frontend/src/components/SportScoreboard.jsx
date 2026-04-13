@@ -450,10 +450,47 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
           )}
         </div>
       );
-    case 'kho-kho':
+    case 'kho-kho': {
+      const isCompleted = match.status === 'completed';
+      const w = (d.winner || '').toLowerCase();
+      const winnerName = w === 't1' ? team1 : (w === 't2' ? team2 : (w === 'draw' ? 'Draw' : 'TBD'));
+      
       return wrap(
-        <Row labelL={team1} labelR={team2} valL={d.points_t1 ?? 0} valR={d.points_t2 ?? 0} sub="POINTS" />
+        <div className="sb-carrom sb-tugwar-card">
+          <div className="sb-carrom-header">
+            <span className={`sb-carrom-status ${isCompleted ? 'final' : ''}`}>
+              {isCompleted ? 'FULL TIME' : (match.status === 'live' ? 'LIVE' : 'SCHEDULED')}
+            </span>
+            <span className="sb-carrom-sub">
+              {isCompleted ? (`Time: ${d.minutes || 0} min ${d.seconds || 0} sec`) : 'Result will be published after completion'}
+            </span>
+          </div>
+          {isCompleted ? (
+            <div className="sb-carrom-final-grid" style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="sb-carrom-side left" style={{ flex: 1, textAlign: 'left', padding: '1rem' }}>
+                <div className="sb-name">{team1}</div>
+                <div className="sb-carrom-vs" style={{ margin: '0.5rem 0' }}>VS</div>
+                <div className="sb-name">{team2}</div>
+              </div>
+              <div className="sb-carrom-middle" style={{ flex: 1, padding: '1rem', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                <div className="sb-carrom-winner-label">Winner</div>
+                <div className="sb-carrom-winner">{winnerName}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="sb-carrom-dim">
+              <div>
+                <div className="sb-name">{team1}</div>
+              </div>
+              <div className="sb-carrom-vs">VS</div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="sb-name">{team2}</div>
+              </div>
+            </div>
+          )}
+        </div>
       );
+    }
     case 'chess': {
       const w = (d.winner || 'draw').toLowerCase();
       const isTeam1Winner = w === 't1';

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
-import { SPORTS, getSportMeta } from '../sports/sportsConfig';
+import { SPORTS, getSportMeta, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';
 import SportScoreEditor from '../components/SportScoreEditor';
 
 function AdminSportScore() {
@@ -17,12 +17,12 @@ function AdminSportScore() {
 
   const meta = getSportMeta(sportId);
   const valid = SPORTS.some((s) => s.id === sportId);
-  const isRacketSport = sportId === 'badminton' || sportId === 'table-tennis';
-  const racketCategories = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
+  const categorizedSports = Object.keys(CATEGORY_SPORTS);
+  const isCategorizedSport = categorizedSports.includes(sportId);
 
   const normalizeCategory = (value) => (typeof value === 'string' ? value.trim() : '');
 
-  const filteredMatches = isRacketSport && categoryFilter !== 'all'
+  const filteredMatches = isCategorizedSport && categoryFilter !== 'all'
     ? matches.filter((m) => normalizeCategory(m?.score_detail?.category) === categoryFilter)
     : matches;
 
@@ -79,7 +79,7 @@ function AdminSportScore() {
         <p className="hero-subtitle" style={{ marginTop: '0.5rem' }}>
           Updates use sport-specific rules. Saving recalculates leaderboard points when status is completed.
         </p>
-        {isRacketSport && (
+        {isCategorizedSport && (
           <div className="input-group" style={{ maxWidth: '320px', marginTop: '1rem', marginBottom: 0 }}>
             <label className="input-label" style={{ fontSize: '0.95rem', marginBottom: '0.35rem' }}>Filter by Subcategory</label>
             <select
@@ -88,7 +88,7 @@ function AdminSportScore() {
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
               <option value="all">All Subcategories</option>
-              {racketCategories.map((category) => (
+              {getSportCategories(sportId).map((category) => (
                 <option key={category} value={category}>{category}</option>
               ))}
             </select>

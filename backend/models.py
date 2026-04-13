@@ -35,7 +35,6 @@ class Match(Base):
     score_t2 = Column(Integer, default=0)
     score_detail = Column(JSON, nullable=True)
     status = Column(String, default="upcoming") # upcoming, live, completed
-    venue = Column(String, nullable=True)
     scheduled_time = Column(DateTime, default=datetime.datetime.utcnow)
 
     team1 = relationship("Team", foreign_keys=[team1_id])

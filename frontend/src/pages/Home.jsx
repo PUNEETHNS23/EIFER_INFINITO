@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import SportScoreboard from '../components/SportScoreboard';
-import { SPORTS } from '../sports/sportsConfig';
+import { SPORTS, CATEGORY_SPORTS } from '../sports/sportsConfig';
 import { useMatchSocket } from '../hooks/useMatchSocket';
 import './Home.css';
 
@@ -10,8 +10,8 @@ function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
 
-  const getRacketSubcategory = (match) => {
-    if (!['badminton', 'table-tennis'].includes(match.sport_id)) {
+  const getSubcategory = (match) => {
+    if (!Object.keys(CATEGORY_SPORTS).includes(match.sport_id)) {
       return '';
     }
     const raw = match?.score_detail?.category;
@@ -22,7 +22,7 @@ function Home() {
     ['cricket', 'volleyball'].includes(match.sport_id)
       ? `/match/${match.id}`
       : (() => {
-          const subcategory = getRacketSubcategory(match);
+          const subcategory = getSubcategory(match);
           return subcategory
             ? `/sport/${match.sport_id}?subcategory=${encodeURIComponent(subcategory)}`
             : `/sport/${match.sport_id}`;
@@ -157,8 +157,8 @@ function Home() {
                   <span className="match-badge live-badge"><span className="live-dot"></span>LIVE</span>
                   <div className="match-sport-meta">
                     <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
-                    {getRacketSubcategory(match) && (
-                      <span className="match-subcategory-tag">{getRacketSubcategory(match)}</span>
+                    {getSubcategory(match) && (
+                      <span className="match-subcategory-tag">{getSubcategory(match)}</span>
                     )}
                   </div>
                 </div>
@@ -215,7 +215,12 @@ function Home() {
               <div key={match.id} className="upcoming-card">
                 <div className="upcoming-card-top">
                   <span className="match-badge upcoming-badge">UPCOMING</span>
-                  <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
+                  <div className="match-sport-meta">
+                    <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
+                    {getSubcategory(match) && (
+                      <span className="match-subcategory-tag">{getSubcategory(match)}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="upcoming-teams">
                   <span>{match.team1}</span>

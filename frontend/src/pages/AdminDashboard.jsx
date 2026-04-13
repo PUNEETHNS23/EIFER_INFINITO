@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
-import { SPORTS } from '../sports/sportsConfig';
+import { SPORTS, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';
 import { useMatchSocket } from '../hooks/useMatchSocket';
 import './AdminDashboard.css';
 
@@ -38,17 +38,8 @@ function AdminDashboard() {
   const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho'];
   const allowSubstituteSports = ['volleyball', 'kho-kho'];
   const racketSports = ['badminton', 'table-tennis'];
-  const racketCategories = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
-  const khoKhoCategories = ['Boys Kho Kho', 'Girls Kho Kho'];
-
-  const getSportCategories = (sport) => {
-    if (racketSports.includes(sport)) return racketCategories;
-    if (sport === 'kho-kho') return khoKhoCategories;
-    return [];
-  };
-
-  const hasSubcategories = (sport) => getSportCategories(sport).length > 0;
-
+  const categorizedSports = Object.keys(CATEGORY_SPORTS);
+  
   const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
 
   const getLocalDateKey = (dateValue) => {
@@ -152,11 +143,11 @@ function AdminDashboard() {
       const players = (newTeam.squad || []).filter(p => !p.is_substitute);
       const subs = (newTeam.squad || []).filter(p => p.is_substitute);
       if (players.length !== 9) {
-        alert(`A Kho-Kho team must have exactly 9 main players. Currently you have ${players.length}.`);
+        alert(`A kho-kho team must have exactly 9 main players. Currently you have ${players.length}.`);
         return;
       }
       if (subs.length !== 3) {
-        alert(`A Kho-Kho team must have exactly 3 substitutes. Currently you have ${subs.length}.`);
+        alert(`A kho-kho team must have exactly 3 substitutes. Currently you have ${subs.length}.`);
         return;
       }
     }
@@ -207,14 +198,6 @@ function AdminDashboard() {
         const currentCount = (newTeam.squad || []).length;
         if (currentCount >= limit) {
           alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for ${newTeam.category || 'this category'}. Remove a player to add another.`);
-          return;
-        }
-      }
-
-      if (newTeam.sport_id === 'kho-kho') {
-        const currentCount = (newTeam.squad || []).length;
-        if (currentCount >= 12) {
-          alert('A Kho-Kho team consists of maximum 12 members (9 players + 3 substitutes).');
           return;
         }
       }
@@ -467,7 +450,7 @@ function AdminDashboard() {
                       setNewTeam((prev) => ({
                         ...prev,
                         sport_id: sportId,
-                        category: racketSports.includes(sportId) ? 'Mens Singles' : '',
+                        category: categorizedSports.includes(sportId) ? getSportCategories(sportId)[0] : '',
                         squad: sportId === 'football' ? createFootballSquad() : [],
                       }));
                       setTempPlayerName('');
@@ -529,7 +512,7 @@ function AdminDashboard() {
                       <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
                     </div>
 
-                    {hasSubcategories(newTeam.sport_id) && (
+                    {categorizedSports.includes(newTeam.sport_id) && (
                       <div className="input-group">
                         <label className="input-label">Subcategory</label>
                         <select
@@ -538,12 +521,11 @@ function AdminDashboard() {
                           onChange={(e) => {
                             const nextCategory = e.target.value;
                             setNewTeam((prev) => {
-                              const nextState = { ...prev, category: nextCategory };
+                              const update = { ...prev, category: nextCategory };
                               if (racketSports.includes(prev.sport_id)) {
-                                const nextLimit = getRacketCategoryPlayerLimit(nextCategory);
-                                nextState.squad = (prev.squad || []).slice(0, nextLimit);
+                                update.squad = (prev.squad || []).slice(0, getRacketCategoryPlayerLimit(nextCategory));
                               }
-                              return nextState;
+                              return update;
                             });
                           }}
                         >
@@ -620,7 +602,7 @@ function AdminDashboard() {
                   onChange={(e) => {
                     const nextSport = e.target.value;
                     setTeamSportFilter(nextSport);
-                    if (!racketSports.includes(nextSport)) {
+                    if (!categorizedSports.includes(nextSport)) {
                       setTeamCategoryFilter('');
                     }
                   }}
@@ -639,11 +621,11 @@ function AdminDashboard() {
                   className="input-field"
                   value={teamCategoryFilter}
                   onChange={(e) => setTeamCategoryFilter(e.target.value)}
-                  disabled={teamSportFilter !== '' && !racketSports.includes(teamSportFilter)}
+                  disabled={teamSportFilter !== '' && !categorizedSports.includes(teamSportFilter)}
                   style={{ minWidth: '200px' }}
                 >
                   <option value="">All</option>
-                  {racketCategories.map((cat) => (
+                  {(teamSportFilter && categorizedSports.includes(teamSportFilter) ? getSportCategories(teamSportFilter) : getSportCategories('badminton')).map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>

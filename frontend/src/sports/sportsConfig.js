@@ -1,5 +1,15 @@
 /** Single source for sport list + default score payloads (kept in sync with backend/scoring.py). */
 
+export const CATEGORY_SPORTS = {
+  'badminton': ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'],
+  'table-tennis': ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'],
+  'kho-kho': ['Boys', 'Girls'],
+};
+
+export function getSportCategories(sportId) {
+  return CATEGORY_SPORTS[sportId] || [];
+}
+
 export const SPORTS = [
   { id: 'athletics', name: 'Athletics', icon: '🏃', theme: 'track' },
   { id: 'cricket', name: 'Cricket', icon: '🏏', theme: 'pitch', requiresToss: true },
@@ -41,7 +51,7 @@ export function defaultScoreDetail(sportId) {
       team1_logo: '', team2_logo: '',
     },
     carrom: { points_t1: 0, points_t2: 0, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' } },
-    'kho-kho': { points_t1: 0, points_t2: 0, category: 'Boys Kho Kho' },
+    'kho-kho': { winner: null, minutes: 0, seconds: 0, category: 'Boys' },
     chess: { winner: 'draw' },
     athletics: { time_t1_sec: 0, time_t2_sec: 0 },
     'weight-lifting': { kg_t1: 0, kg_t2: 0 },
@@ -84,7 +94,7 @@ export function hydrateScoreDetail(sportId, match) {
       runs_t2: t2,
     },
     carrom: { points_t1: t1, points_t2: t2, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' } },
-    'kho-kho': { points_t1: t1, points_t2: t2 },
+    'kho-kho': { ...defaultScoreDetail('kho-kho') },
     chess: { winner: t1 === t2 ? 'draw' : t1 > t2 ? 't1' : 't2' },
     athletics: { time_t1_sec: t1 || 0, time_t2_sec: t2 || 0 },
     'weight-lifting': { kg_t1: t1, kg_t2: t2 },

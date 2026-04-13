@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
-import { getSportMeta } from '../sports/sportsConfig';
+import { getSportMeta, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';
 import SportScoreboard from '../components/SportScoreboard';
 import { useMatchSocket } from '../hooks/useMatchSocket';
 import './SportDetails.css';
@@ -14,12 +14,11 @@ function SportDetails() {
   const [activeTab, setActiveTab] = useState('matches');
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  const racketSports = ['badminton', 'table-tennis'];
-  const racketCategories = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
-  const isRacketSport = racketSports.includes(id);
+  const categorizedSports = Object.keys(CATEGORY_SPORTS);
+  const isCategorizedSport = categorizedSports.includes(id);
 
   const normalizeCategory = (value) => (typeof value === 'string' ? value.trim() : '');
-  const initialCategory = isRacketSport ? normalizeCategory(searchParams.get('subcategory')) : '';
+  const initialCategory = isCategorizedSport ? normalizeCategory(searchParams.get('subcategory')) : '';
 
   const getMatchRoute = (match) => (
     ['cricket', 'volleyball', 'football'].includes(match.sport_id)
@@ -68,16 +67,16 @@ function SportDetails() {
   });
 
   const meta = getSportMeta(id);
-  const filteredMatches = isRacketSport
+  const filteredMatches = isCategorizedSport
     ? (selectedCategory
         ? matches.filter((match) => normalizeCategory(match?.score_detail?.category) === selectedCategory)
-        : [])
+        : matches)
     : matches;
 
-  const filteredTeams = isRacketSport
+  const filteredTeams = isCategorizedSport
     ? (selectedCategory
         ? teams.filter((team) => normalizeCategory(team?.category) === selectedCategory)
-        : [])
+        : teams)
     : teams;
 
   return (
@@ -87,11 +86,17 @@ function SportDetails() {
         <h1 className="sd-hero-title">{meta.name}</h1>
       </div>
 
-      {isRacketSport && (
+      {isCategorizedSport && (
         <div className="sd-category-selector">
           <h3 className="sd-category-title">Select Subcategory</h3>
           <div className="sd-category-options">
-            {racketCategories.map((category) => (
+            <button
+              className={`sd-category-btn ${selectedCategory === '' ? 'active' : ''}`}
+              onClick={() => setSelectedCategory('')}
+            >
+              All Categories
+            </button>
+            {getSportCategories(id).map((category) => (
               <button
                 key={category}
                 className={`sd-category-btn ${selectedCategory === category ? 'active' : ''}`}
@@ -121,9 +126,7 @@ function SportDetails() {
 
       {activeTab === 'matches' && (
         <div className="live-matches-grid">
-          {isRacketSport && !selectedCategory && (
-            <div className="empty-state-premium">Select a subcategory to view matches.</div>
-          )}
+
 
           {filteredMatches.map((match) => {
             const team1Data = teams.find((team) => team.id === match.team1_id) || null;
@@ -136,7 +139,7 @@ function SportDetails() {
                   </span>
                   <span>{new Date(match.scheduled_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
-                {isRacketSport && (
+                {isCategorizedSport && (
                   <div className="sd-match-category-chip">{normalizeCategory(match?.score_detail?.category) || selectedCategory}</div>
                 )}
                 <SportScoreboard match={match} compact team1Data={team1Data} team2Data={team2Data} />
@@ -151,8 +154,11 @@ function SportDetails() {
               </div>
             );
           })}
-          {selectedCategory && filteredMatches.length === 0 && <div className="empty-state-premium">No matches scheduled for {meta.name} - {selectedCategory} yet.</div>}
-          {!isRacketSport && matches.length === 0 && <div className="empty-state-premium">No matches scheduled for {meta.name} yet.</div>}
+          {filteredMatches.length === 0 && (
+            <div className="empty-state-premium">
+              No matches scheduled for {meta.name} {selectedCategory ? `- ${selectedCategory}` : ''} yet.
+            </div>
+          )}
         </div>
       )}
 
@@ -175,9 +181,13 @@ function SportDetails() {
                   <td><span className="sd-points-badge">{team.points}</span></td>
                 </tr>
               ))}
-              {isRacketSport && !selectedCategory && <tr><td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>Select a subcategory to view teams.</td></tr>}
-              {selectedCategory && filteredTeams.length === 0 && <tr><td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>No teams registered for {meta.name} - {selectedCategory}.</td></tr>}
-              {!isRacketSport && teams.length === 0 && <tr><td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>No teams registered for {meta.name}.</td></tr>}
+              {filteredTeams.length === 0 && (
+                <tr>
+                  <td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>
+                    No teams registered for {meta.name} {selectedCategory ? `- ${selectedCategory}` : ''}.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
