@@ -164,7 +164,18 @@ function Roster({ team, teamName, roster, teamData, dispatch }) {
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
 ═══════════════════════════════════════════════════════════ */
-export default function LiveVolleyballScorer({ detail, patch, team1, team2, team1Data, team2Data, serveIcon = '🏐', allowSetCountConfig = false }) {
+export default function LiveVolleyballScorer({
+  detail,
+  patch,
+  team1,
+  team2,
+  team1Data,
+  team2Data,
+  serveIcon = '🏐',
+  allowSetCountConfig = false,
+  initialSetTarget = 25,
+  showResetOnComplete = true,
+}) {
   const [state, dispatch] = useReducer(reducer, null, () =>
     initState(detail, team1, team2)
   );
@@ -172,7 +183,10 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
   const [targetInput, setTargetInput] = React.useState(() => {
     const currentSet = Number(detail?.currentSet || 1);
     const configuredTarget = Number(detail?.setTargets?.[currentSet] ?? detail?.setTargets?.[1]);
-    return Number.isFinite(configuredTarget) && configuredTarget > 0 ? configuredTarget : 25;
+    const fallbackTarget = Number(initialSetTarget);
+    return Number.isFinite(configuredTarget) && configuredTarget > 0
+      ? configuredTarget
+      : (Number.isFinite(fallbackTarget) && fallbackTarget > 0 ? fallbackTarget : 25);
   });
   const [setOption, setSetOption] = React.useState(() => {
     const maxSets = Number(detail?.max_sets || 5);
@@ -297,8 +311,13 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
     const fallbackTarget = Number(state.setTargets[1]);
     if (Number.isFinite(fallbackTarget) && fallbackTarget > 0) {
       setTargetInput(fallbackTarget);
+      return;
     }
-  }, [state.currentSet, state.setTargets, tgt]);
+    const configuredDefault = Number(initialSetTarget);
+    if (Number.isFinite(configuredDefault) && configuredDefault > 0) {
+      setTargetInput(configuredDefault);
+    }
+  }, [state.currentSet, state.setTargets, tgt, initialSetTarget]);
 
   let deuceLabel = '';
   if (tgt && state.status === 'live' && state.pointsA >= tgt - 1 && state.pointsB >= tgt - 1) {
@@ -517,13 +536,15 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
             </div>
             <div className="lvb-win-sets">{state.sets_t1} – {state.sets_t2} sets</div>
           </div>
-          <button
-            type="button"
-            className="lvb-btn-reset"
-            onClick={() => dispatch({ type: 'RESET' })}
-          >
-            🔄 NEW MATCH
-          </button>
+          {showResetOnComplete && (
+            <button
+              type="button"
+              className="lvb-btn-reset"
+              onClick={() => dispatch({ type: 'RESET' })}
+            >
+              🔄 NEW MATCH
+            </button>
+          )}
         </div>
       )}
     </>
