@@ -31,8 +31,11 @@ function racketToVolleyballDetail(detail, sid) {
   const rosterA = isDoubles ? [d.p1_name || '', d.p1_partner || ''] : [d.p1_name || ''];
   const rosterB = isDoubles ? [d.p2_name || '', d.p2_partner || ''] : [d.p2_name || ''];
 
+  const customSets = Number(d.custom_sets || 0);
+  const maxSetsFromFormat = d.match_format === 'Best of 5' ? 5 : d.match_format === '1 Game' ? 1 : d.match_format === 'Custom' ? customSets : 3;
+
   return {
-    max_sets: d.match_format === 'Best of 5' ? 5 : d.match_format === '1 Game' ? 1 : 3,
+    max_sets: maxSetsFromFormat > 0 ? maxSetsFromFormat : 3,
     sets_t1: Number(d.games_t1 || 0),
     sets_t2: Number(d.games_t2 || 0),
     setsA: Number(d.games_t1 || 0),
@@ -70,7 +73,22 @@ function volleyballPatchToRacket(prevDetail, partial, sid) {
   if (partial.status != null) next.status = partial.status;
   if (partial.winner != null) next.winner = partial.winner;
   if (partial.history != null) next.history = partial.history;
-  if (partial.max_sets != null) next.match_format = Number(partial.max_sets) === 5 ? 'Best of 5' : Number(partial.max_sets) === 1 ? '1 Game' : 'Best of 3';
+  if (partial.max_sets != null) {
+    const maxSets = Number(partial.max_sets);
+    if (maxSets === 5) {
+      next.match_format = 'Best of 5';
+      next.custom_sets = null;
+    } else if (maxSets === 1) {
+      next.match_format = '1 Game';
+      next.custom_sets = null;
+    } else if (maxSets === 3) {
+      next.match_format = 'Best of 3';
+      next.custom_sets = null;
+    } else {
+      next.match_format = 'Custom';
+      next.custom_sets = Math.max(1, maxSets);
+    }
+  }
 
   if (Array.isArray(partial.rosterA) && partial.rosterA.length > 0) {
     next.p1_name = partial.rosterA[0] || next.p1_name || '';
@@ -376,6 +394,7 @@ export default function SportScoreEditor({ match, onSaved }) {
           team1Data={team1Data}
           team2Data={team2Data}
           serveIcon={sid === 'badminton' ? '🏸' : '🏓'}
+          allowSetCountConfig
         />
       );
       break;

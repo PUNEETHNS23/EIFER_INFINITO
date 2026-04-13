@@ -105,6 +105,14 @@ function reducer(state, action) {
       return initState(action.detail, action.teamA, action.teamB);
     case 'SET_TARGET':
       return { ...state, setTargets: { ...state.setTargets, [state.currentSet]: action.target } };
+    case 'SET_MAX_SETS': {
+      const nextMaxSets = Math.max(1, Number(action.value || 1));
+      return {
+        ...state,
+        maxSets: nextMaxSets,
+        currentSet: Math.min(state.currentSet, nextMaxSets),
+      };
+    }
     case 'UPDATE_ROSTER':
       return { ...state, [action.team === 'A' ? 'rosterA' : 'rosterB']: action.roster };
     default:
@@ -156,7 +164,7 @@ function Roster({ team, teamName, roster, teamData, dispatch }) {
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
 ═══════════════════════════════════════════════════════════ */
-export default function LiveVolleyballScorer({ detail, patch, team1, team2, team1Data, team2Data, serveIcon = '🏐' }) {
+export default function LiveVolleyballScorer({ detail, patch, team1, team2, team1Data, team2Data, serveIcon = '🏐', allowSetCountConfig = false }) {
   const [state, dispatch] = useReducer(reducer, null, () =>
     initState(detail, team1, team2)
   );
@@ -165,6 +173,14 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
     const currentSet = Number(detail?.currentSet || 1);
     const configuredTarget = Number(detail?.setTargets?.[currentSet] ?? detail?.setTargets?.[1]);
     return Number.isFinite(configuredTarget) && configuredTarget > 0 ? configuredTarget : 25;
+  });
+  const [setOption, setSetOption] = React.useState(() => {
+    const maxSets = Number(detail?.max_sets || 5);
+    return [1, 3, 5].includes(maxSets) ? String(maxSets) : 'Custom';
+  });
+  const [customSetCount, setCustomSetCount] = React.useState(() => {
+    const maxSets = Number(detail?.max_sets || 5);
+    return [1, 3, 5].includes(maxSets) ? String(maxSets) : String(Math.max(1, maxSets));
   });
 
   // Auto-initialize rosters to starting 6 if completely empty
@@ -188,6 +204,7 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
 
   useEffect(() => {
     patchUpRef.current({
+      max_sets:    state.maxSets,
       sets_t1:     state.sets_t1,
       sets_t2:     state.sets_t2,
       // full live state stored in detail so we can restore
@@ -206,7 +223,7 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
       rosterA:     state.rosterA,
       rosterB:     state.rosterB,
     });
-  }, [state.sets_t1, state.sets_t2, state.pointsA, state.pointsB,
+  }, [state.maxSets, state.sets_t1, state.sets_t2, state.pointsA, state.pointsB,
       state.currentSet, state.status, state.winner, state.servingTeam, state.history, state.setTargets, state.rosterSize, state.rosterA, state.rosterB]);
 
   /* ── Animations ─────────────────────────────────────── */
@@ -262,6 +279,18 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
 
   /* ── Deuce label ────────────────────────────────────── */
   const tgt = state.setTargets[state.currentSet];
+  const setConfigLocked = state.setHistory.length > 0 || state.pointsA > 0 || state.pointsB > 0 || state.status === 'completed';
+
+  useEffect(() => {
+    const maxSets = Number(state.maxSets || 5);
+    if ([1, 3, 5].includes(maxSets)) {
+      setSetOption(String(maxSets));
+      setCustomSetCount(String(maxSets));
+    } else {
+      setSetOption('Custom');
+      setCustomSetCount(String(Math.max(1, maxSets)));
+    }
+  }, [state.maxSets]);
 
   useEffect(() => {
     if (tgt) return;
@@ -301,6 +330,51 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
 
       {/* ── Toolbar ── */}
       <div className="lvb-toolbar">
+        {allowSetCountConfig && (
+          <div className="lvb-set-config">
+            <label className="lvb-set-config-label">Sets</label>
+            <select
+              className="input-field lvb-set-select"
+              value={setOption}
+              disabled={setConfigLocked}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setSetOption(selected);
+                if (selected === 'Custom') {
+                  const parsedCustom = Math.max(1, Number(customSetCount || 1));
+                  dispatch({ type: 'SET_MAX_SETS', value: parsedCustom });
+                  return;
+                }
+                const parsed = Math.max(1, Number(selected));
+                setCustomSetCount(String(parsed));
+                dispatch({ type: 'SET_MAX_SETS', value: parsed });
+              }}
+            >
+              <option value="1">1 Set</option>
+              <option value="3">Best of 3</option>
+              <option value="5">Best of 5</option>
+              <option value="Custom">Custom</option>
+            </select>
+            {setOption === 'Custom' && (
+              <input
+                type="number"
+                min={1}
+                className="input-field lvb-set-custom-input"
+                value={customSetCount}
+                disabled={setConfigLocked}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setCustomSetCount(raw);
+                  const parsed = Number(raw);
+                  if (Number.isFinite(parsed) && parsed >= 1) {
+                    dispatch({ type: 'SET_MAX_SETS', value: parsed });
+                  }
+                }}
+                placeholder="No. of sets"
+              />
+            )}
+          </div>
+        )}
         <div className="lvb-set-info">
           <span>SET</span>
           <span className="lvb-set-num">{state.currentSet}</span>

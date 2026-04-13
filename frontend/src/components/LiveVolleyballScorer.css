@@ -17,6 +17,59 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+.lvb-set-config {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+}
+
+.lvb-set-config-label {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f3f4f6;
+}
+
+.lvb-set-select,
+.lvb-set-custom-input {
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0.35rem 0.75rem;
+  line-height: 1.25;
+  font-size: 0.92rem;
+  font-family: var(--font-ui);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: #12151c;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.lvb-set-select {
+  min-width: 150px;
+  padding-right: 2rem;
+}
+
+.lvb-set-custom-input {
+  width: 120px;
+}
+
+.lvb-set-select:focus,
+.lvb-set-custom-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(255, 26, 26, 0.2);
+}
+
+.lvb-set-select:disabled,
+.lvb-set-custom-input:disabled {
+  opacity: 0.65;
+}
 .lvb-set-info {
   display: flex;
   align-items: center;
@@ -59,6 +112,17 @@
 @keyframes lvb-blink {
   0%,100% { opacity:1; transform:scale(1); }
   50%      { opacity:0.4; transform:scale(0.6); }
+}
+
+@media (max-width: 700px) {
+  .lvb-set-config {
+    width: 100%;
+  }
+
+  .lvb-set-select {
+    min-width: 0;
+    flex: 1;
+  }
 }
 
 /* ── Sets Row ─────────────────────────────────────────── */
