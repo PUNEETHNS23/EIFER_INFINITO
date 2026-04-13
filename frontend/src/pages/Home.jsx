@@ -21,7 +21,12 @@ function Home() {
   const getMatchDetailsRoute = (match) => (
     ['cricket', 'volleyball'].includes(match.sport_id)
       ? `/match/${match.id}`
-      : `/sport/${match.sport_id}`
+      : (() => {
+          const subcategory = getRacketSubcategory(match);
+          return subcategory
+            ? `/sport/${match.sport_id}?subcategory=${encodeURIComponent(subcategory)}`
+            : `/sport/${match.sport_id}`;
+        })()
   );
 
   useEffect(() => {

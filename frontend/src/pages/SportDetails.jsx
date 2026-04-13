@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { getSportMeta } from '../sports/sportsConfig';
 import SportScoreboard from '../components/SportScoreboard';
@@ -8,6 +8,7 @@ import './SportDetails.css';
 
 function SportDetails() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const [matches, setMatches] = useState([]);
   const [teams, setTeams] = useState([]);
   const [activeTab, setActiveTab] = useState('matches');
@@ -18,6 +19,7 @@ function SportDetails() {
   const isRacketSport = racketSports.includes(id);
 
   const normalizeCategory = (value) => (typeof value === 'string' ? value.trim() : '');
+  const initialCategory = isRacketSport ? normalizeCategory(searchParams.get('subcategory')) : '';
 
   const getMatchRoute = (match) => (
     ['cricket', 'volleyball', 'football'].includes(match.sport_id)
@@ -35,7 +37,7 @@ function SportDetails() {
   };
 
   useEffect(() => {
-    setSelectedCategory('');
+    setSelectedCategory(initialCategory);
 
     const fetchDetails = async () => {
       try {
@@ -48,7 +50,7 @@ function SportDetails() {
       }
     };
     fetchDetails();
-  }, [id]);
+  }, [id, initialCategory]);
 
   useMatchSocket((updatedMatch) => {
     if (updatedMatch.sport_id === id) {
