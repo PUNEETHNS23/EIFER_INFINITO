@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 from dotenv import load_dotenv
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -262,6 +262,31 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
             )
         team.squad = normalized_squad
         
+    if team.sport_id == "weight-lifting":
+        category = (team.category or "").strip()
+        if category not in {"Squat", "Bench Press", "Dead Lift"}:
+            raise HTTPException(status_code=400, detail="Weight-lifting teams require a valid category.")
+        team.category = category
+
+        squad = team.squad or []
+        normalized_squad = []
+        for player in squad:
+            if player.get("is_substitute"):
+                raise HTTPException(status_code=400, detail="Substitutes are not allowed in weight-lifting.")
+            normalized_player = dict(player)
+            normalized_player["name"] = (player.get("name") or "").strip()
+            normalized_squad.append(normalized_player)
+            
+        player_names = [p.get("name") or "" for p in normalized_squad]
+        if any(not name for name in player_names):
+            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
+        if len(set(player_names)) != len(player_names):
+            raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
+            
+        if len(player_names) != 1:
+            raise HTTPException(status_code=400, detail="Weight-lifting requires exactly 1 player per team.")
+        team.squad = normalized_squad
+
     db_team = models.Team(**team.model_dump())
     db.add(db_team)
     db.commit()
@@ -282,10 +307,39 @@ def delete_team(team_id: int, db: Session = Depends(get_db), current_user: str =
             status_code=400,
             detail="Cannot delete team that is linked to existing matches. Delete those matches first.",
         )
-
     db.delete(team)
     db.commit()
     return {"detail": "Team deleted"}
+
+@app.put("/api/teams/{team_id}/results", response_model=schemas.Team)
+def update_team_results(
+    team_id: int,
+    results: dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    team = db.query(models.Team).filter(models.Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    # For powerlifting/weight-lifting, auto-calculate the total
+    if team.sport_id == "weight-lifting":
+        squat = float(results.get("squat") or 0)
+        bench = float(results.get("bench") or 0)
+        deadlift = float(results.get("deadlift") or 0)
+        results["squat"] = squat
+        results["bench"] = bench
+        results["deadlift"] = deadlift
+        results["total"] = squat + bench + deadlift
+        results["is_injured"] = bool(results.get("is_injured", False))
+        results["is_disqualified"] = bool(results.get("is_disqualified", False))
+
+    from sqlalchemy.orm.attributes import flag_modified
+    team.results = results
+    flag_modified(team, "results")
+    db.commit()
+    db.refresh(team)
+    return team
 
 @app.put("/api/teams/{team_id}/disqualify", response_model=schemas.Team)
 def disqualify_team(team_id: int, req: schemas.DisqualifyRequest, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
@@ -396,7 +450,7 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
     if not detail:
         detail = scoring.default_score_detail(data["sport_id"])
 
-    if data["sport_id"] in {"badminton", "table-tennis", "kho-kho", "chess"}:
+    if data["sport_id"] in {"badminton", "table-tennis", "kho-kho", "chess", "weight-lifting"}:
         raw_category = detail.get("category") if isinstance(detail, dict) else None
         category = raw_category.strip() if isinstance(raw_category, str) else raw_category
         team1_category = (team1.category or "").strip() if isinstance(team1.category, str) else team1.category

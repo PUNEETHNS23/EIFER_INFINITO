@@ -11,7 +11,7 @@ function SportDetails() {
   const [searchParams] = useSearchParams();
   const [matches, setMatches] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [activeTab, setActiveTab] = useState('matches');
+  const [activeTab, setActiveTab] = useState(id === 'weight-lifting' ? 'teams' : 'matches');
   const [selectedCategory, setSelectedCategory] = useState('');
 
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
@@ -110,17 +110,19 @@ function SportDetails() {
       )}
 
       <div className="sd-tabs">
-        <button 
-          className={`sd-tab-btn ${activeTab === 'matches' ? 'active' : ''}`} 
-          onClick={() => setActiveTab('matches')}
-        >
-          Matches
-        </button>
+        {id !== 'weight-lifting' && (
+          <button 
+            className={`sd-tab-btn ${activeTab === 'matches' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('matches')}
+          >
+            Matches
+          </button>
+        )}
         <button 
           className={`sd-tab-btn ${activeTab === 'teams' ? 'active' : ''}`} 
           onClick={() => setActiveTab('teams')}
         >
-          Teams & Leaderboard
+          {id === 'weight-lifting' ? 'Leaderboard' : 'Teams & Leaderboard'}
         </button>
       </div>
 
@@ -162,36 +164,103 @@ function SportDetails() {
         </div>
       )}
 
-      {activeTab === 'teams' && (
-        <div className="sd-table-card">
-          <table className="sd-table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Team</th>
-                <th>Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* Note: Dummy sorting by points */}
-              {filteredTeams.sort((a, b) => b.points - a.points).map((team, index) => (
-                <tr key={team.id}>
-                  <td className={`sd-rank-${index + 1}`}>{index + 1}</td>
-                  <td className="sd-team-name">{team.name}</td>
-                  <td><span className="sd-points-badge">{team.points}</span></td>
-                </tr>
-              ))}
-              {filteredTeams.length === 0 && (
-                <tr>
-                  <td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>
-                    No teams registered for {meta.name} {selectedCategory ? `- ${selectedCategory}` : ''}.
-                  </td>
-                </tr>
+      {activeTab === 'teams' && (() => {
+        if (id === 'weight-lifting') {
+          const participants = filteredTeams.map(team => {
+            const res = team.results || {};
+            return {
+              ...team,
+              squat: parseFloat(res.squat) || 0,
+              bench: parseFloat(res.bench) || 0,
+              deadlift: parseFloat(res.deadlift) || 0,
+              total: parseFloat(res.total) || 0,
+              is_injured: !!res.is_injured,
+              is_disqualified: !!res.is_disqualified,
+            };
+          }).sort((a, b) => {
+            // DQ'd last, then injured, then by total descending
+            if (a.is_disqualified !== b.is_disqualified) return a.is_disqualified ? 1 : -1;
+            if (a.is_injured !== b.is_injured) return a.is_injured ? 1 : -1;
+            return b.total - a.total;
+          });
+
+          const statusBadge = (p) => {
+            if (p.is_disqualified) return <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#ff4444', background: 'rgba(255,68,68,0.1)', padding: '2px 6px', borderRadius: '4px' }}>DQ'd</span>;
+            if (p.is_injured) return <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '2px 6px', borderRadius: '4px' }}>Injured</span>;
+            return <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Active</span>;
+          };
+
+          return (
+            <div className="sd-table-card">
+              {participants.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                  No participants have been entered yet.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="sd-table" style={{ minWidth: '650px' }}>
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Participant</th>
+                        <th>🟥 Squat</th>
+                        <th>🟦 Bench</th>
+                        <th>⬛ Deadlift</th>
+                        <th style={{ color: '#a78bfa', fontWeight: 700 }}>⚡ Total</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {participants.map((p, index) => (
+                        <tr key={p.id} style={{ opacity: (p.is_injured || p.is_disqualified) ? 0.6 : 1, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <td className={`sd-rank-${Math.min(index + 1, 3)}`}>{index + 1}</td>
+                          <td className="sd-team-name">{p.name}</td>
+                          <td>{p.squat > 0 ? `${p.squat} kg` : '—'}</td>
+                          <td>{p.bench > 0 ? `${p.bench} kg` : '—'}</td>
+                          <td>{p.deadlift > 0 ? `${p.deadlift} kg` : '—'}</td>
+                          <td><span className="sd-points-badge" style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>{p.total > 0 ? `${p.total.toFixed(1)} kg` : '—'}</span></td>
+                          <td>{statusBadge(p)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </div>
+          );
+        }
+
+        // Default leaderboard for other sports
+        return (
+          <div className="sd-table-card">
+            <table className="sd-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Team</th>
+                  <th>Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTeams.sort((a, b) => b.points - a.points).map((team, index) => (
+                  <tr key={team.id}>
+                    <td className={`sd-rank-${index + 1}`}>{index + 1}</td>
+                    <td className="sd-team-name">{team.name}</td>
+                    <td><span className="sd-points-badge">{team.points}</span></td>
+                  </tr>
+                ))}
+                {filteredTeams.length === 0 && (
+                  <tr>
+                    <td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>
+                      No teams registered for {meta.name} {selectedCategory ? `- ${selectedCategory}` : ''}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
     </div>
   );
 }

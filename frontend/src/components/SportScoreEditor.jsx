@@ -397,14 +397,7 @@ export default function SportScoreEditor({ match, onSaved }) {
         </div>
       );
       break;
-    case 'weight-lifting':
-      form = (
-        <div className="sbe-grid">
-          <Num label={`${team1} kg`} value={detail.kg_t1} onChange={(v) => patch({ kg_t1: v })} />
-          <Num label={`${team2} kg`} value={detail.kg_t2} onChange={(v) => patch({ kg_t2: v })} />
-        </div>
-      );
-      break;
+
     case 'badminton':
     case 'table-tennis': {
       const adaptedDetail = racketToVolleyballDetail(detail, sid);

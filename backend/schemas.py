@@ -16,6 +16,7 @@ class Team(TeamBase):
     is_disqualified: bool = False
     disqualification_reason: Optional[str] = None
     squad: Optional[list[dict[str, Any]]] = None
+    results: Optional[dict[str, Any]] = None
     class Config:
         from_attributes = True
 

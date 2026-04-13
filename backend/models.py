@@ -23,6 +23,7 @@ class Team(Base):
     is_disqualified = Column(Boolean, default=False)
     disqualification_reason = Column(String, default=None, nullable=True)
     squad = Column(JSON, nullable=True)
+    results = Column(JSON, nullable=True) # { "max_lift": 0.0, "is_injured": false }
 
 class Match(Base):
     __tablename__ = "matches"

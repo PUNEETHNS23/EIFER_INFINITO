@@ -546,10 +546,13 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
           sub="TIME (SEC) · LOWER WINS"
         />
       );
-    case 'weight-lifting':
+    case 'weight-lifting': {
+      const valL = d.injured_t1 ? 'INJURED' : `${d.kg_t1 ?? 0} kg`;
+      const valR = d.injured_t2 ? 'INJURED' : `${d.kg_t2 ?? 0} kg`;
       return wrap(
-        <Row labelL={team1} labelR={team2} valL={d.kg_t1 ?? 0} valR={d.kg_t2 ?? 0} sub="BEST LIFT (KG)" />
+        <Row labelL={team1} labelR={team2} valL={valL} valR={valR} sub="BEST LIFT" />
       );
+    }
     case 'arm-wrestling':
     case 'tug-of-war':
       if (sportId === 'tug-of-war') {
