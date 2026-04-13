@@ -118,6 +118,19 @@ function Txt({ label, value, onChange, placeholder = '' }) {
   );
 }
 
+function getTugFormat(detail) {
+  const raw = detail?.match_format || 'Best of 3';
+  if (raw === 'Best of 5' || raw === '1 Game' || raw === 'Best of 3') return raw;
+  return 'Custom';
+}
+
+function getTugGamesToWin(detail) {
+  const format = getTugFormat(detail);
+  if (format === 'Best of 5') return 3;
+  if (format === '1 Game') return 1;
+  return 2;
+}
+
 export default function SportScoreEditor({ match, onSaved }) {
   const sid = match.sport_id;
   const [detail, setDetail] = useState(() => hydrateScoreDetail(sid, match));
@@ -170,8 +183,25 @@ export default function SportScoreEditor({ match, onSaved }) {
   }, [detail, sid, match.id, status]);
 
   useEffect(() => {
-    if (!['badminton', 'table-tennis'].includes(sid)) return;
+    if (!['badminton', 'table-tennis', 'tug-of-war'].includes(sid)) return;
     if (manualStatusOverride) return;
+
+    if (sid === 'tug-of-war') {
+      const gamesToWin = getTugGamesToWin(detail);
+      const t1Rounds = Number(detail.rounds_t1 || 0);
+      const t2Rounds = Number(detail.rounds_t2 || 0);
+      const hasWinner = t1Rounds >= gamesToWin || t2Rounds >= gamesToWin;
+
+      if (hasWinner && status !== 'completed') {
+        setStatus('completed');
+        return;
+      }
+
+      if (!hasWinner && status === 'upcoming' && (t1Rounds > 0 || t2Rounds > 0)) {
+        setStatus('live');
+      }
+      return;
+    }
 
     const format = detail.match_format || 'Best of 3';
     const gamesToWin = format === 'Best of 5' ? 3 : format === '1 Game' ? 1 : 2;
@@ -239,6 +269,61 @@ export default function SportScoreEditor({ match, onSaved }) {
       form = <LiveCricketScorer detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} />;
       break;
     case 'carrom':
+      form = (
+        <div className="sbe-grid">
+          {status !== 'completed' && (
+            <>
+              <div className="sbe-field">
+                <span>Match Type</span>
+                <select 
+                  className="input-field" 
+                  value={detail.match_type || 'individuals'} 
+                  onChange={(e) => patch({ match_type: e.target.value })}
+                >
+                  <option value="individuals">Individuals</option>
+                  <option value="teams">Teams (2 players each)</option>
+                </select>
+              </div>
+              <div className="sbe-field">
+                <span>{team1} - Strike Coin Color</span>
+                <select 
+                  className="input-field" 
+                  value={detail.color_assignment?.t1 || 'black'} 
+                  onChange={(e) => patch({ color_assignment: { ...detail.color_assignment, t1: e.target.value } })}
+                >
+                  <option value="black">Black</option>
+                  <option value="white">White</option>
+                </select>
+              </div>
+              <div className="sbe-field">
+                <span>{team2} - Strike Coin Color</span>
+                <select 
+                  className="input-field" 
+                  value={detail.color_assignment?.t2 || 'white'} 
+                  onChange={(e) => patch({ color_assignment: { ...detail.color_assignment, t2: e.target.value } })}
+                >
+                  <option value="black">Black</option>
+                  <option value="white">White</option>
+                </select>
+              </div>
+            </>
+          )}
+          {status === 'completed' ? (
+            <>
+              <Num label={`${team1} final points`} value={detail.points_t1} onChange={(v) => patch({ points_t1: v })} />
+              <Num label={`${team2} final points`} value={detail.points_t2} onChange={(v) => patch({ points_t2: v })} />
+            </>
+          ) : (
+            <div className="sbe-field" style={{ gridColumn: '1 / -1' }}>
+              <span>Final score entry</span>
+              <p style={{ margin: '0.5rem 0 0', color: 'var(--color-text-muted)' }}>
+                Keep this match upcoming or live while it is in progress. Switch it to completed to enter the final scores.
+              </p>
+            </div>
+          )}
+        </div>
+      );
+      break;
     case 'kho-kho':
       form = (
         <div className="sbe-grid">
@@ -293,11 +378,52 @@ export default function SportScoreEditor({ match, onSaved }) {
       break;
     }
     case 'arm-wrestling':
-    case 'tug-of-war':
       form = (
         <div className="sbe-grid">
           <Num label={`${team1} rounds`} value={detail.rounds_t1} onChange={(v) => patch({ rounds_t1: v })} />
           <Num label={`${team2} rounds`} value={detail.rounds_t2} onChange={(v) => patch({ rounds_t2: v })} />
+        </div>
+      );
+      break;
+    case 'tug-of-war':
+      form = (
+        <div className="sbe-grid" style={{ gap: '1rem' }}>
+          <label className="sbe-field" style={{ gridColumn: '1 / -1' }}>
+            <span>Match format</span>
+            <select
+              className="input-field"
+              value={getTugFormat(detail)}
+              onChange={(e) => {
+                const selected = e.target.value;
+                if (selected === 'Custom') {
+                  patch({ match_format: 'Custom', custom_rounds: 1 });
+                  return;
+                }
+                patch({ match_format: selected, custom_rounds: null });
+              }}
+            >
+              <option value="Best of 3">Best of 3</option>
+              <option value="Best of 5">Best of 5</option>
+              <option value="1 Game">Single Game</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </label>
+
+          {getTugFormat(detail) === 'Custom' && (
+            <label className="sbe-field" style={{ gridColumn: '1 / -1' }}>
+              <span>Custom rounds required to win</span>
+              <input
+                type="number"
+                className="input-field"
+                min={1}
+                value={detail.custom_rounds ?? 1}
+                onChange={(e) => patch({ custom_rounds: Number(e.target.value) || 1 })}
+              />
+            </label>
+          )}
+
+          <Num label={`${team1} rounds won`} value={detail.rounds_t1} onChange={(v) => patch({ rounds_t1: v })} />
+          <Num label={`${team2} rounds won`} value={detail.rounds_t2} onChange={(v) => patch({ rounds_t2: v })} />
         </div>
       );
       break;

@@ -125,6 +125,48 @@
 .lfs-event-title {
   font-weight: 700;
   font-size: 0.9rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.lfs-event-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  background: rgba(255, 193, 7, 0.25);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fcd34d;
+  letter-spacing: 0.05em;
+}
+
+.lfs-event-tag--penalty {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+}
+
+.lfs-event-tag--own_goal {
+  background: rgba(167, 139, 250, 0.25);
+  border-color: rgba(167, 139, 250, 0.5);
+  color: #c4b5fd;
+}
+
+.lfs-event-tag--yellow_card {
+  background: rgba(236, 252, 3, 0.25);
+  border-color: rgba(236, 252, 3, 0.5);
+  color: #facc15;
+}
+
+.lfs-event-tag--red_card {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
 }
 
 .lfs-event-sub {

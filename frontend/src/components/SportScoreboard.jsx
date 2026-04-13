@@ -34,10 +34,15 @@ function LegacyBoard({ team1, team2, s1, s2, theme }) {
   );
 }
 
+function getPlayerNames(teamData) {
+  const squad = Array.isArray(teamData?.squad) ? teamData.squad : [];
+  return squad.map((player) => player?.name).filter(Boolean);
+}
+
 /**
  * Public scoreboard for a match (read-only).
  */
-export default function SportScoreboard({ match, compact = false }) {
+export default function SportScoreboard({ match, compact = false, team1Data = null, team2Data = null }) {
   const sportId = match.sport_id;
   const meta = getSportMeta(sportId);
   const d = match.score_detail;
@@ -69,6 +74,16 @@ export default function SportScoreboard({ match, compact = false }) {
       const team2Events = goalEvents.filter((ev) => ev.team === 't2').sort(sortByMinute);
       const goalsT1 = d.goals_t1 ?? 0;
       const goalsT2 = d.goals_t2 ?? 0;
+      const period = d.period || '1st Half';
+      const displayPeriod = match.status === 'completed' ? 'Full-Time' : period;
+
+      const eventTypeMap = {
+        goal: '',
+        penalty: 'P',
+        own_goal: 'OG',
+        yellow_card: 'YC',
+        red_card: 'RC',
+      };
 
       return wrap(
         <div className={`sb-vball sb-football-vball ${compact ? 'compact' : ''}`}>
@@ -80,6 +95,7 @@ export default function SportScoreboard({ match, compact = false }) {
 
             <div className="sb-vball-center">
               <div className="sb-vball-set-lbl">GOALS</div>
+              <div className="sb-football-period">{displayPeriod}</div>
             </div>
 
             <div className="sb-vball-team right">
@@ -94,9 +110,13 @@ export default function SportScoreboard({ match, compact = false }) {
                 <div className="sb-football-team-events left">
                   {team1Events.map((ev, idx) => {
                     const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
+                    const tagText = eventTypeMap[ev.type] || '';
                     return (
                       <div key={`${ev.created_at || 'evt'}-l-${idx}`} className="sb-football-line left">
-                        {ev.scorer || 'Unknown'} {minuteLabel}
+                        <span className="sb-football-event-info">
+                          {ev.scorer || 'Unknown'} {tagText && <span className={`sb-football-event-tag sb-football-event-tag--${ev.type}`}>{tagText}</span>}
+                        </span>
+                        <span className="sb-football-event-minute">{minuteLabel}</span>
                       </div>
                     );
                   })}
@@ -104,9 +124,13 @@ export default function SportScoreboard({ match, compact = false }) {
                 <div className="sb-football-team-events right">
                   {team2Events.map((ev, idx) => {
                     const minuteLabel = ev.minute === null || ev.minute === undefined || ev.minute === '' ? 'N/A' : `${ev.minute}'`;
+                    const tagText = eventTypeMap[ev.type] || '';
                     return (
                       <div key={`${ev.created_at || 'evt'}-r-${idx}`} className="sb-football-line right">
-                        {ev.scorer || 'Unknown'} {minuteLabel}
+                        <span className="sb-football-event-minute">{minuteLabel}</span>
+                        <span className="sb-football-event-info">
+                          {tagText && <span className={`sb-football-event-tag sb-football-event-tag--${ev.type}`}>{tagText}</span>} {ev.scorer || 'Unknown'}
+                        </span>
                       </div>
                     );
                   })}
@@ -350,7 +374,81 @@ export default function SportScoreboard({ match, compact = false }) {
       );
     case 'carrom':
       return wrap(
-        <Row labelL={team1} labelR={team2} valL={d.points_t1 ?? 0} valR={d.points_t2 ?? 0} sub="BOARD POINTS" />
+        <div className={`sb-carrom ${compact ? 'sb-carrom-compact' : ''}`}>
+          {match.status !== 'completed' ? (
+            <>
+              <div className="sb-carrom-header">
+                <span className="sb-carrom-status">{match.status === 'live' ? 'Live match' : 'Scheduled match'}</span>
+                <span className="sb-carrom-sub">
+                  {d.match_type === 'teams' ? 'Teams (2v2)' : 'Singles'} • Final score will appear after completion
+                </span>
+              </div>
+              <div className="sb-carrom-dim">
+                <div>
+                  <div className="sb-name">{team1}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                    Strikes: <span style={{ fontWeight: 'bold', textTransform: 'capitalize' }}>{d.color_assignment?.t1 || 'black'}</span>
+                  </div>
+                  {getPlayerNames(team1Data).length > 0 && (
+                    <div className="sb-carrom-note">Players: {getPlayerNames(team1Data).join(', ')}</div>
+                  )}
+                </div>
+                <div className="sb-carrom-vs">VS</div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="sb-name">{team2}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                    Strikes: <span style={{ fontWeight: 'bold', textTransform: 'capitalize' }}>{d.color_assignment?.t2 || 'white'}</span>
+                  </div>
+                  {getPlayerNames(team2Data).length > 0 && (
+                    <div className="sb-carrom-note">Players: {getPlayerNames(team2Data).join(', ')}</div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sb-carrom-header">
+                <span className="sb-carrom-status final">FULL TIME</span>
+                <span className="sb-carrom-sub">
+                  {d.match_type === 'teams' ? 'Teams (2v2)' : 'Singles'} •{' '}
+                  {new Date(match.scheduled_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <div className="sb-carrom-final-grid">
+                <div className="sb-carrom-side left">
+                  <div className="sb-name">{team1}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                    <span style={{ textTransform: 'capitalize' }}>{d.color_assignment?.t1 || 'black'}</span> coins
+                  </div>
+                  <div className="sb-carrom-score">{d.points_t1 ?? match.score_t1 ?? 0}</div>
+                  {getPlayerNames(team1Data).length > 0 && (
+                    <div className="sb-carrom-note">Players: {getPlayerNames(team1Data).join(', ')}</div>
+                  )}
+                </div>
+                <div className="sb-carrom-middle">
+                  <div className="sb-carrom-winner-label">Winner</div>
+                  <div className="sb-carrom-winner">
+                    {(match.score_t1 ?? d.points_t1 ?? 0) > (match.score_t2 ?? d.points_t2 ?? 0)
+                      ? team1
+                      : (match.score_t2 ?? d.points_t2 ?? 0) > (match.score_t1 ?? d.points_t1 ?? 0)
+                        ? team2
+                        : 'Draw'}
+                  </div>
+                </div>
+                <div className="sb-carrom-side right">
+                  <div className="sb-name">{team2}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                    <span style={{ textTransform: 'capitalize' }}>{d.color_assignment?.t2 || 'white'}</span> coins
+                  </div>
+                  <div className="sb-carrom-score">{d.points_t2 ?? match.score_t2 ?? 0}</div>
+                  {getPlayerNames(team2Data).length > 0 && (
+                    <div className="sb-carrom-note">Players: {getPlayerNames(team2Data).join(', ')}</div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       );
     case 'kho-kho':
       return wrap(
@@ -383,13 +481,61 @@ export default function SportScoreboard({ match, compact = false }) {
       );
     case 'arm-wrestling':
     case 'tug-of-war':
+      if (sportId === 'tug-of-war') {
+        const roundsT1 = Number(d.rounds_t1 ?? 0);
+        const roundsT2 = Number(d.rounds_t2 ?? 0);
+        const format = d.match_format || 'Best of 3';
+        const roundsToWin = format === 'Best of 5' ? 3 : format === '1 Game' ? 1 : format === 'Custom' ? Number(d.custom_rounds || 2) : 2;
+        const winner = match.status === 'completed'
+          ? (roundsT1 > roundsT2 ? team1 : roundsT2 > roundsT1 ? team2 : 'Draw')
+          : 'TBD';
+
+        return wrap(
+          <div className="sb-carrom sb-tugwar-card">
+            <div className="sb-carrom-header">
+              <span className={`sb-carrom-status ${match.status === 'completed' ? 'final' : ''}`}>
+                {match.status === 'completed' ? 'FULL TIME' : (match.status === 'live' ? 'LIVE' : 'SCHEDULED')}
+              </span>
+              <span className="sb-carrom-sub">{format === 'Custom' ? `Custom - first to ${roundsToWin}` : format}</span>
+            </div>
+            {match.status === 'completed' ? (
+              <div className="sb-carrom-final-grid">
+                <div className="sb-carrom-side left">
+                  <div className="sb-name">{team1}</div>
+                  <div className="sb-carrom-score">{roundsT1}</div>
+                </div>
+                <div className="sb-carrom-middle">
+                  <div className="sb-carrom-winner-label">Winner</div>
+                  <div className="sb-carrom-winner">{winner}</div>
+                </div>
+                <div className="sb-carrom-side right">
+                  <div className="sb-name">{team2}</div>
+                  <div className="sb-carrom-score">{roundsT2}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="sb-carrom-dim">
+                <div>
+                  <div className="sb-name">{team1}</div>
+                  <div className="sb-carrom-note">Rounds won: {roundsT1}</div>
+                </div>
+                <div className="sb-carrom-vs">VS</div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="sb-name">{team2}</div>
+                  <div className="sb-carrom-note">Rounds won: {roundsT2}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
       return wrap(
         <Row
           labelL={team1}
           labelR={team2}
           valL={d.rounds_t1 ?? 0}
           valR={d.rounds_t2 ?? 0}
-          sub={sportId === 'tug-of-war' ? 'PULLS WON (BEST OF 3)' : 'ROUNDS WON'}
+          sub="ROUNDS WON"
         />
       );
     case 'esports':
