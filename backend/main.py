@@ -1,6 +1,9 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
+BACKEND_DIR = Path(__file__).resolve().parent
+load_dotenv(BACKEND_DIR / ".env")
 
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
