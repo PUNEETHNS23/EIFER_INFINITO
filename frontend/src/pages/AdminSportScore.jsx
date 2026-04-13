@@ -13,9 +13,18 @@ function AdminSportScore() {
 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
   const meta = getSportMeta(sportId);
   const valid = SPORTS.some((s) => s.id === sportId);
+  const isRacketSport = sportId === 'badminton' || sportId === 'table-tennis';
+  const racketCategories = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
+
+  const normalizeCategory = (value) => (typeof value === 'string' ? value.trim() : '');
+
+  const filteredMatches = isRacketSport && categoryFilter !== 'all'
+    ? matches.filter((m) => normalizeCategory(m?.score_detail?.category) === categoryFilter)
+    : matches;
 
   const load = async () => {
     setLoading(true);
@@ -35,10 +44,14 @@ function AdminSportScore() {
   }, [user, sportId, valid]);
 
   useEffect(() => {
-    if (!matchParam || !matches.length) return;
+    setCategoryFilter('all');
+  }, [sportId]);
+
+  useEffect(() => {
+    if (!matchParam || !filteredMatches.length) return;
     const el = document.getElementById(`match-editor-${matchParam}`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [matchParam, matches]);
+  }, [matchParam, filteredMatches]);
 
   if (authLoading) {
     return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
@@ -66,6 +79,21 @@ function AdminSportScore() {
         <p className="hero-subtitle" style={{ marginTop: '0.5rem' }}>
           Updates use sport-specific rules. Saving recalculates leaderboard points when status is completed.
         </p>
+        {isRacketSport && (
+          <div className="input-group" style={{ maxWidth: '320px', marginTop: '1rem', marginBottom: 0 }}>
+            <label className="input-label" style={{ fontSize: '0.95rem', marginBottom: '0.35rem' }}>Filter by Subcategory</label>
+            <select
+              className="input-field"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="all">All Subcategories</option>
+              {racketCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -77,8 +105,12 @@ function AdminSportScore() {
             Go to dashboard
           </Link>
         </div>
+      ) : filteredMatches.length === 0 ? (
+        <div className="card">
+          <p>No matches found for the selected subcategory.</p>
+        </div>
       ) : (
-        matches.map((m) => (
+        filteredMatches.map((m) => (
           <div key={m.id} id={`match-editor-${m.id}`}>
             <SportScoreEditor match={m} onSaved={load} />
           </div>
