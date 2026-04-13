@@ -7,6 +7,7 @@ import SportDetails from './pages/SportDetails';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminCreateMatch from './pages/AdminCreateMatch';
 import AdminSportScore from './pages/AdminSportScore';
+import AdminWeightLifting from './pages/AdminWeightLifting';
 import Login from './pages/Login';
 import Leaderboard from './pages/Leaderboard';
 import MatchDetailsCricket from './pages/MatchDetailsCricket';
@@ -105,6 +106,7 @@ function App() {
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="admin/create-match/:sportId" element={<AdminCreateMatch />} />
+            <Route path="admin/score/weight-lifting" element={<AdminWeightLifting />} />
             <Route path="admin/score/:sportId" element={<AdminSportScore />} />
             <Route path="login" element={<Login />} />
           </Route>

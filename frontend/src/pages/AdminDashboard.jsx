@@ -16,7 +16,6 @@ function AdminDashboard() {
   const [matchSportFilter, setMatchSportFilter] = useState('');
   const [teamSportFilter, setTeamSportFilter] = useState('');
   const [teamCategoryFilter, setTeamCategoryFilter] = useState('');
-  const [wlDraft, setWlDraft] = useState({}); // local edits before save: { [teamId]: { squat, bench, deadlift, is_injured, is_disqualified } }
 
   // Form states
   const footballSquadSize = 11;
@@ -345,13 +344,13 @@ function AdminDashboard() {
 
       {/* Section Tabs */}
       <div className="admin-tabs-container">
-        {['matches', 'teams', 'weightlifting', 'admins'].map(section => (
+        {['matches', 'teams', 'admins'].map(section => (
           <button
             key={section}
             className={`admin-tab ${activeSection === section ? 'active' : ''}`}
             onClick={() => setActiveSection(section)}
           >
-            {section === 'matches' ? '🏟️ Matches' : section === 'teams' ? '👥 Teams' : section === 'weightlifting' ? '🏋️ Weight Lifting' : '🔐 Admin Users'}
+            {section === 'matches' ? '🏟️ Matches' : section === 'teams' ? '👥 Teams' : '🔐 Admin Users'}
           </button>
         ))}
       </div>
@@ -365,7 +364,7 @@ function AdminDashboard() {
               Each sport has its own scoreboard layout and fields. Open a desk to update live scores and status.
             </p>
             <div className="admin-grid-desks">
-              {SPORTS.filter(s => s.id !== 'weight-lifting').map((s) => (
+              {SPORTS.map((s) => (
                 <Link key={s.id} to={`/admin/score/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center' }}>
                   {s.icon} {s.name}
                 </Link>
@@ -778,158 +777,6 @@ function AdminDashboard() {
           </div>
         </>
       )}
-
-      {/* POWERLIFTING COMPETITION ENTRY SECTION */}
-      {activeSection === 'weightlifting' && (() => {
-        const plTeams = teams.filter(t => t.sport_id === 'weight-lifting');
-
-        // Merge saved results with local draft
-        const getValues = (t) => ({
-          squat: 0, bench: 0, deadlift: 0, is_injured: false, is_disqualified: false,
-          ...(t.results || {}),
-          ...(wlDraft[t.id] || {}),
-        });
-
-        const patchDraft = (teamId, field, value) => {
-          setWlDraft(prev => ({ ...prev, [teamId]: { ...(prev[teamId] || {}), [field]: value } }));
-        };
-
-        const saveResults = async (t) => {
-          const vals = getValues(t);
-          const sq = parseFloat(vals.squat) || 0;
-          const bn = parseFloat(vals.bench) || 0;
-          const dl = parseFloat(vals.deadlift) || 0;
-          try {
-            await api.put(`/teams/${t.id}/results`, {
-              squat: sq,
-              bench: bn,
-              deadlift: dl,
-              total: sq + bn + dl,
-              is_injured: vals.is_injured,
-              is_disqualified: vals.is_disqualified,
-            });
-            // clear draft for this team after successful save
-            setWlDraft(prev => { const next = { ...prev }; delete next[t.id]; return next; });
-            fetchTeams();
-          } catch (err) {
-            alert('Failed to save results for ' + t.name);
-            console.error(err);
-          }
-        };
-
-        return (
-          <>
-            <div className="card" style={{ marginBottom: '2rem' }}>
-              <h2 className="admin-section-title">🏋️ Powerlifting Competition Entry</h2>
-              <p className="admin-section-desc">
-                Enter Squat, Bench Press, and Deadlift for each participant. Total is calculated automatically.
-                Click <strong>Save</strong> to commit each row.
-              </p>
-            </div>
-
-            {plTeams.length === 0 ? (
-              <div className="card">
-                <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '2rem' }}>
-                  No participants registered for Powerlifting yet. Add them in the Teams tab.
-                </p>
-              </div>
-            ) : (
-              <div className="card">
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                        <th style={thStyle}>Participant</th>
-                        <th style={thStyle}>Category</th>
-                        <th style={thStyle}>Squat (kg)</th>
-                        <th style={thStyle}>Bench (kg)</th>
-                        <th style={thStyle}>Deadlift (kg)</th>
-                        <th style={{ ...thStyle, background: 'rgba(99,102,241,0.15)' }}>Total (kg)</th>
-                        <th style={thStyle}>Injured</th>
-                        <th style={thStyle}>Disqualified</th>
-                        <th style={thStyle}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {plTeams.map(t => {
-                        const v = getValues(t);
-                        const sq = parseFloat(v.squat) || 0;
-                        const bn = parseFloat(v.bench) || 0;
-                        const dl = parseFloat(v.deadlift) || 0;
-                        const total = sq + bn + dl;
-                        const isDirty = !!wlDraft[t.id];
-                        const locked = v.is_injured || v.is_disqualified;
-                        return (
-                          <tr key={t.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', opacity: (v.is_injured || v.is_disqualified) ? 0.65 : 1 }}>
-                            <td style={tdStyle}>
-                              <strong>{t.name}</strong>
-                              {isDirty && <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', color: 'var(--color-primary)' }}>●</span>}
-                            </td>
-                            <td style={{ ...tdStyle, color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>{t.category}</td>
-                            {['squat', 'bench', 'deadlift'].map(field => (
-                              <td key={field} style={tdStyle}>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.5"
-                                  disabled={locked}
-                                  value={v[field]}
-                                  onChange={e => patchDraft(t.id, field, parseFloat(e.target.value) || 0)}
-                                  style={{
-                                    width: '80px', padding: '0.4rem 0.5rem',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid rgba(255,255,255,0.15)',
-                                    borderRadius: '6px', color: 'inherit',
-                                    cursor: locked ? 'not-allowed' : 'text',
-                                  }}
-                                />
-                              </td>
-                            ))}
-                            <td style={{ ...tdStyle, fontWeight: 700, color: '#a78bfa', background: 'rgba(99,102,241,0.08)' }}>
-                              {total.toFixed(1)}
-                            </td>
-                            <td style={{ ...tdStyle, textAlign: 'center' }}>
-                              <input
-                                type="checkbox"
-                                checked={v.is_injured}
-                                onChange={e => patchDraft(t.id, 'is_injured', e.target.checked)}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                              />
-                            </td>
-                            <td style={{ ...tdStyle, textAlign: 'center' }}>
-                              <input
-                                type="checkbox"
-                                checked={v.is_disqualified}
-                                onChange={e => patchDraft(t.id, 'is_disqualified', e.target.checked)}
-                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                              />
-                            </td>
-                            <td style={tdStyle}>
-                              <button
-                                className="btn-outline btn-sm"
-                                disabled={!isDirty}
-                                onClick={() => saveResults(t)}
-                                style={{
-                                  borderColor: isDirty ? 'var(--color-primary)' : 'rgba(255,255,255,0.2)',
-                                  color: isDirty ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                                  cursor: isDirty ? 'pointer' : 'default',
-                                }}
-                              >
-                                {isDirty ? 'Save' : '✓ Saved'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </>
-        );
-      })()}
-
 
       {/* ADMIN MANAGEMENT SECTION */}
       {activeSection === 'admins' && (
