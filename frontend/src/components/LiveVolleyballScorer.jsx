@@ -161,7 +161,11 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
     initState(detail, team1, team2)
   );
 
-  const [targetInput, setTargetInput] = React.useState(25);
+  const [targetInput, setTargetInput] = React.useState(() => {
+    const currentSet = Number(detail?.currentSet || 1);
+    const configuredTarget = Number(detail?.setTargets?.[currentSet] ?? detail?.setTargets?.[1]);
+    return Number.isFinite(configuredTarget) && configuredTarget > 0 ? configuredTarget : 25;
+  });
 
   // Auto-initialize rosters to starting 6 if completely empty
   useEffect(() => {
@@ -258,6 +262,15 @@ export default function LiveVolleyballScorer({ detail, patch, team1, team2, team
 
   /* ── Deuce label ────────────────────────────────────── */
   const tgt = state.setTargets[state.currentSet];
+
+  useEffect(() => {
+    if (tgt) return;
+    const fallbackTarget = Number(state.setTargets[1]);
+    if (Number.isFinite(fallbackTarget) && fallbackTarget > 0) {
+      setTargetInput(fallbackTarget);
+    }
+  }, [state.currentSet, state.setTargets, tgt]);
+
   let deuceLabel = '';
   if (tgt && state.status === 'live' && state.pointsA >= tgt - 1 && state.pointsB >= tgt - 1) {
     if      (state.pointsA === state.pointsB) deuceLabel = '⚡ DEUCE';

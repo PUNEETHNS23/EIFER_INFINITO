@@ -10,6 +10,14 @@ function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
 
+  const getRacketSubcategory = (match) => {
+    if (!['badminton', 'table-tennis'].includes(match.sport_id)) {
+      return '';
+    }
+    const raw = match?.score_detail?.category;
+    return typeof raw === 'string' ? raw.trim() : '';
+  };
+
   const getMatchDetailsRoute = (match) => (
     ['cricket', 'volleyball'].includes(match.sport_id)
       ? `/match/${match.id}`
@@ -142,7 +150,12 @@ function Home() {
                 <div className="match-card-live-glow"></div>
                 <div className="match-card-live-header">
                   <span className="match-badge live-badge"><span className="live-dot"></span>LIVE</span>
-                  <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
+                  <div className="match-sport-meta">
+                    <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
+                    {getRacketSubcategory(match) && (
+                      <span className="match-subcategory-tag">{getRacketSubcategory(match)}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="match-card-live-body">
                   <SportScoreboard match={match} compact />

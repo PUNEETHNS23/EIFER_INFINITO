@@ -230,6 +230,9 @@ export default function SportScoreEditor({ match, onSaved }) {
 
   const team1 = match.team1 || 'Team 1';
   const team2 = match.team2 || 'Team 2';
+  const racketSubcategory = ['badminton', 'table-tennis'].includes(sid)
+    ? ((typeof detail?.category === 'string' && detail.category.trim()) ? detail.category.trim() : 'Unspecified')
+    : '';
 
   let form = null;
   switch (sid) {
@@ -450,7 +453,10 @@ export default function SportScoreEditor({ match, onSaved }) {
         <h3>
           {team1} <span className="sbe-vs">vs</span> {team2}
         </h3>
-        <span className="sbe-id">Match #{match.id}</span>
+        <div className="sbe-head-meta">
+          <span className="sbe-id">Match #{match.id}</span>
+          {racketSubcategory && <span className="sbe-subcategory">{racketSubcategory}</span>}
+        </div>
       </div>
       {form}
       <div className="sbe-status">

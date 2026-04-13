@@ -476,6 +476,24 @@
   color: var(--color-text-muted);
 }
 
+.match-sport-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+.match-subcategory-tag {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: rgba(255, 26, 26, 0.12);
+  border: 1px solid rgba(255, 26, 26, 0.25);
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
 .match-card-live-body {
   display: flex;
   justify-content: space-between;
