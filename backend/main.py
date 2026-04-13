@@ -325,6 +325,13 @@ def _reverse_match_points(db: Session, team1_id: int, team2_id: int, score_t1: i
         t1.points = max(0, t1.points - 1)
         t2.points = max(0, t2.points - 1)
 
+
+def _derive_scores_for_status(sport_id: str, detail: dict | None, status: str) -> tuple[int, int]:
+    # Chess should only publish canonical score once the match is completed.
+    if sport_id == "chess" and status != "completed":
+        return (0, 0)
+    return scoring.derive_primary_scores(sport_id, detail)
+
 @app.get("/api/matches", response_model=list[schemas.Match])
 def get_matches(db: Session = Depends(get_db)):
     matches = db.query(models.Match).order_by(models.Match.scheduled_time).all()
@@ -372,7 +379,7 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
 
         detail["category"] = category
 
-    t1, t2 = scoring.derive_primary_scores(data["sport_id"], detail)
+    t1, t2 = _derive_scores_for_status(data["sport_id"], detail, "upcoming")
     db_match = models.Match(
         sport_id=data["sport_id"],
         team1_id=data["team1_id"],
@@ -398,8 +405,17 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
     old_score_t2 = db_match.score_t2
 
     payload = match_update.model_dump(exclude_unset=True)
+
+    next_status = payload.get("status", db_match.status)
+
+    next_detail = payload.get("score_detail", db_match.score_detail)
+
     if "score_detail" in payload and payload["score_detail"] is not None:
-        t1, t2 = scoring.derive_primary_scores(db_match.sport_id, payload["score_detail"])
+        t1, t2 = _derive_scores_for_status(db_match.sport_id, payload["score_detail"], next_status)
+        payload["score_t1"] = t1
+        payload["score_t2"] = t2
+    elif "status" in payload:
+        t1, t2 = _derive_scores_for_status(db_match.sport_id, next_detail, next_status)
         payload["score_t1"] = t1
         payload["score_t2"] = t2
     for key, value in payload.items():

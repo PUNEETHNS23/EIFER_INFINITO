@@ -354,14 +354,21 @@ export default function SportScoreEditor({ match, onSaved }) {
       );
       break;
     case 'chess':
-      form = (
+      form = status === 'completed' ? (
         <div className="sbe-field">
-          <span>Result</span>
+          <span>Final result</span>
           <select className="input-field" value={detail.winner || 'draw'} onChange={(e) => patch({ winner: e.target.value })}>
             <option value="draw">Draw</option>
             <option value="t1">{team1} wins</option>
             <option value="t2">{team2} wins</option>
           </select>
+        </div>
+      ) : (
+        <div className="sbe-field" style={{ gridColumn: '1 / -1' }}>
+          <span>Final result entry</span>
+          <p style={{ margin: '0.5rem 0 0', color: 'var(--color-text-muted)' }}>
+            Keep this match scheduled while it is ongoing. Switch the status to completed to enter the final result.
+          </p>
         </div>
       );
       break;

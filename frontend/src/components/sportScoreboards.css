@@ -80,6 +80,16 @@
   opacity: 0.5;
 }
 
+.sb-carrom .sb-name,
+.sb-tugwar-card .sb-name,
+.sb-chess-team .sb-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-family: inherit;
+}
+
 .sb-cricket {
   display: flex;
   align-items: center;
@@ -94,84 +104,81 @@
   margin-bottom: 0.75rem;
 }
 
-.sb-cricket-info span {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--color-text-muted);
-}
-
-.sb-cricket-main {
-  margin-bottom: 0.75rem;
-}
-
-.sb-cricket-scoreline {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 0.15rem;
-}
-
-.sb-cricket-target {
-  color: var(--color-primary);
-  font-size: 0.9rem;
-  margin-top: 0.4rem;
-}
-
-.sb-cricket-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.7rem;
-  margin-bottom: 0.7rem;
-}
-
-.sb-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 0.6rem;
-  background: rgba(0, 0, 0, 0.16);
-}
-
-.sb-card h4 {
-  margin: 0 0 0.35rem;
-  font-size: 0.8rem;
-  color: var(--color-primary);
-}
-
-.sb-card p {
-  margin: 0.2rem 0;
-  font-size: 0.82rem;
-}
-
-.sb-cr-label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  margin-bottom: 0.25rem;
-}
-
-.sb-cr-line {
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: var(--color-text-main);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.sb-vs {
-  opacity: 0.4;
-  font-size: 0.85rem;
-}
-
+/* Chess (match volleyball typography) */
 .sb-chess {
-  text-align: center;
-  padding: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sb-chess-final-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sb-chess-team {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.sb-chess-team.left .sb-name {
+  color: #ff6b35;
+}
+
+.sb-chess-team.right .sb-name {
+  color: #00e5ff;
+}
+.sb-chess-team.right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.sb-chess-team.winner {
+  border-color: rgba(250, 204, 21, 0.55);
+}
+
+.sb-chess-vs {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sb-chess-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fde68a;
+  background: rgba(250, 204, 21, 0.2);
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
 }
 
 .sb-chess-result {
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .sb-chess-final-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sb-chess-team,
+  .sb-chess-team.right {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .sb-chess-vs {
+    text-align: center;
+  }
 }
 
 .sb-rally {

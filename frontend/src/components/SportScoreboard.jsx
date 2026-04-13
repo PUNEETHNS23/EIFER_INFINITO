@@ -456,11 +456,45 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
       );
     case 'chess': {
       const w = (d.winner || 'draw').toLowerCase();
-      let line = 'Draw';
-      if (w === 't1') line = `${team1} wins`;
-      else if (w === 't2') line = `${team2} wins`;
+      const isTeam1Winner = w === 't1';
+      const isTeam2Winner = w === 't2';
+      const isDraw = !isTeam1Winner && !isTeam2Winner;
+      const line = isDraw ? 'Match Drawn' : `${isTeam1Winner ? team1 : team2} wins`;
+      const liveLikeStatus = match.status === 'live' ? 'Live match' : 'Scheduled match';
+
+      if (match.status !== 'completed') {
+        return wrap(
+          <div className="sb-carrom sb-tugwar-card">
+            <div className="sb-carrom-header">
+              <span className="sb-carrom-status">{liveLikeStatus}</span>
+              <span className="sb-carrom-sub">Final result will be published after completion</span>
+            </div>
+            <div className="sb-carrom-dim">
+              <div>
+                <div className="sb-name">{team1}</div>
+              </div>
+              <div className="sb-carrom-vs">VS</div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="sb-name">{team2}</div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       return wrap(
         <div className="sb-chess">
+          <div className="sb-chess-final-grid">
+            <div className={`sb-chess-team left ${isTeam1Winner ? 'winner' : ''}`}>
+              <span className="sb-name">{team1}</span>
+              {isTeam1Winner && <span className="sb-chess-badge">Winner</span>}
+            </div>
+            <div className="sb-chess-vs">VS</div>
+            <div className={`sb-chess-team right ${isTeam2Winner ? 'winner' : ''}`}>
+              <span className="sb-name">{team2}</span>
+              {isTeam2Winner && <span className="sb-chess-badge">Winner</span>}
+            </div>
+          </div>
           <span className="sb-chess-result">{line}</span>
         </div>
       );
