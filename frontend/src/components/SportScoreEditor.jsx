@@ -8,7 +8,6 @@ import './sportScoreboards.css';
 
 function racketToVolleyballDetail(detail, sid) {
   const d = detail || {};
-  const target = Number(d.point_limit === 'Custom' ? d.custom_limit : d.point_limit) || (sid === 'badminton' ? 21 : 11);
   const currentSet = Number(d.currentSet || ((d.past_games || []).length + 1) || 1);
   const existingSetTargets = d.setTargets;
   const hasSetTargets =
@@ -16,7 +15,7 @@ function racketToVolleyballDetail(detail, sid) {
     typeof existingSetTargets === 'object' &&
     !Array.isArray(existingSetTargets) &&
     Object.keys(existingSetTargets).length > 0;
-  const setTargets = hasSetTargets ? existingSetTargets : { [currentSet]: target };
+  const setTargets = hasSetTargets ? existingSetTargets : {};
   const setHistory = Array.isArray(d.past_games)
     ? d.past_games.map((g) => ({
         a: Number(g.t1 || 0),
@@ -409,6 +408,7 @@ export default function SportScoreEditor({ match, onSaved }) {
     case 'badminton':
     case 'table-tennis': {
       const adaptedDetail = racketToVolleyballDetail(detail, sid);
+      const defaultSetTarget = Number(detail.point_limit === 'Custom' ? detail.custom_limit : detail.point_limit) || (sid === 'badminton' ? 21 : 11);
       form = (
         <LiveVolleyballScorer
           key={match.id}
@@ -420,6 +420,8 @@ export default function SportScoreEditor({ match, onSaved }) {
           team2Data={team2Data}
           serveIcon={sid === 'badminton' ? '🏸' : '🏓'}
           allowSetCountConfig
+          initialSetTarget={defaultSetTarget}
+          showResetOnComplete={false}
         />
       );
       break;
