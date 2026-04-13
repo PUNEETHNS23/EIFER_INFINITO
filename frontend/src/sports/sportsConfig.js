@@ -2,17 +2,17 @@
 
 export const SPORTS = [
   { id: 'athletics', name: 'Athletics', icon: '🏃', theme: 'track' },
-  { id: 'cricket', name: 'Cricket', icon: '🏏', theme: 'pitch' },
-  { id: 'volleyball', name: 'Volleyball', icon: '🏐', theme: 'court' },
+  { id: 'cricket', name: 'Cricket', icon: '🏏', theme: 'pitch', requiresToss: true },
+  { id: 'volleyball', name: 'Volleyball', icon: '🏐', theme: 'court', requiresToss: true },
   { id: 'football', name: 'Football', icon: '⚽', theme: 'court' },
   { id: 'carrom', name: 'Carrom', icon: '🥏', theme: 'board' },
   { id: 'chess', name: 'Chess', icon: '♟️', theme: 'chess' },
   { id: 'arm-wrestling', name: 'Arm Wrestling', icon: '💪', theme: 'duel' },
   { id: 'weight-lifting', name: 'Weight Lifting', icon: '🏋️', theme: 'platform' },
-  { id: 'kho-kho', name: 'Kho Kho', icon: '🏃‍♂️', theme: 'field' },
-  { id: 'badminton', name: 'Badminton', icon: '🏸', theme: 'shuttle' },
-  { id: 'table-tennis', name: 'Table Tennis', icon: '🏓', theme: 'tt' },
-  { id: 'tug-of-war', name: 'Tug of War', icon: '🪢', theme: 'rope' },
+  { id: 'kho-kho', name: 'Kho Kho', icon: '🏃‍♂️', theme: 'field', requiresToss: true },
+  { id: 'badminton', name: 'Badminton', icon: '🏸', theme: 'shuttle', requiresToss: true },
+  { id: 'table-tennis', name: 'Table Tennis', icon: '🏓', theme: 'tt', requiresToss: true },
+  { id: 'tug-of-war', name: 'Tug of War', icon: '🪢', theme: 'rope', requiresToss: true },
   { id: 'esports', name: 'E-Sports', icon: '🎮', theme: 'esports' },
 ];
 

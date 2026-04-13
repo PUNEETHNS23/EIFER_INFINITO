@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
-import { getSportMeta } from '../sports/sportsConfig';
+import { getSportMeta, SPORTS } from '../sports/sportsConfig';
+import CoinToss from '../components/CoinToss';
 
 const RACKET_SPORTS = ['badminton', 'table-tennis'];
 const RACKET_CATEGORIES = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
@@ -29,9 +30,11 @@ function AdminCreateMatch() {
             : (isRacketSport ? { category: 'Mens Singles' } : {})))
   });
   const [scheduledLocal, setScheduledLocal] = useState('');
+  const [tossDone, setTossDone] = useState(false);
   const scheduledInputRef = useRef(null);
 
   const meta = getSportMeta(sportId);
+  const requiresToss = SPORTS.find(s => s.id === sportId)?.requiresToss || false;
 
   useEffect(() => {
     const nextScoreDetail =
@@ -72,15 +75,34 @@ function AdminCreateMatch() {
   const categoryFilteredTeams = isRacketSport
     ? teams.filter((t) => (t.category || '') === selectedCategory)
     : teams;
+  const team1 = teams.find((t) => String(t.id) === String(newMatch.team1_id));
+  const team2 = teams.find((t) => String(t.id) === String(newMatch.team2_id));
 
   if (authLoading) {
     return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
   }
 
+  const handleTossComplete = (tossData) => {
+    setNewMatch(prev => ({
+      ...prev,
+      score_detail: {
+        ...prev.score_detail,
+        toss_winner: tossData.toss_winner,
+        toss_decision: tossData.toss_decision,
+      }
+    }));
+    setTossDone(true);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!newMatch.team1_id || !newMatch.team2_id) {
       alert("Please select both teams.");
+      return;
+    }
+
+    if (requiresToss && !tossDone) {
+      alert("Please complete the coin toss before creating the match.");
       return;
     }
 
@@ -323,9 +345,21 @@ function AdminCreateMatch() {
             </div>
           )}
 
+          {/* COIN TOSS SECTION */}
+          {requiresToss && newMatch.team1_id && newMatch.team2_id && team1 && team2 && (
+            <CoinToss
+              sportId={sportId}
+              team1Name={team1.name}
+              team2Name={team2.name}
+              onTossComplete={handleTossComplete}
+              initialTossWinner={newMatch.score_detail?.toss_winner}
+              initialTossDecision={newMatch.score_detail?.toss_decision}
+            />
+          )}
+
           <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
             <button type="button" className="btn-outline" onClick={() => navigate('/admin')} style={{ flex: 1 }}>Cancel</button>
-            <button type="submit" className="btn-primary" style={{ flex: 2 }}>Create Match</button>
+            <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={requiresToss && !tossDone}>Create Match</button>
           </div>
         </form>
       </div>
