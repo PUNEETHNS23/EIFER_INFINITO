@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 from dotenv import load_dotenv
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -326,7 +327,7 @@ def _reverse_match_points(db: Session, team1_id: int, team2_id: int, score_t1: i
         t2.points = max(0, t2.points - 1)
 
 
-def _derive_scores_for_status(sport_id: str, detail: dict | None, status: str) -> tuple[int, int]:
+def _derive_scores_for_status(sport_id: str, detail: Optional[dict], status: str) -> tuple[int, int]:
     # Chess should only publish canonical score once the match is completed.
     if sport_id == "chess" and status != "completed":
         return (0, 0)
