@@ -42,6 +42,9 @@ def ensure_db_migrations():
         if "score_detail" not in cols:
             with database.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE matches ADD COLUMN score_detail TEXT"))
+        if "venue" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE matches ADD COLUMN venue TEXT"))
                 
     if "teams" in tables:
         cols = {c["name"] for c in insp.get_columns("teams")}
@@ -189,12 +192,14 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
         "Womens Singles",
         "Womens Doubles",
         "Mixed Doubles",
+        "Boys Kho Kho",
+        "Girls Kho Kho",
     }
 
-    if team.sport_id in {"badminton", "table-tennis"}:
+    if team.sport_id in {"badminton", "table-tennis", "kho-kho"}:
         category = (team.category or "").strip()
         if category not in racket_categories:
-            raise HTTPException(status_code=400, detail="Badminton/Table Tennis teams require a valid category.")
+            raise HTTPException(status_code=400, detail=f"A valid subcategory is required for {team.sport_id.replace('-', ' ').title()}.")
         team.category = category
 
         squad = team.squad or []
@@ -231,6 +236,30 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
             raise HTTPException(status_code=400, detail="Football teams must include exactly 11 player names.")
         if len(set(player_names)) != 11:
             raise HTTPException(status_code=400, detail="Football player names must be unique.")
+        team.squad = normalized_squad
+
+    if team.sport_id == "kho-kho":
+        squad = team.squad or []
+        normalized_squad = []
+        for player in squad:
+            normalized_player = dict(player)
+            normalized_player["name"] = (player.get("name") or "").strip()
+            normalized_squad.append(normalized_player)
+        
+        player_names = [p.get("name") or "" for p in normalized_squad]
+        if any(not name for name in player_names):
+            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
+        if len(set(player_names)) != len(player_names):
+            raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
+        
+        p_main = [p for p in normalized_squad if not p.get("is_substitute")]
+        p_sub = [p for p in normalized_squad if p.get("is_substitute")]
+        
+        if len(p_main) != 9:
+            raise HTTPException(status_code=400, detail="Kho-Kho teams must have exactly 9 main players.")
+        if len(p_sub) != 3:
+            raise HTTPException(status_code=400, detail="Kho-Kho teams must have exactly 3 substitutes.")
+        
         team.squad = normalized_squad
     db_team = models.Team(**team.model_dump())
     db.add(db_team)
@@ -292,6 +321,7 @@ def map_match_names(m, db):
         "score_t1": m.score_t1,
         "score_t2": m.score_t2,
         "status": m.status,
+        "venue": m.venue,
         "score_detail": m.score_detail,
         "team1": t1.name if t1 else "Unknown",
         "team2": t2.name if t2 else "Unknown",
@@ -366,7 +396,7 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
     if not detail:
         detail = scoring.default_score_detail(data["sport_id"])
 
-    if data["sport_id"] in {"badminton", "table-tennis"}:
+    if data["sport_id"] in {"badminton", "table-tennis", "kho-kho"}:
         raw_category = detail.get("category") if isinstance(detail, dict) else None
         category = raw_category.strip() if isinstance(raw_category, str) else raw_category
         team1_category = (team1.category or "").strip() if isinstance(team1.category, str) else team1.category
@@ -386,6 +416,7 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
         team1_id=data["team1_id"],
         team2_id=data["team2_id"],
         scheduled_time=data["scheduled_time"],
+        venue=data.get("venue"),
         score_detail=detail,
         score_t1=t1,
         score_t2=t2,

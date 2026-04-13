@@ -35,10 +35,19 @@ function AdminDashboard() {
   const teamsRefreshTimeoutRef = useRef(null);
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
-  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis'];
-  const allowSubstituteSports = ['volleyball'];
+  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho'];
+  const allowSubstituteSports = ['volleyball', 'kho-kho'];
   const racketSports = ['badminton', 'table-tennis'];
   const racketCategories = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
+  const khoKhoCategories = ['Boys Kho Kho', 'Girls Kho Kho'];
+
+  const getSportCategories = (sport) => {
+    if (racketSports.includes(sport)) return racketCategories;
+    if (sport === 'kho-kho') return khoKhoCategories;
+    return [];
+  };
+
+  const hasSubcategories = (sport) => getSportCategories(sport).length > 0;
 
   const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
 
@@ -139,6 +148,19 @@ function AdminDashboard() {
       }
     }
 
+    if (newTeam.sport_id === 'kho-kho') {
+      const players = (newTeam.squad || []).filter(p => !p.is_substitute);
+      const subs = (newTeam.squad || []).filter(p => p.is_substitute);
+      if (players.length !== 9) {
+        alert(`A Kho-Kho team must have exactly 9 main players. Currently you have ${players.length}.`);
+        return;
+      }
+      if (subs.length !== 3) {
+        alert(`A Kho-Kho team must have exactly 3 substitutes. Currently you have ${subs.length}.`);
+        return;
+      }
+    }
+
     if (newTeam.sport_id === 'football') {
       const players = (newTeam.squad || []).map((p) => (p.name || '').trim());
       if (players.length !== footballSquadSize || players.some((name) => !name)) {
@@ -185,6 +207,14 @@ function AdminDashboard() {
         const currentCount = (newTeam.squad || []).length;
         if (currentCount >= limit) {
           alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for ${newTeam.category || 'this category'}. Remove a player to add another.`);
+          return;
+        }
+      }
+
+      if (newTeam.sport_id === 'kho-kho') {
+        const currentCount = (newTeam.squad || []).length;
+        if (currentCount >= 12) {
+          alert('A Kho-Kho team consists of maximum 12 members (9 players + 3 substitutes).');
           return;
         }
       }
@@ -499,23 +529,25 @@ function AdminDashboard() {
                       <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
                     </div>
 
-                    {racketSports.includes(newTeam.sport_id) && (
+                    {hasSubcategories(newTeam.sport_id) && (
                       <div className="input-group">
                         <label className="input-label">Subcategory</label>
                         <select
                           className="input-field"
-                          value={newTeam.category || 'Mens Singles'}
+                          value={newTeam.category || getSportCategories(newTeam.sport_id)[0] || ''}
                           onChange={(e) => {
                             const nextCategory = e.target.value;
-                            const nextLimit = getRacketCategoryPlayerLimit(nextCategory);
-                            setNewTeam((prev) => ({
-                              ...prev,
-                              category: nextCategory,
-                              squad: (prev.squad || []).slice(0, nextLimit),
-                            }));
+                            setNewTeam((prev) => {
+                              const nextState = { ...prev, category: nextCategory };
+                              if (racketSports.includes(prev.sport_id)) {
+                                const nextLimit = getRacketCategoryPlayerLimit(nextCategory);
+                                nextState.squad = (prev.squad || []).slice(0, nextLimit);
+                              }
+                              return nextState;
+                            });
                           }}
                         >
-                          {racketCategories.map((cat) => (
+                          {getSportCategories(newTeam.sport_id).map((cat) => (
                             <option key={cat} value={cat}>{cat}</option>
                           ))}
                         </select>

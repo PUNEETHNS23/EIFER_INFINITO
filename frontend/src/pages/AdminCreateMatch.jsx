@@ -7,12 +7,20 @@ import CoinToss from '../components/CoinToss';
 
 const RACKET_SPORTS = ['badminton', 'table-tennis'];
 const RACKET_CATEGORIES = ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'];
+const KHO_KHO_CATEGORIES = ['Boys Kho Kho', 'Girls Kho Kho'];
+
+const getSportCategories = (sid) => {
+  if (RACKET_SPORTS.includes(sid)) return RACKET_CATEGORIES;
+  if (sid === 'kho-kho') return KHO_KHO_CATEGORIES;
+  return [];
+};
+const hasCategories = (sid) => getSportCategories(sid).length > 0;
 
 function AdminCreateMatch() {
   const { sportId } = useParams();
   const navigate = useNavigate();
   const { user, authLoading } = useAuth();
-  const isRacketSport = RACKET_SPORTS.includes(sportId);
+  const isCategorizedSport = hasCategories(sportId);
   
   const [teams, setTeams] = useState([]);
   const [newMatch, setNewMatch] = useState({
@@ -20,6 +28,7 @@ function AdminCreateMatch() {
     team1_id: '',
     team2_id: '',
     scheduled_time: '',
+    venue: '',
     score_detail:
       sportId === 'cricket'
         ? { match_type: 'T20' }
@@ -27,7 +36,7 @@ function AdminCreateMatch() {
           ? { max_sets: 5 }
           : (sportId === 'football'
             ? { match_minutes: 90 }
-            : (isRacketSport ? { category: 'Mens Singles' } : {})))
+            : (isCategorizedSport ? { category: getSportCategories(sportId)[0] } : {})))
   });
   const [scheduledLocal, setScheduledLocal] = useState('');
   const [tossDone, setTossDone] = useState(false);
@@ -44,7 +53,7 @@ function AdminCreateMatch() {
           ? { max_sets: 5 }
           : (sportId === 'football'
             ? { match_minutes: 90 }
-            : (RACKET_SPORTS.includes(sportId) ? { category: 'Mens Singles' } : {})));
+            : (hasCategories(sportId) ? { category: getSportCategories(sportId)[0] } : {})));
 
     setNewMatch({
       sport_id: sportId,
@@ -71,8 +80,8 @@ function AdminCreateMatch() {
     fetchTeams();
   }, [user, authLoading, navigate, sportId]);
 
-  const selectedCategory = newMatch.score_detail?.category || 'Mens Singles';
-  const categoryFilteredTeams = isRacketSport
+  const selectedCategory = newMatch.score_detail?.category || (hasCategories(sportId) ? getSportCategories(sportId)[0] : '');
+  const categoryFilteredTeams = isCategorizedSport
     ? teams.filter((t) => (t.category || '') === selectedCategory)
     : teams;
   const team1 = teams.find((t) => String(t.id) === String(newMatch.team1_id));
@@ -106,7 +115,7 @@ function AdminCreateMatch() {
       return;
     }
 
-    if (isRacketSport) {
+    if (isCategorizedSport) {
       const team1 = teams.find((t) => String(t.id) === String(newMatch.team1_id));
       const team2 = teams.find((t) => String(t.id) === String(newMatch.team2_id));
       if (!team1 || !team2) {
@@ -114,7 +123,7 @@ function AdminCreateMatch() {
         return;
       }
       if ((team1.category || '') !== selectedCategory || (team2.category || '') !== selectedCategory) {
-        alert('For badminton/table-tennis, both teams must belong to the selected subcategory.');
+        alert(`Both teams must belong to the selected subcategory (${selectedCategory}).`);
         return;
       }
     }
@@ -158,7 +167,7 @@ function AdminCreateMatch() {
       
       <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
         <form onSubmit={handleCreate}>
-          {isRacketSport && (
+          {isCategorizedSport && (
             <div className="input-group">
               <label className="input-label">Subcategory</label>
               <select
@@ -177,7 +186,7 @@ function AdminCreateMatch() {
                   }));
                 }}
               >
-                {RACKET_CATEGORIES.map((cat) => (
+                {getSportCategories(sportId).map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
@@ -255,6 +264,17 @@ function AdminCreateMatch() {
             </div>
           </div>
 
+          <div className="input-group">
+            <label className="input-label">Venue / Stadium</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Enter stadium name" 
+              value={newMatch.venue || ''}
+              onChange={e => setNewMatch({ ...newMatch, venue: e.target.value })}
+            />
+          </div>
+
           {/* CRICKET SPECIFIC CONFIGS */}
           {sportId === 'cricket' && (
             <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -280,15 +300,6 @@ function AdminCreateMatch() {
                   />
                 </div>
               )}
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label">Venue / Stadium</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="Enter stadium name" 
-                  onChange={e => handleScoreDetailChange('venue', e.target.value)}
-                />
-              </div>
             </div>
           )}
 
@@ -303,15 +314,6 @@ function AdminCreateMatch() {
                   <option value={5}>Best of 5</option>
                   <option value={1}>Single Set</option>
                 </select>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label">Venue / Stadium</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="Enter stadium name" 
-                  onChange={e => handleScoreDetailChange('venue', e.target.value)}
-                />
               </div>
             </div>
           )}
@@ -332,15 +334,6 @@ function AdminCreateMatch() {
                   <option value={70}>70 mins</option>
                   <option value={60}>60 mins</option>
                 </select>
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label">Venue / Stadium</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Enter stadium name"
-                  onChange={e => handleScoreDetailChange('venue', e.target.value)}
-                />
               </div>
             </div>
           )}

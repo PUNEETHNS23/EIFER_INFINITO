@@ -24,6 +24,7 @@ class MatchBase(BaseModel):
     team1_id: int
     team2_id: int
     scheduled_time: datetime
+    venue: Optional[str] = None
 
 class MatchCreate(MatchBase):
     score_detail: Optional[dict[str, Any]] = None
@@ -32,6 +33,7 @@ class MatchUpdate(BaseModel):
     score_t1: Optional[int] = None
     score_t2: Optional[int] = None
     status: Optional[str] = None
+    venue: Optional[str] = None
     score_detail: Optional[dict[str, Any]] = None
 
 class Match(MatchBase):

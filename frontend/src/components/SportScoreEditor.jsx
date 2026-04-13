@@ -350,6 +350,20 @@ export default function SportScoreEditor({ match, onSaved }) {
         <div className="sbe-grid">
           <Num label={`${team1} points`} value={detail.points_t1} onChange={(v) => patch({ points_t1: v })} />
           <Num label={`${team2} points`} value={detail.points_t2} onChange={(v) => patch({ points_t2: v })} />
+          {status === 'completed' && (
+            <>
+              <label className="sbe-field">
+                <span>Winner</span>
+                <select className="input-field" value={detail.winner || ''} onChange={(e) => patch({ winner: e.target.value })}>
+                  <option value="">Select Winner</option>
+                  <option value="t1">{team1}</option>
+                  <option value="t2">{team2}</option>
+                  <option value="draw">Draw</option>
+                </select>
+              </label>
+              <Txt label="Time Taken (e.g. 15:40)" value={detail.duration} onChange={(v) => patch({ duration: v })} placeholder="MM:SS" />
+            </>
+          )}
         </div>
       );
       break;
