@@ -5,8 +5,8 @@ export const CATEGORY_SPORTS = {
   'table-tennis': ['Mens Singles', 'Mens Doubles', 'Womens Singles', 'Womens Doubles', 'Mixed Doubles'],
   'kho-kho': ['Boys', 'Girls'],
   'chess': ['Rapid', 'Blitz', 'Hand & Brain'],
-  'weight-lifting': ['Squat', 'Bench Press', 'Dead Lift'],
   'carrom': ['Singles', 'Doubles'],
+  'athletics': ['4 X 100 meter run', 'Boys 100 meter run', 'Girls 100 meter run'],
 };
 
 export function getSportCategories(sportId) {
@@ -57,7 +57,7 @@ export function defaultScoreDetail(sportId) {
     'kho-kho': { winner: null, minutes: 0, seconds: 0, category: 'Boys' },
     chess: { winner: 'draw', category: 'Rapid' },
     athletics: { time_t1_sec: 0, time_t2_sec: 0 },
-    'weight-lifting': { kg_t1: 0, kg_t2: 0, injured_t1: false, injured_t2: false, category: 'Squat' },
+    'weight-lifting': { kg_t1: 0, kg_t2: 0, injured_t1: false, injured_t2: false, category: null },
     badminton: {
       games_t1: 0, games_t2: 0, current_p1: 0, current_p2: 0,
       past_games: [], serving: "t1", p1_name: "", p2_name: "",
@@ -99,13 +99,13 @@ export function hydrateScoreDetail(sportId, match) {
     carrom: { points_t1: t1, points_t2: t2, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' }, category: 'Singles' },
     'kho-kho': { ...defaultScoreDetail('kho-kho') },
     chess: { winner: t1 === t2 ? 'draw' : t1 > t2 ? 't1' : 't2', category: 'Rapid' },
-    athletics: { time_t1_sec: t1 || 0, time_t2_sec: t2 || 0 },
-    'weight-lifting': { kg_t1: t1, kg_t2: t2, injured_t1: false, injured_t2: false, category: 'Squat' },
+    athletics: { participants: [], round: 'Heat 1', is_final: false },
+    'weight-lifting': { kg_t1: t1, kg_t2: t2, injured_t1: false, injured_t2: false, category: null },
     badminton: { ...defaultScoreDetail('badminton'), games_t1: t1, games_t2: t2 },
     'table-tennis': { ...defaultScoreDetail('table-tennis'), games_t1: t1, games_t2: t2 },
     'arm-wrestling': { rounds_t1: t1, rounds_t2: t2 },
     'tug-of-war': { ...defaultScoreDetail('tug-of-war'), rounds_t1: t1, rounds_t2: t2 },
     esports: { maps_t1: t1, maps_t2: t2 },
   };
-  return { ...(map[sportId] || { score_t1: t1, score_t2: t2 }) };
+  return { ...(map[sportId] || { score_t1: t1, score_t2: t2 }), ...(match?.score_detail || {}) };
 }

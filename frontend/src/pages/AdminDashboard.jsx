@@ -35,13 +35,14 @@ function AdminDashboard() {
   const teamsRefreshTimeoutRef = useRef(null);
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
-  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting', 'carrom'];
+  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting', 'carrom', 'athletics'];
   const allowSubstituteSports = ['volleyball', 'kho-kho'];
   const racketSports = ['badminton', 'table-tennis', 'carrom'];
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   
   const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
   const getChessCategoryPlayerLimit = (category) => category === 'Rapid' ? 4 : (category === 'Hand & Brain' ? 2 : 1);
+  const getAthleticsCategoryPlayerLimit = (category) => (category || '').includes('4 X 100') ? 4 : 1;
 
   const getLocalDateKey = (dateValue) => {
     if (!dateValue) return '';
@@ -179,6 +180,19 @@ function AdminDashboard() {
       }
     }
 
+    if (newTeam.sport_id === 'athletics') {
+      const players = (newTeam.squad || []).filter(p => !p.is_substitute).map((p) => (p.name || '').trim()).filter(Boolean);
+      const limit = getAthleticsCategoryPlayerLimit(newTeam.category);
+      if (players.length !== limit) {
+        alert(`Athletics ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
+        return;
+      }
+      if (new Set(players).size !== players.length) {
+        alert('Player names must be unique within the team squad.');
+        return;
+      }
+    }
+
     if (newTeam.sport_id === 'chess') {
       const players = (newTeam.squad || []).filter(p => !p.is_substitute).map((p) => (p.name || '').trim()).filter(Boolean);
       const limit = getChessCategoryPlayerLimit(newTeam.category);
@@ -238,6 +252,15 @@ function AdminDashboard() {
         const currentCount = (newTeam.squad || []).length;
         if (currentCount >= 1) {
           alert(`Maximum 1 player allowed for Weight-lifting. Remove a player to add another.`);
+          return;
+        }
+      }
+
+      if (newTeam.sport_id === 'athletics') {
+        const limit = getAthleticsCategoryPlayerLimit(newTeam.category);
+        const currentCount = (newTeam.squad || []).length;
+        if (currentCount >= limit) {
+          alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for Athletics - ${newTeam.category || 'this category'}. Remove a player to add another.`);
           return;
         }
       }
@@ -586,11 +609,12 @@ function AdminDashboard() {
                     <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
                       <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>
                         Team Squad ({newTeam.squad?.length || 0}
-                        {racketSports.includes(newTeam.sport_id) ? ` / ${getRacketCategoryPlayerLimit(newTeam.category)}` : ''})
+                        {racketSports.includes(newTeam.sport_id) ? ` / ${getRacketCategoryPlayerLimit(newTeam.category)}` : 
+                         newTeam.sport_id === 'athletics' ? ` / ${getAthleticsCategoryPlayerLimit(newTeam.category)}` : ''})
                       </h4>
-                      {racketSports.includes(newTeam.sport_id) && (
+                      {(racketSports.includes(newTeam.sport_id) || newTeam.sport_id === 'athletics') && (
                         <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                          {newTeam.category || 'Mens Singles'} requires exactly {getRacketCategoryPlayerLimit(newTeam.category)} player{getRacketCategoryPlayerLimit(newTeam.category) > 1 ? 's' : ''} per team.
+                          {newTeam.category || (newTeam.sport_id === 'athletics' ? 'Boys 100 meter run' : 'Mens Singles')} requires exactly {newTeam.sport_id === 'athletics' ? getAthleticsCategoryPlayerLimit(newTeam.category) : getRacketCategoryPlayerLimit(newTeam.category)} player{ (newTeam.sport_id === 'athletics' ? getAthleticsCategoryPlayerLimit(newTeam.category) : getRacketCategoryPlayerLimit(newTeam.category)) > 1 ? 's' : ''} per team.
                         </p>
                       )}
                       <ul className="admin-squad-list">
@@ -604,7 +628,7 @@ function AdminDashboard() {
                           </li>
                         ))}
                       </ul>
-                      {(!racketSports.includes(newTeam.sport_id) && newTeam.sport_id !== 'chess' && newTeam.sport_id !== 'weight-lifting') || (newTeam.sport_id === 'weight-lifting' && (newTeam.squad?.length || 0) < 1) || (newTeam.sport_id === 'chess' && (newTeam.squad?.length || 0) < getChessCategoryPlayerLimit(newTeam.category)) || (racketSports.includes(newTeam.sport_id) && (newTeam.squad?.length || 0) < getRacketCategoryPlayerLimit(newTeam.category)) ? (
+                      {(!racketSports.includes(newTeam.sport_id) && newTeam.sport_id !== 'chess' && newTeam.sport_id !== 'weight-lifting' && newTeam.sport_id !== 'athletics') || (newTeam.sport_id === 'weight-lifting' && (newTeam.squad?.length || 0) < 1) || (newTeam.sport_id === 'chess' && (newTeam.squad?.length || 0) < getChessCategoryPlayerLimit(newTeam.category)) || (racketSports.includes(newTeam.sport_id) && (newTeam.squad?.length || 0) < getRacketCategoryPlayerLimit(newTeam.category)) || (newTeam.sport_id === 'athletics' && (newTeam.squad?.length || 0) < getAthleticsCategoryPlayerLimit(newTeam.category)) ? (
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                           <input
                             type="text"
@@ -709,7 +733,7 @@ function AdminDashboard() {
                     <tr key={t.id} style={{ opacity: t.is_disqualified ? 0.6 : 1 }}>
                       <td className="team-name-cell">{t.name}</td>
                       <td style={{ textTransform: 'capitalize' }}>{t.sport_id.replace('-', ' ')}</td>
-                      <td>{t.category || '-'}</td>
+                      <td>{t.sport_id === 'weight-lifting' ? '-' : (t.category || '-')}</td>
                       <td className="points-cell">{t.points}</td>
                       <td>
                         {t.is_disqualified ? (

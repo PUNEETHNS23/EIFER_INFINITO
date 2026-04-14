@@ -13,6 +13,8 @@ function SportDetails() {
   const [teams, setTeams] = useState([]);
   const [activeTab, setActiveTab] = useState(id === 'weight-lifting' ? 'teams' : 'matches');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedMatch, setSelectedMatch] = useState(null); // For Athletics detail modal
+  const [allTeams, setAllTeams] = useState([]); // Cross-sport teams for resolving IDs
 
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   const isCategorizedSport = categorizedSports.includes(id);
@@ -44,6 +46,11 @@ function SportDetails() {
         setMatches(matchesRes.data);
 
         await fetchTeamsForSport();
+
+        if (id === 'athletics') {
+          const allTeamsRes = await api.get('/teams');
+          setAllTeams(allTeamsRes.data);
+        }
       } catch (err) {
         console.error('Failed to fetch sport details', err);
       }
@@ -67,17 +74,32 @@ function SportDetails() {
   });
 
   const meta = getSportMeta(id);
-  const filteredMatches = isCategorizedSport
+
+  // Athletics: map event_type back to display category label — defined first so filteredMatches can use it
+  const eventTypeToCategory = (et) => {
+    if (et === 'boys_100m') return 'Boys 100 meter run';
+    if (et === 'girls_100m') return 'Girls 100 meter run';
+    if (et === 'relay_4x100') return '4 X 100 meter run';
+    return et;
+  };
+  const eventTypeLabels = { boys_100m: 'Boys 100m', girls_100m: 'Girls 100m', relay_4x100: '4 × 100m Relay' };
+
+  const filteredMatches = id === 'athletics'
     ? (selectedCategory
-        ? matches.filter((match) => normalizeCategory(match?.score_detail?.category) === selectedCategory)
+        ? matches.filter(m => m.score_detail?.event_type && eventTypeToCategory(m.score_detail.event_type) === selectedCategory)
         : matches)
-    : matches;
+    : isCategorizedSport
+      ? (selectedCategory
+          ? matches.filter((match) => normalizeCategory(match?.score_detail?.category) === selectedCategory)
+          : matches)
+      : matches;
 
   const filteredTeams = isCategorizedSport
     ? (selectedCategory
         ? teams.filter((team) => normalizeCategory(team?.category) === selectedCategory)
         : teams)
     : teams;
+
 
   return (
     <div className="container sport-details-page">
@@ -133,15 +155,19 @@ function SportDetails() {
           {filteredMatches.map((match) => {
             const team1Data = teams.find((team) => team.id === match.team1_id) || null;
             const team2Data = teams.find((team) => team.id === match.team2_id) || null;
+            const isAthletics = id === 'athletics';
             const cardContent = (
-              <div className={`sd-match-card ${match.status === 'live' ? 'live' : ''}`}>
+              <div className={`sd-match-card ${match.status === 'live' ? 'live' : ''}`} 
+                style={isAthletics ? { cursor: 'pointer' } : undefined}
+                onClick={isAthletics ? () => setSelectedMatch(match) : undefined}
+              >
                 <div className="sd-match-header">
-                  <span className={`sd-match-status ${match.status === 'live' ? 'live' : ''}`}>
-                    {match.status === 'live' ? '● LIVE' : match.status.toUpperCase()}
+                  <span className={`sd-match-status ${(!isAthletics && match.status === 'live') ? 'live' : ''}`}>
+                    {(!isAthletics && match.status === 'live') ? '● LIVE' : match.status.toUpperCase()}
                   </span>
                   <span>{new Date(match.scheduled_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
-                {isCategorizedSport && (
+                {isCategorizedSport && !isAthletics && (
                   <div className="sd-match-category-chip">{normalizeCategory(match?.score_detail?.category) || selectedCategory}</div>
                 )}
                 <SportScoreboard match={match} compact team1Data={team1Data} team2Data={team2Data} />
@@ -150,9 +176,11 @@ function SportDetails() {
 
             return (
               <div key={match.id} className="sd-match-card-wrapper">
-                <Link to={getMatchRoute(match)} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  {cardContent}
-                </Link>
+                {isAthletics ? cardContent : (
+                  <Link to={getMatchRoute(match)} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    {cardContent}
+                  </Link>
+                )}
               </div>
             );
           })}
@@ -258,6 +286,137 @@ function SportDetails() {
                 )}
               </tbody>
             </table>
+          </div>
+        );
+      })()}
+
+      {/* Athletics Match Detail Modal */}
+      {selectedMatch && id === 'athletics' && (() => {
+        const m = selectedMatch;
+        const d = m.score_detail || {};
+        const participants = d.participants || [];
+        const eventLabel = eventTypeLabels[d.event_type] || d.event_type || 'Event';
+        const qualifierCount = d.qualifier_count || null;
+        const sortedParticipants = [...participants].sort((a, b) => {
+          if (!a.rank && !b.rank) return 0;
+          if (!a.rank) return 1;
+          if (!b.rank) return -1;
+          return a.rank - b.rank;
+        });
+        const hasResults = participants.some(p => p.rank);
+        return (
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+            onClick={() => setSelectedMatch(null)}
+          >
+            <div
+              style={{ background: 'var(--color-surface, #1a1a2e)', borderRadius: '16px', width: '100%', maxWidth: '640px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>🏃</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>{eventLabel}</h2>
+                    {d.is_final && (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, background: '#fbbf24', color: '#000', padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>FINAL</span>
+                    )}
+                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, background: m.status === 'completed' ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.08)', color: m.status === 'completed' ? '#34d399' : 'var(--color-text-muted)', marginLeft: 'auto' }}>
+                      {m.status === 'completed' ? 'COMPLETED' : 'UPCOMING'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                    {new Date(m.scheduled_time).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {qualifierCount && ` · Top ${qualifierCount} qualify`}
+                  </div>
+                </div>
+                <button onClick={() => setSelectedMatch(null)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: '1.4rem', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              </div>
+
+              <div style={{ padding: '1.5rem' }}>
+                {/* Participants count */}
+                <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                  <div style={{ flex: 1, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{participants.length}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>Participants</div>
+                  </div>
+                  {qualifierCount && (
+                    <div style={{ flex: 1, padding: '0.75rem 1rem', background: 'rgba(52,211,153,0.07)', borderRadius: '10px', textAlign: 'center', border: '1px solid rgba(52,211,153,0.15)' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#34d399' }}>{qualifierCount}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>Qualifiers</div>
+                    </div>
+                  )}
+                  {hasResults && (
+                    <div style={{ flex: 1, padding: '0.75rem 1rem', background: 'rgba(251,191,36,0.06)', borderRadius: '10px', textAlign: 'center', border: '1px solid rgba(251,191,36,0.12)' }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fbbf24' }}>{participants.filter(p => p.qualified).length}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>Qualified</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Match Results Leaderboard */}
+                <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>
+                  {hasResults ? '🏆 Match Results' : '👥 Registered Teams'}
+                </h3>
+                <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <th style={{ padding: '0.6rem 1rem', textAlign: 'left', fontSize: '0.76rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Rank</th>
+                        <th style={{ padding: '0.6rem 1rem', textAlign: 'left', fontSize: '0.76rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Team</th>
+                        <th style={{ padding: '0.6rem 1rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Time</th>
+                        <th style={{ padding: '0.6rem 1rem', textAlign: 'center', fontSize: '0.76rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(hasResults ? sortedParticipants : participants).map((p, idx) => {
+                        const teamObj = allTeams.find(t => String(t.id) === String(p.team_id));
+                        const teamName = teamObj?.name || `Team ${p.team_id}`;
+                        const squad = teamObj?.squad || [];
+                        const rankColors = { 1: '#fbbf24', 2: '#94a3b8', 3: '#cd7f32' };
+                        const rankColor = rankColors[p.rank] || 'rgba(255,255,255,0.2)';
+                        const pos = hasResults ? (p.rank || '—') : (idx + 1);
+                        return (
+                          <tr key={p.team_id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: p.qualified ? 'rgba(52,211,153,0.04)' : 'transparent' }}>
+                            <td style={{ padding: '0.7rem 1rem' }}>
+                              <div style={{ width: '26px', height: '26px', background: rankColor, color: p.rank <= 3 ? '#000' : 'var(--color-text-muted)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.8rem' }}>
+                                {pos}
+                              </div>
+                            </td>
+                            <td style={{ padding: '0.7rem 1rem' }}>
+                              <div style={{ fontWeight: 600 }}>{teamName}</div>
+                              {squad.length > 0 && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
+                                  {squad.join(' · ')}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '0.7rem 1rem', textAlign: 'center', fontFamily: 'monospace', color: 'var(--color-primary)' }}>
+                              {p.time > 0 ? `${Number(p.time).toFixed(3)}s` : '—'}
+                            </td>
+                            <td style={{ padding: '0.7rem 1rem', textAlign: 'center' }}>
+                              {hasResults
+                                ? p.qualified
+                                  ? <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.1)', padding: '2px 7px', borderRadius: '4px' }}>Qualified ✅</span>
+                                  : <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#f87171', background: 'rgba(248,113,113,0.08)', padding: '2px 7px', borderRadius: '4px' }}>Eliminated ❌</span>
+                                : <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Awaiting results</span>
+                              }
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {!hasResults && (
+                  <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: '1rem' }}>
+                    Results will appear here once the match is completed.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         );
       })()}

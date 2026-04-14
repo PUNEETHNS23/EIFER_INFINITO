@@ -91,7 +91,6 @@ function AdminWeightLifting() {
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                   <th style={thStyle}>Participant</th>
-                  <th style={thStyle}>Category</th>
                   <th style={thStyle}>🟥 Squat (kg)</th>
                   <th style={thStyle}>🟦 Bench (kg)</th>
                   <th style={thStyle}>⬛ Deadlift (kg)</th>
@@ -125,7 +124,6 @@ function AdminWeightLifting() {
                           <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', color: 'var(--color-primary)' }}>●</span>
                         )}
                       </td>
-                      <td style={{ ...tdStyle, color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>{t.category}</td>
                       {['squat', 'bench', 'deadlift'].map(field => (
                         <td key={field} style={tdStyle}>
                           <input
