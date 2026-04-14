@@ -8,7 +8,7 @@ function Leaderboard() {
 
   const fetchTeams = async () => {
     try {
-      const res = await api.get('/teams');
+      const res = await api.get('/leaderboard/overall');
       setTeams(res.data);
     } catch (e) {
       console.error(e);
@@ -36,14 +36,14 @@ function Leaderboard() {
             <thead>
               <tr>
                 <th>Rank</th>
-                <th>Team / Player</th>
+                <th>Team</th>
                 <th>Points</th>
               </tr>
             </thead>
             <tbody>
-              {teams.sort((a, b) => b.points - a.points).map((team, index) => (
+              {teams.map((team, index) => (
                 <tr 
-                  key={team.id} 
+                  key={`${team.name}-${index}`} 
                   className={index < 3 ? `leaderboard-row-top-${index + 1}` : ''}
                 >
                   <td>

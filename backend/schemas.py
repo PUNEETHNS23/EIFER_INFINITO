@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Any
 from datetime import datetime
 
@@ -17,6 +17,15 @@ class Team(TeamBase):
     disqualification_reason: Optional[str] = None
     squad: Optional[list[dict[str, Any]]] = None
     results: Optional[dict[str, Any]] = None
+    class Config:
+        from_attributes = True
+
+class OverallLeaderboardEntry(BaseModel):
+    name: str
+    points: int
+    sports: list[str] = Field(default_factory=list)
+    team_ids: list[int] = Field(default_factory=list)
+
     class Config:
         from_attributes = True
 

@@ -185,6 +185,40 @@ def get_teams(db: Session = Depends(get_db)):
 def get_teams_by_sport(sport_id: str, db: Session = Depends(get_db)):
     return db.query(models.Team).filter(models.Team.sport_id == sport_id).all()
 
+def _normalize_team_key(name: str) -> str:
+    return " ".join((name or "").split()).casefold()
+
+
+@app.get("/api/leaderboard/overall", response_model=list[schemas.OverallLeaderboardEntry])
+def get_overall_leaderboard(db: Session = Depends(get_db)):
+    grouped: dict[str, dict[str, Any]] = {}
+
+    for team in db.query(models.Team).all():
+        display_name = (team.name or "").strip() or "Unknown"
+        key = _normalize_team_key(display_name)
+        entry = grouped.setdefault(
+            key,
+            {
+                "name": display_name,
+                "points": 0,
+                "sports": [],
+                "team_ids": [],
+            },
+        )
+
+        entry["points"] += int(team.points or 0)
+        entry["team_ids"].append(team.id)
+        if team.sport_id and team.sport_id not in entry["sports"]:
+            entry["sports"].append(team.sport_id)
+        if entry["name"] == "Unknown" and display_name != "Unknown":
+            entry["name"] = display_name
+
+    leaderboard = sorted(
+        grouped.values(),
+        key=lambda row: (-row["points"], row["name"].casefold()),
+    )
+    return leaderboard
+
 @app.post("/api/teams", response_model=schemas.Team)
 def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
     racket_categories = {
@@ -396,9 +430,9 @@ def _apply_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int
         return
 
     if score_t1 > score_t2:
-        t1.points += 4
+        t1.points += 2
     elif score_t2 > score_t1:
-        t2.points += 4
+        t2.points += 2
     else:
         t1.points += 1
         t2.points += 1
@@ -430,9 +464,9 @@ def _reverse_match_points(db: Session, team1_id: int, team2_id: int, score_t1: i
         return
 
     if score_t1 > score_t2:
-        t1.points = max(0, t1.points - 3)
+        t1.points = max(0, t1.points - 2)
     elif score_t2 > score_t1:
-        t2.points = max(0, t2.points - 3)
+        t2.points = max(0, t2.points - 2)
     else:
         t1.points = max(0, t1.points - 1)
         t2.points = max(0, t2.points - 1)
