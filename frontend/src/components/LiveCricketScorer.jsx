@@ -3,9 +3,9 @@ import CoinToss from './CoinToss';
 import './LiveCricketScorer.css';
 
 // ── Inline modal for picking who got out ────────────────────────────────────
-function WicketModal({ striker, nonStriker, bowler, onConfirm, onCancel }) {
+function WicketModal({ striker, nonStriker, bowler, isFreeHit, onConfirm, onCancel }) {
   const [victim, setVictim] = useState('striker');
-  const [kind, setKind] = useState('bowled');
+  const [kind, setKind] = useState(isFreeHit ? 'runout' : 'bowled');
 
   const dismissalLabel = {
     bowled: `b ${bowler}`,
@@ -14,6 +14,7 @@ function WicketModal({ striker, nonStriker, bowler, onConfirm, onCancel }) {
     runout: 'run out',
     stumped: `st b ${bowler}`,
     hitwicket: `hit wicket b ${bowler}`,
+    obstruct_field: 'obstructing the field',
   };
 
   return (
@@ -68,12 +69,13 @@ function WicketModal({ striker, nonStriker, bowler, onConfirm, onCancel }) {
             value={kind}
             onChange={e => setKind(e.target.value)}
           >
-            <option value="bowled">Bowled</option>
-            <option value="caught">Caught & Bowled</option>
-            <option value="lbw">LBW</option>
+            {!isFreeHit && <option value="bowled">Bowled</option>}
+            {!isFreeHit && <option value="caught">Caught & Bowled</option>}
+            {!isFreeHit && <option value="lbw">LBW</option>}
             <option value="runout">Run Out</option>
-            <option value="stumped">Stumped</option>
-            <option value="hitwicket">Hit Wicket</option>
+            {!isFreeHit && <option value="stumped">Stumped</option>}
+            {!isFreeHit && <option value="hitwicket">Hit Wicket</option>}
+            {isFreeHit && <option value="obstruct_field">Obstructing the field</option>}
           </select>
         </div>
 
@@ -97,10 +99,82 @@ function WicketModal({ striker, nonStriker, bowler, onConfirm, onCancel }) {
   );
 }
 
+// ── Inline modal for No Ball input ──────────────────────────────────────────
+function NoBallModal({ onConfirm, onCancel }) {
+  const [runs, setRuns] = useState(0);
+  const [reason, setReason] = useState('Foot Fault');
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999
+    }}>
+      <div style={{
+        background: 'var(--color-surface)', borderRadius: '16px',
+        padding: '2rem', width: '340px', border: '1px solid var(--color-border)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+      }}>
+        <h3 style={{ margin: '0 0 1.5rem', color: '#f59e0b', fontSize: '1.1rem' }}>⚠️ No Ball</h3>
+
+        <div className="input-group">
+          <label className="input-label">Runs scored off the bat?</label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {[0, 1, 2, 3, 4, 6].map(v => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setRuns(v)}
+                style={{
+                  flex: 1, minWidth: '40px', padding: '0.5rem',
+                  border: `2px solid ${runs === v ? '#f59e0b' : 'var(--color-border)'}`,
+                  borderRadius: '8px', background: runs === v ? 'rgba(245,158,11,0.15)' : 'transparent',
+                  color: 'var(--color-text-main)', cursor: 'pointer', fontWeight: runs === v ? 'bold' : 'normal',
+                }}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="input-group" style={{ marginTop: '1rem' }}>
+          <label className="input-label">Reason</label>
+          <select
+            className="input-field"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+          >
+            <option value="Foot Fault">Foot Fault (Free Hit)</option>
+            <option value="Waist High Full Toss">Waist High Full Toss (Free Hit)</option>
+            <option value="Body Contact">Body Contact</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+          <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ flex: 2, background: '#f59e0b', borderColor: '#f59e0b', color: '#000' }}
+            onClick={() => onConfirm(runs, reason)}
+          >
+            Apply No Ball
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Scorer ─────────────────────────────────────────────────────────────
 export default function LiveCricketScorer({ detail, patch, team1, team2, team1Data, team2Data }) {
   const [history, setHistory] = useState(() => detail.history || []);
   const [wicketModal, setWicketModal] = useState(false);
+  const [nbModal, setNbModal] = useState(false);
+
+  const isFreeHit = !!detail.is_free_hit;
 
   // Toss UI States
   const isMatchStarted = !!detail.toss_decided;
@@ -252,8 +326,13 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       updates[bowlingCardKey][bowlerName] = { overs: '0.0', runs: 0, wickets: 0, econ: 0 };
     }
     const bwCard = updates[bowlingCardKey][bowlerName];
-    // Only credit bowler with wicket if not a run-out
-    if (!dismissalStr.startsWith('run out')) bwCard.wickets += 1;
+    if (isFreeHit && dismissalStr.startsWith('run out') === false && dismissalStr.startsWith('obstructing') === false) {
+       // Just in case
+    } else {
+       // Only credit bowler with wicket if not a run-out or obstructing
+       if (!dismissalStr.startsWith('run out') && !dismissalStr.startsWith('obstructing')) bwCard.wickets += 1;
+    }
+
     const { o: bo, b: bb } = getOversBalls(parseFloat(bwCard.overs));
     const nb2 = bb + 1;
     bwCard.overs = nb2 === 6 ? `${bo + 1}.0` : `${bo}.${nb2}`;
@@ -265,6 +344,11 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       bwCard.econ = ((bwCard.runs * 6) / bwBalls).toFixed(2);
       updates.bowler_econ = bwCard.econ;
     }
+
+    // Free hit is removed on a legal ball wicket (e.g. runout on legal ball)
+    // Wait, the wicket itself advances the legal ball count (b+1). 
+    // Hence, this ball was legal. Free hit should be removed.
+    updates.is_free_hit = false;
 
     // Highlight
     updates.events_feed = `🔴 ${o}.${nb} - ${victimName} is OUT! (${dismissalStr})\n` + (updates.events_feed || '');
@@ -303,7 +387,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   };
 
   // ── Normal ball ──────────────────────────────────────────────────────────
-  const handleBall = (type) => {
+  const handleBall = (type, extraData = null) => {
     if (!detail.striker || !detail.non_striker || !detail.current_bowler) {
       alert('Please select striker, non-striker, and bowler from the dropdowns first!');
       return;
@@ -335,7 +419,20 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       case '4': runsAdded = 4; batterRuns = 4; four = 1; break;
       case '6': runsAdded = 6; batterRuns = 6; six = 1; break;
       case 'WD': runsAdded = 1; isLegal = false; isExtra = true; break;
-      case 'NB': runsAdded = 1; isLegal = false; isExtra = true; break;
+      case 'NB': 
+        const nbRuns = extraData ? extraData.runs : 0;
+        runsAdded = 1 + nbRuns; 
+        batterRuns = nbRuns;
+        isLegal = false; 
+        isExtra = true; 
+        if (nbRuns % 2 !== 0) runsAreOdd = true;
+        if (nbRuns === 4) four = 1;
+        if (nbRuns === 6) six = 1;
+
+        if (extraData && (extraData.reason === 'Foot Fault' || extraData.reason === 'Waist High Full Toss')) {
+          updates.is_free_hit = true;
+        }
+        break;
       default: break;
     }
 
@@ -349,6 +446,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
     // 2. Overs logic
     let endOfOver = false;
     if (isLegal) {
+      updates.is_free_hit = false; // Turn off free hit after a legal ball
       b += 1;
       if (b === 6) {
         o += 1; b = 0;
@@ -549,8 +647,19 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
           striker={detail.striker}
           nonStriker={detail.non_striker}
           bowler={detail.current_bowler}
+          isFreeHit={isFreeHit}
           onConfirm={applyWicket}
           onCancel={() => setWicketModal(false)}
+        />
+      )}
+      
+      {nbModal && (
+        <NoBallModal
+          onConfirm={(runs, reason) => {
+            setNbModal(false);
+            handleBall('NB', { runs, reason });
+          }}
+          onCancel={() => setNbModal(false)}
         />
       )}
 
@@ -670,8 +779,15 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
             <button key={v} onClick={() => handleBall(v)} className={`btn-score interactive-btn ${v === '4' ? 'feature-4' : v === '6' ? 'feature-6' : ''}`}>{v}</button>
           ))}
           <button onClick={() => handleBall('WD')} className="btn-score feature-extra interactive-btn">WD</button>
-          <button onClick={() => handleBall('NB')} className="btn-score feature-extra interactive-btn">NB</button>
+          <button onClick={() => setNbModal(true)} className="btn-score feature-extra interactive-btn">NB</button>
           <button onClick={() => handleBall('W')} className="btn-score feature-wicket interactive-btn">W</button>
+        </div>
+
+        <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={isFreeHit} onChange={(e) => patch({ is_free_hit: e.target.checked })} />
+            Force Free Hit (Admin Override)
+          </label>
         </div>
 
         {/* Controls */}

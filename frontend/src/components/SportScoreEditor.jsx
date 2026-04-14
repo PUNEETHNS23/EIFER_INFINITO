@@ -216,7 +216,7 @@ export default function SportScoreEditor({ match, onSaved }) {
   }, [detail, sid, match.id, status]);
 
   useEffect(() => {
-    if (!['badminton', 'table-tennis', 'tug-of-war'].includes(sid)) return;
+    if (!['badminton', 'table-tennis', 'tug-of-war', 'cricket', 'volleyball', 'football', 'carrom', 'kho-kho'].includes(sid)) return;
     if (manualStatusOverride) return;
 
     if (sid === 'tug-of-war') {
@@ -234,6 +234,10 @@ export default function SportScoreEditor({ match, onSaved }) {
         setStatus('live');
       }
       return;
+    }
+
+    if (detail.toss_decided && status === 'upcoming') {
+      setStatus('live');
     }
   }, [sid, detail.match_format, detail.games_t1, detail.games_t2, detail.toss_decided, status, manualStatusOverride]);
 

@@ -302,7 +302,10 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
 
           <div className="cricket-metrics-bar">
              <span>Live RR: {d.run_rate ?? '0.00'}</span>
-             <span>Last Ball: {d.current_ball_result || '-'}</span>
+             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+               {d.is_free_hit && <span style={{ background: '#f59e0b', color: '#000', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800 }}>FREE HIT</span>}
+               Last Ball: {d.current_ball_result || '-'}
+             </span>
           </div>
 
           <div className="cricket-players-card">
