@@ -24,7 +24,7 @@ class MatchBase(BaseModel):
     sport_id: str
     team1_id: int
     team2_id: int
-    scheduled_time: datetime
+    scheduled_time: Optional[datetime] = None
 
 class MatchCreate(MatchBase):
     score_detail: Optional[dict[str, Any]] = None

@@ -396,6 +396,25 @@ function AdminDashboard() {
             </div>
           </div>
 
+          <div className="card" style={{ marginBottom: '2rem' }}>
+            <h2 className="admin-section-title">Racket scheduling</h2>
+            <p className="admin-section-desc">
+              Create badminton and table tennis matches without a time slot. Team lineups are auto-generated from squads and can be edited before saving.
+            </p>
+            <div className="admin-grid-desks">
+              {SPORTS.filter((s) => s.id === 'badminton' || s.id === 'table-tennis').map((s) => (
+                <Link
+                  key={s.id}
+                  to={`/admin/racket-schedule/${s.id}`}
+                  className="btn-outline btn-sm"
+                  style={{ textAlign: 'center', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                >
+                  ➕ {s.icon} {s.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <div style={{ marginBottom: '4rem' }}>
             <div className="card">
               <h2 className="admin-section-title">Schedule Match</h2>
@@ -403,7 +422,7 @@ function AdminDashboard() {
                 Select a sport to schedule a new dedicated match setup.
               </p>
               <div className="admin-grid-desks">
-                {SPORTS.filter(s => s.id !== 'weight-lifting').map((s) => (
+                {SPORTS.filter(s => s.id !== 'weight-lifting' && s.id !== 'badminton' && s.id !== 'table-tennis').map((s) => (
                   <Link key={s.id} to={`/admin/create-match/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
                     ➕ {s.icon} {s.name}
                   </Link>

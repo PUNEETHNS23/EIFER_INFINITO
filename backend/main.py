@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy.engine.url import make_url
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import inspect, text
 from . import models, schemas, database, auth, scoring
@@ -451,6 +451,43 @@ def _as_int(v: Any, default: int = 0) -> int:
         return default
 
 
+def _team_player_names(team: Optional[models.Team]) -> list[str]:
+    squad = getattr(team, "squad", None) or []
+    names: list[str] = []
+    seen: set[str] = set()
+
+    for player in squad:
+        if not isinstance(player, dict):
+            continue
+        name = (player.get("name") or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+
+    return names
+
+
+def _apply_racket_lineup(detail: dict[str, Any], team: Optional[models.Team], prefix: str, category: str):
+    if not team:
+        return
+
+    names = _team_player_names(team)
+    if not names:
+        return
+
+    is_doubles = isinstance(category, str) and "Doubles" in category
+    primary_key = f"{prefix}_name"
+    partner_key = f"{prefix}_partner"
+
+    detail[primary_key] = (detail.get(primary_key) or names[0]).strip()
+    if is_doubles:
+        partner = detail.get(partner_key) or (names[1] if len(names) > 1 else "")
+        detail[partner_key] = (partner or "").strip()
+    else:
+        detail[partner_key] = ""
+
+
 def _derive_scores_for_status(sport_id: str, detail: Optional[dict], status: str) -> tuple[int, int]:
     # Chess should only publish canonical score once the match is completed.
     if sport_id == "chess" and status != "completed":
@@ -503,13 +540,15 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
             raise HTTPException(status_code=400, detail="Both teams must be from the same selected subcategory")
 
         detail["category"] = category
+        _apply_racket_lineup(detail, team1, "p1", category)
+        _apply_racket_lineup(detail, team2, "p2", category)
 
     t1, t2 = _derive_scores_for_status(data["sport_id"], detail, "upcoming")
     db_match = models.Match(
         sport_id=data["sport_id"],
         team1_id=data["team1_id"],
         team2_id=data["team2_id"],
-        scheduled_time=data["scheduled_time"],
+        scheduled_time=data.get("scheduled_time") or datetime.utcnow(),
         score_detail=detail,
         score_t1=t1,
         score_t2=t2,
