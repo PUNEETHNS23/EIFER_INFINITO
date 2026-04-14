@@ -253,14 +253,15 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
             <div className="sb-rally">
               <div className="sb-cr-compact-info">
                 <span className="sb-cr-inn-badge">INN {inn}</span>
-                <span style={{ fontWeight: 800, color: 'var(--color-text-main)' }}>{curOvers || '0.0'} OV</span>
+                {d.is_free_hit && <span style={{ background: '#f59e0b', color: '#000', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800, marginLeft: '0.5rem' }}>FREE HIT</span>}
+                <span style={{ fontWeight: 800, color: 'var(--color-text-main)', marginLeft: 'auto' }}>{curOvers || '0.0'} OV</span>
               </div>
               
               <div className="sb-cr-balls-list-compact">
                 {balls.map((b, i) => (
                   <span 
                     key={i} 
-                    className={`sb-cr-ball-compact ${b === 'W' ? 'ball-w' : (['4', '6'].includes(b) ? 'ball-boundary' : '')}`}
+                    className={`sb-cr-ball-compact ${b.includes('W') && !b.includes('WD') ? 'ball-w' : (b.includes('4') || b.includes('6') ? 'ball-boundary' : '')}`}
                   >
                     {b}
                   </span>
@@ -370,7 +371,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
              <span className="cricket-recent-label">This Over:</span>
              <div className="cricket-balls-list">
                 {(d.over_progression || '').split(' ').filter(Boolean).map((b, i) => (
-                   <span key={i} className={`cricket-ball-circle ${b === 'W' ? 'ball-w' : (b === '4' || b === '6' ? 'ball-boundary' : 'ball-normal')}`}>{b}</span>
+                   <span key={i} className={`cricket-ball-circle ${b.includes('W') && !b.includes('WD') ? 'ball-w' : (b.includes('4') || b.includes('6') ? 'ball-boundary' : 'ball-normal')}`}>{b}</span>
                 ))}
              </div>
           </div>

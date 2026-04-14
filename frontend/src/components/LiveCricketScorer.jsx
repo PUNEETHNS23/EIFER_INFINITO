@@ -429,8 +429,19 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
         if (nbRuns === 4) four = 1;
         if (nbRuns === 6) six = 1;
 
+        if (!updates.ball_by_ball) updates.ball_by_ball = [];
+        updates.ball_by_ball.push({
+          type: "no_ball",
+          runs: nbRuns,
+          extra: 1,
+          reason: extraData ? extraData.reason : "unknown"
+        });
+
         if (extraData && (extraData.reason === 'Foot Fault' || extraData.reason === 'Waist High Full Toss')) {
           updates.is_free_hit = true;
+          updates.events_feed = `⚠️ ${o}.${b} - No Ball (${extraData.reason})! FREE HIT! ${nbRuns > 0 ? nbRuns + ' runs off bat.' : ''}\n` + (updates.events_feed || '');
+        } else if (extraData) {
+          updates.events_feed = `⚠️ ${o}.${b} - No Ball (${extraData.reason})! ${nbRuns > 0 ? nbRuns + ' runs off bat.' : ''}\n` + (updates.events_feed || '');
         }
         break;
       default: break;
@@ -440,7 +451,16 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
     updates[`runs${battingPrefix}`] = totalRuns + runsAdded;
     if (isExtra) {
       const extKey = `extras${battingPrefix}`;
-      updates[extKey] = (updates[extKey] || 0) + runsAdded;
+      let extraPoints = runsAdded;
+      if (type === 'NB') {
+        extraPoints = 1;
+        const nbKey = `extras_nb${battingPrefix}`;
+        updates[nbKey] = (updates[nbKey] || 0) + 1;
+      } else if (type === 'WD') {
+        const wdKey = `extras_wd${battingPrefix}`;
+        updates[wdKey] = (updates[wdKey] || 0) + runsAdded;
+      }
+      updates[extKey] = (updates[extKey] || 0) + extraPoints;
     }
 
     // 2. Overs logic
@@ -510,14 +530,15 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
     // 6. Over progression & Highlights
     // over_progression always shows current over balls (WD/NB included visually)
     // Reset it cleanly at end of over (new over starts fresh)
-    updates.current_ball_result = type;
+    const displayType = type === 'NB' && batterRuns > 0 ? `NB+${batterRuns}` : type;
+    updates.current_ball_result = displayType;
     if (endOfOver) {
       // Save completed over balls so display can show them until next ball
-      updates.prev_over_progression = (updates.over_progression ? updates.over_progression + ' ' : '') + type;
+      updates.prev_over_progression = (updates.over_progression ? updates.over_progression + ' ' : '') + displayType;
       updates.over_progression = '';
     } else {
       // Append to current over display (WD/NB show but don't count toward 6)
-      updates.over_progression = (updates.over_progression ? updates.over_progression + ' ' : '') + type;
+      updates.over_progression = (updates.over_progression ? updates.over_progression + ' ' : '') + displayType;
     }
 
     if (four || six) {

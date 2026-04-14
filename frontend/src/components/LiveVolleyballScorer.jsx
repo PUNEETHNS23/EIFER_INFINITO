@@ -170,6 +170,16 @@ function Roster({ team, teamName, roster, teamData, dispatch }) {
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
 ═══════════════════════════════════════════════════════════ */
+export default function LiveVolleyballScorer({
+  detail,
+  patch,
+  team1,
+  team2,
+  team1Data,
+  team2Data,
+  serveIcon = '🏐',
+  allowSetCountConfig = false,
+  initialSetTarget = null,
   showResetOnComplete = true,
   sportId = 'volleyball',
 }) {
