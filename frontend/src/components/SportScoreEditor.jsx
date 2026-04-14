@@ -219,21 +219,6 @@ export default function SportScoreEditor({ match, onSaved }) {
       }
       return;
     }
-
-    const format = detail.match_format || 'Best of 3';
-    const gamesToWin = format === 'Best of 5' ? 3 : format === '1 Game' ? 1 : 2;
-    const t1Games = Number(detail.games_t1 || 0);
-    const t2Games = Number(detail.games_t2 || 0);
-    const hasWinner = t1Games >= gamesToWin || t2Games >= gamesToWin;
-
-    if (hasWinner && status !== 'completed') {
-      setStatus('completed');
-      return;
-    }
-
-    if (!hasWinner && detail.toss_decided && status === 'upcoming') {
-      setStatus('live');
-    }
   }, [sid, detail.match_format, detail.games_t1, detail.games_t2, detail.toss_decided, status, manualStatusOverride]);
 
   const patch = useCallback((partial) => {

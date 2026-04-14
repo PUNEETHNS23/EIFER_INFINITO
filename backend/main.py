@@ -51,6 +51,9 @@ def ensure_db_migrations():
         if "category" not in cols:
             with database.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE teams ADD COLUMN category TEXT"))
+        if "results" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE teams ADD COLUMN results JSON"))
 
 
 ensure_db_migrations()

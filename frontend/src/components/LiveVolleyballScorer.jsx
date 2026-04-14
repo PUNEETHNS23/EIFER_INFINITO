@@ -26,8 +26,9 @@ function checkSetWin(state) {
       ...state,
       sets_t1: newSets_t1, sets_t2: newSets_t2,
       setHistory: newHistory,
-      status: 'completed',
+      status: 'live',
       winner: newSets_t1 >= setsToWin ? 'A' : 'B',
+      pendingComplete: true,
       lastEvent: winner === 'A' ? 'match-a' : 'match-b',
     };
   }
@@ -64,6 +65,7 @@ function initState(fromDetail, team1, team2) {
     servingTeam: d.servingTeam ?? 'A',
     status:      d.status      ?? 'upcoming',
     winner:      d.winner      ?? null,
+    pendingComplete: d.pendingComplete ?? (d.status !== 'completed' && Boolean(d.winner)),
     history:     d.history     ?? [],
     lastEvent:   null,
     rosterSize,
@@ -103,6 +105,9 @@ function reducer(state, action) {
       return initState(null, state.teamA, state.teamB);
     case 'HYDRATE':
       return initState(action.detail, action.teamA, action.teamB);
+    case 'COMPLETE_MATCH':
+      if (state.status === 'completed') return state;
+      return { ...state, status: 'completed', pendingComplete: false, lastEvent: 'complete-match' };
     case 'SET_TARGET':
       return { ...state, setTargets: { ...state.setTargets, [state.currentSet]: action.target } };
     case 'SET_MAX_SETS': {
@@ -237,8 +242,8 @@ export default function LiveVolleyballScorer({
       rosterA:     state.rosterA,
       rosterB:     state.rosterB,
     });
-  }, [state.maxSets, state.sets_t1, state.sets_t2, state.pointsA, state.pointsB,
-      state.currentSet, state.status, state.winner, state.servingTeam, state.history, state.setTargets, state.rosterSize, state.rosterA, state.rosterB]);
+    }, [state.maxSets, state.sets_t1, state.sets_t2, state.pointsA, state.pointsB,
+      state.currentSet, state.status, state.winner, state.pendingComplete, state.servingTeam, state.history, state.setTargets, state.rosterSize, state.rosterA, state.rosterB]);
 
   /* ── Animations ─────────────────────────────────────── */
   const flashRef   = useRef(null);
@@ -287,13 +292,26 @@ export default function LiveVolleyballScorer({
     if (state.lastEvent?.startsWith('match')) {
       const t = state.winner === 'A' ? state.teamA : state.teamB;
       doFlash(state.winner === 'A' ? 'fa' : 'fb');
-      showToast(`🏆 ${t} wins the match!`);
+      showToast(`🏆 ${t} wins the final set! Complete the match when ready.`);
     }
   }, [state.lastEvent, state.pointsA, state.pointsB]);
 
   /* ── Deuce label ────────────────────────────────────── */
   const tgt = state.setTargets[state.currentSet];
   const setConfigLocked = state.setHistory.length > 0 || state.pointsA > 0 || state.pointsB > 0 || state.status === 'completed';
+  const isAwaitingCompletion = Boolean(state.winner) && state.status !== 'completed';
+  const [completionPromptOpen, setCompletionPromptOpen] = React.useState(false);
+  const wasAwaitingCompletion = useRef(false);
+
+  useEffect(() => {
+    if (isAwaitingCompletion && !wasAwaitingCompletion.current) {
+      setCompletionPromptOpen(true);
+    }
+    if (!isAwaitingCompletion) {
+      setCompletionPromptOpen(false);
+    }
+    wasAwaitingCompletion.current = isAwaitingCompletion;
+  }, [isAwaitingCompletion]);
 
   useEffect(() => {
     const maxSets = Number(state.maxSets || 5);
@@ -339,9 +357,31 @@ export default function LiveVolleyballScorer({
     if (navigator.vibrate) navigator.vibrate([15, 20, 15]);
     dispatch({ type: 'UNDO' });
   };
+  const completeMatch = () => {
+    dispatch({ type: 'COMPLETE_MATCH' });
+    setCompletionPromptOpen(false);
+  };
+  const keepEditing = () => {
+    setCompletionPromptOpen(false);
+  };
 
   return (
     <>
+      {completionPromptOpen && isAwaitingCompletion && (
+        <div className="lvb-complete-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="lvb-complete-title">
+          <div className="lvb-complete-modal">
+            <div className="lvb-complete-modal-badge">FINAL SET COMPLETE</div>
+            <h3 id="lvb-complete-title">Do you want to complete the match?</h3>
+            <p>
+              The last set has been won, but the score is still editable. You can undo the last point or make other changes before finishing the match.
+            </p>
+            <div className="lvb-complete-modal-actions">
+              <button type="button" className="btn-outline" onClick={keepEditing}>Keep Editing</button>
+              <button type="button" className="btn-primary" onClick={completeMatch}>Complete Match</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Flash overlay */}
       <div ref={flashRef} className="lvb-flash-overlay" />
       {/* Toast */}
@@ -498,6 +538,18 @@ export default function LiveVolleyballScorer({
           {serveIcon} SWITCH SERVER
         </button>
       </div>
+
+      {isAwaitingCompletion && (
+        <div className="lvb-complete-banner">
+          <div className="lvb-complete-banner-copy">
+            <div className="lvb-complete-banner-title">Match ready to complete</div>
+            <div className="lvb-complete-banner-text">
+              Review the score, undo the last point if needed, then finish the match when you are ready.
+            </div>
+          </div>
+          <button type="button" className="btn-primary" onClick={completeMatch}>Complete Match</button>
+        </div>
+      )}
 
       {/* ── Roster Setup ── */}
       <div className="lvb-rosters" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0', border: '1px solid var(--color-border)', borderTop: 'none', background: 'var(--color-bg-surface-elevated)' }}>

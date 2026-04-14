@@ -432,6 +432,90 @@
 }
 .lvb-btn-reset:hover { opacity: 0.85; }
 
+/* ── Completion Prompt ───────────────────────────────── */
+.lvb-complete-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-top: none;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(255, 255, 255, 0.02));
+}
+.lvb-complete-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.lvb-complete-banner-title {
+  font-family: var(--font-heading);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #fbbf24;
+  text-transform: uppercase;
+}
+.lvb-complete-banner-text {
+  font-family: var(--font-ui);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+.lvb-complete-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(5px);
+}
+.lvb-complete-modal {
+  width: min(480px, 100%);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.98), rgba(10, 10, 10, 0.98));
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+  padding: 1.4rem;
+}
+.lvb-complete-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.85rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.lvb-complete-modal h3 {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  color: #ffffff;
+}
+.lvb-complete-modal p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+.lvb-complete-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
 /* ── Flash ────────────────────────────────────────────── */
 .lvb-flash-overlay {
   position: fixed; inset: 0; pointer-events: none; z-index: 800; opacity: 0;
