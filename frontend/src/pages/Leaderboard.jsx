@@ -37,7 +37,6 @@ function Leaderboard() {
               <tr>
                 <th>Rank</th>
                 <th>Team / Player</th>
-                <th>Sport</th>
                 <th>Points</th>
               </tr>
             </thead>
@@ -53,7 +52,6 @@ function Leaderboard() {
                     </span>
                   </td>
                   <td className="team-name-cell">{team.name}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{team.sport_id.replace('-', ' ')}</td>
                   <td className="points-cell">{team.points}</td>
                 </tr>
               ))}

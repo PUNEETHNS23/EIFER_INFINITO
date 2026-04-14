@@ -129,6 +129,7 @@ def startup_event():
         hashed_pw = auth.get_password_hash("admin") # default pw
         db.add(models.User(username="admin", hashed_password=hashed_pw, is_admin=True))
         db.commit()
+    _sync_leaderboard_points()
     db.close()
 
 # --- AUTH ROUTES ---
@@ -384,6 +385,10 @@ def map_match_names(m, db):
         "team2": t2.name if t2 else "Unknown",
     }
 
+
+def _should_count_for_leaderboard(sport_id: str) -> bool:
+    return True
+
 def _apply_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int, score_t2: int):
     t1 = db.query(models.Team).filter(models.Team.id == team1_id).first()
     t2 = db.query(models.Team).filter(models.Team.id == team2_id).first()
@@ -391,12 +396,31 @@ def _apply_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int
         return
 
     if score_t1 > score_t2:
-        t1.points += 3
+        t1.points += 4
     elif score_t2 > score_t1:
-        t2.points += 3
+        t2.points += 4
     else:
         t1.points += 1
         t2.points += 1
+
+
+def _recalculate_leaderboard_points(db: Session):
+    for team in db.query(models.Team).all():
+        team.points = 0
+
+    completed_matches = db.query(models.Match).filter(models.Match.status == "completed").all()
+    for match in completed_matches:
+        if _should_count_for_leaderboard(match.sport_id):
+            _apply_match_points(db, match.team1_id, match.team2_id, match.score_t1, match.score_t2)
+
+
+def _sync_leaderboard_points():
+    db = database.SessionLocal()
+    try:
+        _recalculate_leaderboard_points(db)
+        db.commit()
+    finally:
+        db.close()
 
 
 def _reverse_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int, score_t2: int):
@@ -554,6 +578,8 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
         score_t2=t2,
     )
     db.add(db_match)
+    db.flush()
+    _recalculate_leaderboard_points(db)
     db.commit()
     db.refresh(db_match)
     return map_match_names(db_match, db)
@@ -563,10 +589,6 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
-    
-    old_status = db_match.status
-    old_score_t1 = db_match.score_t1
-    old_score_t2 = db_match.score_t2
 
     payload = match_update.model_dump(exclude_unset=True)
 
@@ -585,22 +607,8 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
     for key, value in payload.items():
         setattr(db_match, key, value)
 
-    # Points logic:
-    # - If the match was previously completed, remove the old result points.
-    # - If the match is now completed, apply points for the new result.
-    if old_status == "completed":
-        if db_match.sport_id == "athletics":
-            _reverse_athletics_points(db, db_match.score_detail)
-        else:
-            _reverse_match_points(db, db_match.team1_id, db_match.team2_id, old_score_t1, old_score_t2)
-
-    if db_match.status == "completed":
-        if db_match.sport_id == "athletics":
-            # Athletics points are now handled manually via the /finalize endpoint
-            pass
-        else:
-            _apply_match_points(db, db_match.team1_id, db_match.team2_id, db_match.score_t1, db_match.score_t2)
-            
+    db.flush()
+    _recalculate_leaderboard_points(db)
     db.commit()
     db.refresh(db_match)
     
@@ -645,10 +653,8 @@ def delete_match(match_id: int, db: Session = Depends(get_db), current_user: str
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
     
-    # Reverse points if match was completed
-    if db_match.status == "completed":
-        _reverse_match_points(db, db_match.team1_id, db_match.team2_id, db_match.score_t1, db_match.score_t2)
-    
     db.delete(db_match)
+    db.flush()
+    _recalculate_leaderboard_points(db)
     db.commit()
     return {"detail": "Match deleted"}
