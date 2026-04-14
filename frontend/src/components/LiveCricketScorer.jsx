@@ -103,19 +103,22 @@ function WicketModal({ striker, nonStriker, bowler, isFreeHit, onConfirm, onCanc
 function NoBallModal({ onConfirm, onCancel }) {
   const [runs, setRuns] = useState(0);
   const [reason, setReason] = useState('Foot Fault');
+  const [freeHit, setFreeHit] = useState(true);
 
   return (
-    <div style={{
+    <div className="fade-in" style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 9999
     }}>
-      <div style={{
+      <div className="modal-pop" style={{
         background: 'var(--color-surface)', borderRadius: '16px',
-        padding: '2rem', width: '340px', border: '1px solid var(--color-border)',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+        padding: '2.5rem', width: '420px', border: '1px solidvar(--color-border)',
+        boxShadow: '0 25px 80px rgba(0,0,0,0.5)'
       }}>
-        <h3 style={{ margin: '0 0 1.5rem', color: '#f59e0b', fontSize: '1.1rem' }}>⚠️ No Ball</h3>
+        <h3 style={{ margin: '0 0 1.5rem', color: '#f59e0b', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>⚠️</span> No Ball
+        </h3>
 
         <div className="input-group">
           <label className="input-label">Runs scored off the bat?</label>
@@ -124,11 +127,12 @@ function NoBallModal({ onConfirm, onCancel }) {
               <button
                 key={v}
                 type="button"
+                className="interactive-btn"
                 onClick={() => setRuns(v)}
                 style={{
-                  flex: 1, minWidth: '40px', padding: '0.5rem',
+                  flex: 1, minWidth: '40px', padding: '0.6rem',
                   border: `2px solid ${runs === v ? '#f59e0b' : 'var(--color-border)'}`,
-                  borderRadius: '8px', background: runs === v ? 'rgba(245,158,11,0.15)' : 'transparent',
+                  borderRadius: '10px', background: runs === v ? 'rgba(245,158,11,0.15)' : 'transparent',
                   color: 'var(--color-text-main)', cursor: 'pointer', fontWeight: runs === v ? 'bold' : 'normal',
                 }}
               >
@@ -138,27 +142,40 @@ function NoBallModal({ onConfirm, onCancel }) {
           </div>
         </div>
 
-        <div className="input-group" style={{ marginTop: '1rem' }}>
+        <div className="input-group" style={{ marginTop: '1.25rem' }}>
           <label className="input-label">Reason</label>
           <select
-            className="input-field"
+            className="input-field interactive-select"
             value={reason}
-            onChange={e => setReason(e.target.value)}
+            onChange={e => {
+              const val = e.target.value;
+              setReason(val);
+              if (val === 'Body Contact') setFreeHit(false);
+              else if (val === 'Foot Fault' || val === 'Waist High Full Toss') setFreeHit(true);
+            }}
           >
-            <option value="Foot Fault">Foot Fault (Free Hit)</option>
-            <option value="Waist High Full Toss">Waist High Full Toss (Free Hit)</option>
+            <option value="Foot Fault">Foot Fault</option>
+            <option value="Waist High Full Toss">Waist High Full Toss</option>
             <option value="Body Contact">Body Contact</option>
             <option value="Other">Other</option>
           </select>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-          <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
+        <label className={`fh-toggle-label ${freeHit ? 'active' : ''}`}>
+           <input type="checkbox" className="fh-toggle-checkbox" checked={freeHit} onChange={e => setFreeHit(e.target.checked)} />
+           <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 800, color: freeHit ? '#f59e0b' : 'var(--color-text-main)', fontSize: '0.9rem' }}>FREE HIT</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{freeHit ? 'The next ball will be a Free Hit' : 'No Free Hit for this delivery'}</span>
+           </div>
+        </label>
+
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '2.5rem' }}>
+          <button type="button" className="btn-undo interactive-btn" style={{ flex: 1, padding: '0.85rem' }} onClick={onCancel}>Cancel</button>
           <button
             type="button"
-            className="btn-primary"
-            style={{ flex: 2, background: '#f59e0b', borderColor: '#f59e0b', color: '#000' }}
-            onClick={() => onConfirm(runs, reason)}
+            className="btn-primary interactive-btn"
+            style={{ flex: 2, background: '#f59e0b', borderColor: '#f59e0b', color: '#000', fontSize: '1.05rem', fontWeight: 800, padding: '0.85rem' }}
+            onClick={() => onConfirm(runs, reason, freeHit)}
           >
             Apply No Ball
           </button>
@@ -437,7 +454,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
           reason: extraData ? extraData.reason : "unknown"
         });
 
-        if (extraData && (extraData.reason === 'Foot Fault' || extraData.reason === 'Waist High Full Toss')) {
+        if (extraData && extraData.isFreeHit) {
           updates.is_free_hit = true;
           updates.events_feed = `⚠️ ${o}.${b} - No Ball (${extraData.reason})! FREE HIT! ${nbRuns > 0 ? nbRuns + ' runs off bat.' : ''}\n` + (updates.events_feed || '');
         } else if (extraData) {
@@ -676,9 +693,9 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       
       {nbModal && (
         <NoBallModal
-          onConfirm={(runs, reason) => {
+          onConfirm={(runs, reason, isFreeHit) => {
             setNbModal(false);
-            handleBall('NB', { runs, reason });
+            handleBall('NB', { runs, reason, isFreeHit });
           }}
           onCancel={() => setNbModal(false)}
         />
@@ -795,13 +812,16 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
         )}
 
         {/* Keypad */}
+        {isFreeHit && (
+          <div className="fh-active-banner fade-in">🔥 FREE HIT NEXT BALL 🔥</div>
+        )}
         <div className="lcs-keypad">
           {['0','1','2','3','4','6'].map(v => (
             <button key={v} onClick={() => handleBall(v)} className={`btn-score interactive-btn ${v === '4' ? 'feature-4' : v === '6' ? 'feature-6' : ''}`}>{v}</button>
           ))}
           <button onClick={() => handleBall('WD')} className="btn-score feature-extra interactive-btn">WD</button>
           <button onClick={() => setNbModal(true)} className="btn-score feature-extra interactive-btn">NB</button>
-          <button onClick={() => handleBall('W')} className="btn-score feature-wicket interactive-btn">W</button>
+          <button onClick={() => handleBall('W')} disabled={isFreeHit} className="btn-score feature-wicket interactive-btn">W</button>
         </div>
 
         <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
