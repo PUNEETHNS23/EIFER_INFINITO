@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { getSportMeta } from '../sports/sportsConfig';
-import api from '../api';
 import './sportScoreboards.css';
 
 function Row({ labelL, labelR, valL, valR, sub }) {
@@ -619,82 +618,6 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
       );
     case 'esports':
       return wrap(<Row labelL={team1} labelR={team2} valL={d.maps_t1 ?? 0} valR={d.maps_t2 ?? 0} sub="MAPS WON" />);
-    case 'athletics': {
-      const [teams, setTeams] = useState([]);
-      useEffect(() => { api.get('/teams').then(res => setTeams(res.data)); }, []);
-
-      const eventLabels = { boys_100m: 'Boys 100m', girls_100m: 'Girls 100m', relay_4x100: '4 × 100m Relay' };
-      const eventLabel = eventLabels[d.event_type] || d.event_type || 'Event';
-      const qualifierCount = d.qualifier_count || null;
-      const participants = d.participants || [];
-      const isFinalMatch = !!d.is_final;
-      const hasResults = participants.some(p => p.rank);
-
-      const sortedParticipants = [...participants].sort((a, b) => {
-        if (!a.rank && !b.rank) return 0;
-        if (!a.rank) return 1;
-        if (!b.rank) return -1;
-        return a.rank - b.rank;
-      });
-
-      const displayList = compact ? sortedParticipants.slice(0, 3) : sortedParticipants;
-
-      return wrap(
-        <div className="sb-carrom" style={{ padding: '0.5rem 0' }}>
-          {/* Header Row: Event name + badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{eventLabel}</span>
-            {isFinalMatch && (
-              <span style={{ fontSize: '0.7rem', fontWeight: 800, background: '#fbbf24', color: '#000', padding: '2px 7px', borderRadius: '4px', letterSpacing: '0.06em' }}>FINAL</span>
-            )}
-            <span className={`sb-carrom-status ${status === 'completed' ? 'final' : ''}`} style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>
-              {status === 'completed' ? 'COMPLETED' : 'UPCOMING'}
-            </span>
-          </div>
-
-          {/* Qualifier note */}
-          {qualifierCount && (
-            <div style={{ fontSize: '0.75rem', color: '#34d399', marginBottom: '0.6rem' }}>
-              ✅ Top {qualifierCount} team{qualifierCount !== 1 ? 's' : ''} qualified from this match
-            </div>
-          )}
-
-          {/* Participants list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-            {displayList.map((p) => {
-              const teamName = teams.find(t => String(t.id) === String(p.team_id))?.name || `Team ${p.team_id}`;
-              const rankColor = p.rank === 1 ? '#fbbf24' : p.rank === 2 ? '#94a3b8' : p.rank === 3 ? '#cd7f32' : 'rgba(255,255,255,0.25)';
-              const statusEl = hasResults
-                ? p.qualified
-                  ? <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.12)', padding: '2px 6px', borderRadius: '4px' }}>Qualified ✅</span>
-                  : <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#f87171', background: 'rgba(248,113,113,0.1)', padding: '2px 6px', borderRadius: '4px' }}>Eliminated ❌</span>
-                : null;
-              return (
-                <div key={p.team_id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0.6rem', background: p.qualified ? 'rgba(52,211,153,0.04)' : 'rgba(255,255,255,0.02)', borderRadius: '6px', border: `1px solid ${p.qualified ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.05)'}` }}>
-                  {/* Rank badge */}
-                  <div style={{ width: '22px', height: '22px', background: rankColor, color: p.rank <= 3 ? '#000' : 'var(--color-text-muted)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800, flexShrink: 0 }}>
-                    {p.rank || '—'}
-                  </div>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 500, flex: 1 }}>{teamName}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    {p.time > 0 && <span style={{ fontSize: '0.78rem', color: 'var(--color-primary)', fontFamily: 'monospace' }}>{Number(p.time).toFixed(3)}s</span>}
-                    {statusEl}
-                  </div>
-                </div>
-              );
-            })}
-            {compact && participants.length > 3 && (
-              <div style={{ textAlign: 'center', fontSize: '0.73rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
-                + {participants.length - 3} more participants
-              </div>
-            )}
-            {participants.length === 0 && (
-              <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>No participants yet.</p>
-            )}
-          </div>
-        </div>
-      );
-    }
     default:
       return wrap(
         <Row labelL={team1} labelR={team2} valL={d.score_t1 ?? match.score_t1} valR={d.score_t2 ?? match.score_t2} sub="SCORE" />
