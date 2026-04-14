@@ -38,6 +38,16 @@ function CoinToss({ sportId, team1Name, team2Name, onTossComplete, initialTossWi
           { label: 'Chase First', value: 'chase' },
           { label: 'Run First', value: 'run' },
         ];
+      case 'football':
+        return [
+          { label: 'Kick Off', value: 'kickoff' },
+          { label: 'Defend Side', value: 'defend' },
+        ];
+      case 'carrom':
+        return [
+          { label: 'White Strike', value: 'white' },
+          { label: 'Black Strike', value: 'black' },
+        ];
       case 'volleyball':
         return [
           { label: 'Serve First', value: 'serve' },
@@ -164,6 +174,8 @@ const SPORT_NAMES = {
   badminton: 'badminton',
   'table-tennis': 'table tennis',
   volleyball: 'volleyball',
+  football: 'football',
+  carrom: 'carrom',
   'kho-kho': 'kho-kho',
   'tug-of-war': 'side',
 };

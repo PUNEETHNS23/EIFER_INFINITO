@@ -4,6 +4,7 @@ import { hydrateScoreDetail } from '../sports/sportsConfig';
 import LiveCricketScorer from './LiveCricketScorer';
 import LiveVolleyballScorer from './LiveVolleyballScorer';
 import LiveFootballScorer from './LiveFootballScorer';
+import CoinToss from './CoinToss';
 import './sportScoreboards.css';
 
 function racketToVolleyballDetail(detail, sid) {
@@ -272,6 +273,7 @@ export default function SportScoreEditor({ match, onSaved }) {
             team1Data={team1Data}
             team2Data={team2Data}
             serveIcon="🏐"
+            sportId={sid}
           />
           <div className="sbe-status" style={{ marginTop: '1rem' }}>
             <label className="sbe-field">
@@ -289,7 +291,16 @@ export default function SportScoreEditor({ match, onSaved }) {
       form = <LiveCricketScorer detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} />;
       break;
     case 'carrom':
-      form = (
+      form = !detail.toss_decided && status !== 'completed' ? (
+        <div className="sbe-toss-box" style={{ padding: '1rem', border: '1px solid var(--color-border)', borderRadius: '8px', background: 'var(--color-bg-surface)', marginBottom: '1rem' }}>
+          <CoinToss
+            sportId={sid}
+            team1Name={team1}
+            team2Name={team2}
+            onTossComplete={(tossData) => patch({ ...tossData, toss_decided: true })}
+          />
+        </div>
+      ) : (
         <div className="sbe-grid">
           {status !== 'completed' && (
             <>
@@ -359,12 +370,21 @@ export default function SportScoreEditor({ match, onSaved }) {
           <Num label="Final Time (Minutes)" value={detail.minutes} onChange={(v) => patch({ minutes: v })} />
           <Num label="Final Time (Seconds)" value={detail.seconds} onChange={(v) => patch({ seconds: v })} />
         </div>
+      ) : !detail.toss_decided ? (
+        <div className="sbe-toss-box" style={{ padding: '1rem', border: '1px solid var(--color-border)', borderRadius: '8px', background: 'var(--color-bg-surface)', marginBottom: '1rem' }}>
+          <CoinToss
+            sportId={sid}
+            team1Name={team1}
+            team2Name={team2}
+            onTossComplete={(tossData) => patch({ ...tossData, toss_decided: true })}
+          />
+        </div>
       ) : (
         <div className="sbe-grid">
           <div className="sbe-field" style={{ gridColumn: '1 / -1' }}>
             <span>Final result entry</span>
             <p style={{ margin: '0.5rem 0 0', color: 'var(--color-text-muted)' }}>
-              Keep this match upcoming or live while it is in progress. Switch it to completed to enter the final winner and time.
+              Toss completed. Keep this match upcoming or live while it is in progress. Switch it to completed to enter the final winner and time.
             </p>
           </div>
         </div>
@@ -567,6 +587,7 @@ export default function SportScoreEditor({ match, onSaved }) {
           allowSetCountConfig
           initialSetTarget={defaultSetTarget}
           showResetOnComplete={false}
+          sportId={sid}
         />
       );
       break;
@@ -580,7 +601,16 @@ export default function SportScoreEditor({ match, onSaved }) {
       );
       break;
     case 'tug-of-war':
-      form = (
+      form = !detail.toss_decided ? (
+        <div className="sbe-toss-box" style={{ padding: '1rem', border: '1px solid var(--color-border)', borderRadius: '8px', background: 'var(--color-bg-surface)', marginBottom: '1rem' }}>
+          <CoinToss
+            sportId={sid}
+            team1Name={team1}
+            team2Name={team2}
+            onTossComplete={(tossData) => patch({ ...tossData, toss_decided: true })}
+          />
+        </div>
+      ) : (
         <div className="sbe-grid" style={{ gap: '1rem' }}>
           <label className="sbe-field" style={{ gridColumn: '1 / -1' }}>
             <span>Match format</span>

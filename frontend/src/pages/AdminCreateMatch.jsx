@@ -28,7 +28,6 @@ function AdminCreateMatch() {
             : (isCategorizedSport ? { category: getSportCategories(sportId)[0] } : {})))
   });
   const [scheduledLocal, setScheduledLocal] = useState('');
-  const [tossDone, setTossDone] = useState(false);
   const [participantCount, setParticipantCount] = useState(4);
   const [qualifierCount, setQualifierCount] = useState(2);
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
@@ -102,17 +101,6 @@ function AdminCreateMatch() {
     return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
   }
 
-  const handleTossComplete = (tossData) => {
-    setNewMatch(prev => ({
-      ...prev,
-      score_detail: {
-        ...prev.score_detail,
-        toss_winner: tossData.toss_winner,
-        toss_decision: tossData.toss_decision,
-      }
-    }));
-    setTossDone(true);
-  };
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -149,10 +137,6 @@ function AdminCreateMatch() {
       }
     }
 
-    if (requiresToss && !tossDone) {
-      alert("Please complete the coin toss before creating the match.");
-      return;
-    }
 
     if (isCategorizedSport && sportId !== 'athletics') {
       const team1 = teams.find((t) => String(t.id) === String(newMatch.team1_id));
@@ -519,21 +503,10 @@ function AdminCreateMatch() {
             </div>
           )}
 
-          {/* COIN TOSS SECTION */}
-          {requiresToss && newMatch.team1_id && newMatch.team2_id && team1 && team2 && (
-            <CoinToss
-              sportId={sportId}
-              team1Name={team1.name}
-              team2Name={team2.name}
-              onTossComplete={handleTossComplete}
-              initialTossWinner={newMatch.score_detail?.toss_winner}
-              initialTossDecision={newMatch.score_detail?.toss_decision}
-            />
-          )}
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
             <button type="button" className="btn-outline" onClick={() => navigate('/admin')} style={{ flex: 1 }}>Cancel</button>
-            <button type="submit" className="btn-primary" style={{ flex: 2 }} disabled={requiresToss && !tossDone}>Create Match</button>
+            <button type="submit" className="btn-primary" style={{ flex: 2 }}>Create Match</button>
           </div>
         </form>
       </div>

@@ -1,4 +1,5 @@
-import React, { useReducer, useEffect, useRef, useCallback } from 'react';
+import React, { useReducer, useEffect, useRef, useCallback, useState } from 'react';
+import CoinToss from './CoinToss';
 import './LiveVolleyballScorer.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -169,23 +170,16 @@ function Roster({ team, teamName, roster, teamData, dispatch }) {
 /* ═══════════════════════════════════════════════════════════
    COMPONENT
 ═══════════════════════════════════════════════════════════ */
-export default function LiveVolleyballScorer({
-  detail,
-  patch,
-  team1,
-  team2,
-  team1Data,
-  team2Data,
-  serveIcon = '🏐',
-  allowSetCountConfig = false,
-  initialSetTarget = 25,
   showResetOnComplete = true,
+  sportId = 'volleyball',
 }) {
   const [state, dispatch] = useReducer(reducer, null, () =>
     initState(detail, team1, team2)
   );
 
-  const [targetInput, setTargetInput] = React.useState(() => {
+  const tossDecided = !!detail.toss_decided;
+
+  const [targetInput, setTargetInput] = useState(() => {
     const currentSet = Number(detail?.currentSet || 1);
     const configuredTarget = Number(detail?.setTargets?.[currentSet] ?? detail?.setTargets?.[1]);
     const fallbackTarget = Number(initialSetTarget);
@@ -193,11 +187,11 @@ export default function LiveVolleyballScorer({
       ? configuredTarget
       : (Number.isFinite(fallbackTarget) && fallbackTarget > 0 ? fallbackTarget : 25);
   });
-  const [setOption, setSetOption] = React.useState(() => {
+  const [setOption, setSetOption] = useState(() => {
     const maxSets = Number(detail?.max_sets || 5);
     return [1, 3, 5].includes(maxSets) ? String(maxSets) : 'Custom';
   });
-  const [customSetCount, setCustomSetCount] = React.useState(() => {
+  const [customSetCount, setCustomSetCount] = useState(() => {
     const maxSets = Number(detail?.max_sets || 5);
     return [1, 3, 5].includes(maxSets) ? String(maxSets) : String(Math.max(1, maxSets));
   });
@@ -300,7 +294,7 @@ export default function LiveVolleyballScorer({
   const tgt = state.setTargets[state.currentSet];
   const setConfigLocked = state.setHistory.length > 0 || state.pointsA > 0 || state.pointsB > 0 || state.status === 'completed';
   const isAwaitingCompletion = Boolean(state.winner) && state.status !== 'completed';
-  const [completionPromptOpen, setCompletionPromptOpen] = React.useState(false);
+  const [completionPromptOpen, setCompletionPromptOpen] = useState(false);
   const wasAwaitingCompletion = useRef(false);
 
   useEffect(() => {
@@ -364,6 +358,27 @@ export default function LiveVolleyballScorer({
   const keepEditing = () => {
     setCompletionPromptOpen(false);
   };
+
+  if (!tossDecided) {
+    return (
+      <div className="lvb-toss-wrapper" style={{ padding: '2rem', textAlign: 'center' }}>
+        <CoinToss
+          sportId={sportId}
+          team1Name={team1}
+          team2Name={team2}
+          onTossComplete={(tossData) => {
+            const winner = tossData.toss_winner === 't1' ? 'A' : 'B';
+            patch({
+              toss_winner: tossData.toss_winner,
+              toss_decision: tossData.toss_decision,
+              toss_decided: true,
+              servingTeam: winner, // Default serving team to toss winner
+            });
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <>

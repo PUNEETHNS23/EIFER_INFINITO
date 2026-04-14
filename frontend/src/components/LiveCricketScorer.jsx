@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import CoinToss from './CoinToss';
 import './LiveCricketScorer.css';
 
 // ── Inline modal for picking who got out ────────────────────────────────────
@@ -102,9 +103,6 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   const [wicketModal, setWicketModal] = useState(false);
 
   // Toss UI States
-  const [tossWinner, setTossWinner] = useState(team1);
-  const [tossDecision, setTossDecision] = useState('Bat');
-
   const isMatchStarted = !!detail.toss_decided;
   const innings = Number(detail.innings || 1);
 
@@ -134,18 +132,22 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   if (detail.match_type === 'Test') maxOvers = 999;
 
   // ── Toss screen ─────────────────────────────────────────────────────────
-  const handleStartMatch = () => {
-    const batFirst = tossWinner === team1
-      ? (tossDecision === 'Bat' ? team1 : team2)
-      : (tossDecision === 'Bat' ? team2 : team1);
+  const handleToss = (tossData) => {
+    const winnerName = tossData.toss_winner === 't1' ? team1 : team2;
+    const decision = tossData.toss_decision === 'bat' ? 'Bat' : 'Bowl';
+    
+    // Derived batting order
+    const batFirst = tossData.toss_winner === 't1'
+      ? (decision === 'Bat' ? team1 : team2)
+      : (decision === 'Bat' ? team2 : team1);
 
     patch({
       toss_decided: true,
-      toss_winner: tossWinner,
-      toss_decision: tossDecision,
+      toss_winner: winnerName,
+      toss_decision: decision,
       batting_first: batFirst,
       innings: 1,
-      toss: `${tossWinner} won the toss and elected to ${tossDecision.toLowerCase()} first`
+      toss: `${winnerName} won the toss and elected to ${decision.toLowerCase()} first`
     });
   };
 
@@ -526,38 +528,15 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
     return squad.map((p, i) => <option key={i} value={p.name}>{p.name}</option>);
   };
 
-  // ── Toss Screen ──────────────────────────────────────────────────────────
   if (!isMatchStarted) {
     return (
-      <div className="lcs-container" style={{ textAlign: 'center', padding: '2rem' }}>
-        <h2 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>Pre-Match: Toss</h2>
-        <div style={{ margin: '1.5rem 0', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-          <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
-            <label className="input-label">Who won the Toss?</label>
-            <select className="input-field" value={tossWinner} onChange={e => setTossWinner(e.target.value)}>
-              <option value={team1}>{team1}</option>
-              <option value={team2}>{team2}</option>
-            </select>
-          </div>
-          <div className="input-group" style={{ width: '100%', maxWidth: '300px', textAlign: 'left' }}>
-            <label className="input-label">Decision?</label>
-            <select className="input-field" value={tossDecision} onChange={e => setTossDecision(e.target.value)}>
-              <option value="Bat">Elect to Bat</option>
-              <option value="Bowl">Elect to Bowl</option>
-            </select>
-          </div>
-        </div>
-        <div style={{ marginBottom: '1.5rem', padding: '0.75rem 1.25rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-          {tossWinner} wins the toss &amp; elect to <strong>{tossDecision === 'Bat' ? 'bat' : 'bowl'}</strong> first.
-          <br/>
-          <span style={{ color: 'var(--color-primary)' }}>
-            {tossWinner === team1
-              ? (tossDecision === 'Bat' ? team1 : team2)
-              : (tossDecision === 'Bat' ? team2 : team1)
-            } will bat first.
-          </span>
-        </div>
-        <button className="btn-primary interactive-btn" onClick={handleStartMatch}>▶ Play Ball!</button>
+      <div className="lcs-container" style={{ textAlign: 'center', padding: '1rem' }}>
+        <CoinToss
+          sportId="cricket"
+          team1Name={team1}
+          team2Name={team2}
+          onTossComplete={handleToss}
+        />
       </div>
     );
   }

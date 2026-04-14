@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import CoinToss from './CoinToss';
 import './LiveFootballScorer.css';
 
 function getSquadNames(teamData) {
@@ -106,6 +107,27 @@ export default function LiveFootballScorer({ detail, patch, team1, team2, team1D
   };
 
   const events = Array.isArray(detail.goal_events) ? detail.goal_events : [];
+  const tossDecided = !!detail.toss_decided;
+
+  if (!tossDecided) {
+    return (
+      <div className="lfs-toss-wrapper" style={{ padding: '2rem', textAlign: 'center' }}>
+        <CoinToss
+          sportId="football"
+          team1Name={team1}
+          team2Name={team2}
+          onTossComplete={(tossData) => {
+            patch({
+              ...detail,
+              toss_winner: tossData.toss_winner,
+              toss_decision: tossData.toss_decision,
+              toss_decided: true,
+            });
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="lfs-wrap">
