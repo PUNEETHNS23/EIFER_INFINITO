@@ -18,12 +18,11 @@ function AdminDashboard() {
   const [teamCategoryFilter, setTeamCategoryFilter] = useState('');
 
   // Form states
-  const footballSquadSize = 11;
-  const createFootballSquad = () => Array.from({ length: footballSquadSize }, () => ({ name: '', is_substitute: false }));
+  const footballSquadLimit = 11;
   const createTeamState = (sportId = 'athletics') => ({
     name: '',
     sport_id: sportId,
-    squad: sportId === 'football' ? createFootballSquad() : [],
+    squad: [],
   });
 
   const [newTeam, setNewTeam] = useState(createTeamState());
@@ -35,7 +34,7 @@ function AdminDashboard() {
   const teamsRefreshTimeoutRef = useRef(null);
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
-  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting', 'carrom', 'athletics'];
+  const squadSports = ['cricket', 'volleyball', 'football', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting', 'carrom', 'athletics'];
   const allowSubstituteSports = ['volleyball', 'kho-kho', 'cricket'];
   const racketSports = ['badminton', 'table-tennis', 'carrom'];
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
@@ -169,11 +168,15 @@ function AdminDashboard() {
 
     if (newTeam.sport_id === 'football') {
       const players = (newTeam.squad || []).map((p) => (p.name || '').trim());
-      if (players.length !== footballSquadSize || players.some((name) => !name)) {
-        alert(`A football team must have exactly ${footballSquadSize} player names, and every field must be filled.`);
+      if (players.length > footballSquadLimit) {
+        alert(`A football team can have at most ${footballSquadLimit} players.`);
         return;
       }
-      if (new Set(players).size !== footballSquadSize) {
+      if (players.some((name) => !name)) {
+        alert('Football player names cannot be empty.');
+        return;
+      }
+      if (new Set(players).size !== players.length) {
         alert('Football player names must be unique.');
         return;
       }
@@ -265,6 +268,14 @@ function AdminDashboard() {
         const currentCount = (newTeam.squad || []).length;
         if (currentCount >= 1) {
           alert(`Maximum 1 player allowed for Weight-lifting. Remove a player to add another.`);
+          return;
+        }
+      }
+
+      if (newTeam.sport_id === 'football') {
+        const currentCount = (newTeam.squad || []).length;
+        if (currentCount >= footballSquadLimit) {
+          alert(`Maximum ${footballSquadLimit} players allowed for Football. Remove a player to add another.`);
           return;
         }
       }
@@ -533,7 +544,7 @@ function AdminDashboard() {
                         ...prev,
                         sport_id: sportId,
                         category: categorizedSports.includes(sportId) ? getSportCategories(sportId)[0] : '',
-                        squad: sportId === 'football' ? createFootballSquad() : [],
+                        squad: [],
                       }));
                       setTempPlayerName('');
                     }}
@@ -543,50 +554,12 @@ function AdminDashboard() {
                 </div>
                 
                 {!squadSports.includes(newTeam.sport_id) ? (
-                  newTeam.sport_id === 'football' ? (
-                    <>
-                      <div className="input-group">
-                        <label className="input-label">Team Name</label>
-                        <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
-                      </div>
-
-                      <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>Football Squad (11 players)</h4>
-                        <p className="admin-section-desc" style={{ marginBottom: '1rem' }}>
-                          Enter all 11 player names separately before registering the team.
-                        </p>
-                        <div className="football-squad-grid">
-                          {newTeam.squad.map((player, index) => (
-                            <div key={index} className="input-group" style={{ marginBottom: 0 }}>
-                              <label className="input-label">Player {index + 1}</label>
-                              <input
-                                type="text"
-                                className="input-field"
-                                placeholder={`Player ${index + 1}`}
-                                value={player.name}
-                                onChange={e => {
-                                  const name = e.target.value;
-                                  setNewTeam(prev => {
-                                    const nextSquad = [...(prev.squad || createFootballSquad())];
-                                    nextSquad[index] = { ...nextSquad[index], name, is_substitute: false };
-                                    return { ...prev, squad: nextSquad };
-                                  });
-                                }}
-                                required
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="input-group">
-                        <label className="input-label">Team Name / Player Name</label>
-                        <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
-                      </div>
-                    </>
-                  )
+                  <>
+                    <div className="input-group">
+                      <label className="input-label">Team Name / Player Name</label>
+                      <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
+                    </div>
+                  </>
                 ) : (
                   <>
                     <div className="input-group">
@@ -630,7 +603,10 @@ function AdminDashboard() {
                       let canAddMain = true;
                       let canAddSub = allowSubstituteSports.includes(newTeam.sport_id);
 
-                      if (newTeam.sport_id === 'cricket') {
+                      if (newTeam.sport_id === 'football') {
+                        canAddMain = mainCount < footballSquadLimit;
+                        canAddSub = false;
+                      } else if (newTeam.sport_id === 'cricket') {
                         canAddMain = mainCount < 11;
                         canAddSub = subCount < 3;
                       } else if (newTeam.sport_id === 'volleyball') {
@@ -658,6 +634,11 @@ function AdminDashboard() {
                           <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>
                             Team Squad ({newTeam.squad?.length || 0})
                           </h4>
+                          {newTeam.sport_id === 'football' && (
+                            <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                              Football allows up to {footballSquadLimit} players.
+                            </p>
+                          )}
                           {(racketSports.includes(newTeam.sport_id) || newTeam.sport_id === 'athletics') && (
                             <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
                               {newTeam.category} requires exactly {newTeam.sport_id === 'athletics' ? getAthleticsCategoryPlayerLimit(newTeam.category) : getRacketCategoryPlayerLimit(newTeam.category)} players.

@@ -265,9 +265,11 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
             normalized_player["name"] = (player.get("name") or "").strip()
             normalized_squad.append(normalized_player)
         player_names = [p.get("name") or "" for p in normalized_squad]
-        if len(player_names) != 11 or any(not name for name in player_names):
-            raise HTTPException(status_code=400, detail="Football teams must include exactly 11 player names.")
-        if len(set(player_names)) != 11:
+        if len(player_names) > 11:
+            raise HTTPException(status_code=400, detail="Football teams can have at most 11 players.")
+        if any(not name for name in player_names):
+            raise HTTPException(status_code=400, detail="Football player names cannot be empty.")
+        if len(set(player_names)) != len(player_names):
             raise HTTPException(status_code=400, detail="Football player names must be unique.")
         team.squad = normalized_squad
         
