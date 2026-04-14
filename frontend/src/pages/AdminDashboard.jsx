@@ -36,7 +36,7 @@ function AdminDashboard() {
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
   const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting', 'carrom', 'athletics'];
-  const allowSubstituteSports = ['volleyball', 'kho-kho'];
+  const allowSubstituteSports = ['volleyball', 'kho-kho', 'cricket'];
   const racketSports = ['badminton', 'table-tennis', 'carrom'];
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   
@@ -150,6 +150,19 @@ function AdminDashboard() {
       }
       if (subs.length !== 3) {
         alert(`A kho-kho team must have exactly 3 substitutes. Currently you have ${subs.length}.`);
+        return;
+      }
+    }
+
+    if (newTeam.sport_id === 'cricket') {
+      const players = (newTeam.squad || []).filter(p => !p.is_substitute);
+      const subs = (newTeam.squad || []).filter(p => p.is_substitute);
+      if (players.length !== 11) {
+        alert(`A cricket team must have exactly 11 main players. Currently you have ${players.length}.`);
+        return;
+      }
+      if (subs.length > 3) {
+        alert(`A cricket team can have a maximum of 3 substitutes. Currently you have ${subs.length}.`);
         return;
       }
     }
@@ -625,54 +638,89 @@ function AdminDashboard() {
                       </div>
                     )}
                     
-                    <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>
-                        Team Squad ({newTeam.squad?.length || 0}
-                        {racketSports.includes(newTeam.sport_id) ? ` / ${getRacketCategoryPlayerLimit(newTeam.category)}` : 
-                         newTeam.sport_id === 'athletics' ? ` / ${getAthleticsCategoryPlayerLimit(newTeam.category)}` : ''})
-                      </h4>
-                      {(racketSports.includes(newTeam.sport_id) || newTeam.sport_id === 'athletics') && (
-                        <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                          {newTeam.category || (newTeam.sport_id === 'athletics' ? 'Boys 100 meter run' : 'Mens Singles')} requires exactly {newTeam.sport_id === 'athletics' ? getAthleticsCategoryPlayerLimit(newTeam.category) : getRacketCategoryPlayerLimit(newTeam.category)} player{ (newTeam.sport_id === 'athletics' ? getAthleticsCategoryPlayerLimit(newTeam.category) : getRacketCategoryPlayerLimit(newTeam.category)) > 1 ? 's' : ''} per team.
-                        </p>
-                      )}
-                      <ul className="admin-squad-list">
-                        {newTeam.squad?.map((p, i) => (
-                          <li key={i} className="admin-squad-item">
-                            <span>
-                              {p.name}
-                              {p.is_substitute && <span style={{ color: 'var(--color-primary)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>[Substitute]</span>}
-                            </span>
-                            <button type="button" onClick={() => removePlayerFromSquad(i)} className="player-remove-btn">×</button>
-                          </li>
-                        ))}
-                      </ul>
-                      {(!racketSports.includes(newTeam.sport_id) && newTeam.sport_id !== 'chess' && newTeam.sport_id !== 'weight-lifting' && newTeam.sport_id !== 'athletics') || (newTeam.sport_id === 'weight-lifting' && (newTeam.squad?.length || 0) < 1) || (newTeam.sport_id === 'chess' && (newTeam.squad?.length || 0) < getChessCategoryPlayerLimit(newTeam.category)) || (racketSports.includes(newTeam.sport_id) && (newTeam.squad?.length || 0) < getRacketCategoryPlayerLimit(newTeam.category)) || (newTeam.sport_id === 'athletics' && (newTeam.squad?.length || 0) < getAthleticsCategoryPlayerLimit(newTeam.category)) ? (
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                          <input
-                            type="text"
-                            className="input-field"
-                            style={{ flex: 1, padding: '0.5rem' }}
-                            placeholder="Player Name"
-                            value={tempPlayerName}
-                            onChange={e => setTempPlayerName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                              }
-                            }}
-                          />
-                          <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(false)}>Add Player</button>
-                          {allowSubstituteSports.includes(newTeam.sport_id) && (
-                            <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(true)}>Add Sub</button>
+                    {(() => {
+                      const squad = newTeam.squad || [];
+                      const mainCount = squad.filter(p => !p.is_substitute).length;
+                      const subCount = squad.filter(p => p.is_substitute).length;
+                      
+                      let canAddMain = true;
+                      let canAddSub = allowSubstituteSports.includes(newTeam.sport_id);
+
+                      if (newTeam.sport_id === 'cricket') {
+                        canAddMain = mainCount < 11;
+                        canAddSub = subCount < 3;
+                      } else if (newTeam.sport_id === 'volleyball') {
+                        canAddMain = mainCount < 6;
+                        canAddSub = subCount < 3;
+                      } else if (newTeam.sport_id === 'kho-kho') {
+                        canAddMain = mainCount < 9;
+                        canAddSub = subCount < 3;
+                      } else if (newTeam.sport_id === 'weight-lifting') {
+                        canAddMain = mainCount < 1;
+                        canAddSub = false;
+                      } else if (newTeam.sport_id === 'chess') {
+                        canAddMain = mainCount < getChessCategoryPlayerLimit(newTeam.category);
+                        canAddSub = false;
+                      } else if (racketSports.includes(newTeam.sport_id)) {
+                        canAddMain = mainCount < getRacketCategoryPlayerLimit(newTeam.category);
+                        canAddSub = false;
+                      } else if (newTeam.sport_id === 'athletics') {
+                        canAddMain = mainCount < getAthleticsCategoryPlayerLimit(newTeam.category);
+                        canAddSub = false;
+                      }
+
+                      return (
+                        <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                          <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>
+                            Team Squad ({newTeam.squad?.length || 0})
+                          </h4>
+                          {(racketSports.includes(newTeam.sport_id) || newTeam.sport_id === 'athletics') && (
+                            <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                              {newTeam.category} requires exactly {newTeam.sport_id === 'athletics' ? getAthleticsCategoryPlayerLimit(newTeam.category) : getRacketCategoryPlayerLimit(newTeam.category)} players.
+                            </p>
+                          )}
+                          <ul className="admin-squad-list">
+                            {newTeam.squad?.map((p, i) => (
+                              <li key={i} className="admin-squad-item">
+                                <span>
+                                  {p.name}
+                                  {p.is_substitute && <span style={{ color: 'var(--color-primary)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>[Substitute]</span>}
+                                </span>
+                                <button type="button" onClick={() => removePlayerFromSquad(i)} className="player-remove-btn">×</button>
+                              </li>
+                            ))}
+                          </ul>
+                          
+                          {(canAddMain || canAddSub) ? (
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                              <input
+                                type="text"
+                                className="input-field"
+                                style={{ flex: 1, padding: '0.5rem' }}
+                                placeholder="Player Name"
+                                value={tempPlayerName}
+                                onChange={e => setTempPlayerName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                  }
+                                }}
+                              />
+                              {canAddMain && (
+                                <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(false)}>Add Player</button>
+                              )}
+                              {canAddSub && (
+                                <button type="button" className="btn-outline btn-sm" onClick={() => addPlayerToSquad(true)}>Add Sub</button>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                              Player and substitute limit reached for this sport.
+                            </div>
                           )}
                         </div>
-                      ) : (
-                        <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                          Player limit reached for {newTeam.category}.
-                        </div>
-                      )}
-                    </div>
+                      );
+                    })()}
                   </>
                 )}
 
