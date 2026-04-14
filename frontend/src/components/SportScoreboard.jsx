@@ -380,7 +380,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
               <div className="sb-carrom-header">
                 <span className="sb-carrom-status">{match.status === 'live' ? 'Live match' : 'Scheduled match'}</span>
                 <span className="sb-carrom-sub">
-                  {d.match_type === 'teams' ? 'Teams (2v2)' : 'Singles'} • Final score will appear after completion
+                  {d.category || 'Singles'} • Final score will appear after completion
                 </span>
               </div>
               <div className="sb-carrom-dim">
@@ -410,7 +410,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
               <div className="sb-carrom-header">
                 <span className="sb-carrom-status final">FULL TIME</span>
                 <span className="sb-carrom-sub">
-                  {d.match_type === 'teams' ? 'Teams (2v2)' : 'Singles'} •{' '}
+                  {d.category || 'Singles'} •{' '}
                   {new Date(match.scheduled_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>

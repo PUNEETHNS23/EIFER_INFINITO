@@ -6,6 +6,7 @@ export const CATEGORY_SPORTS = {
   'kho-kho': ['Boys', 'Girls'],
   'chess': ['Rapid', 'Blitz', 'Hand & Brain'],
   'weight-lifting': ['Squat', 'Bench Press', 'Dead Lift'],
+  'carrom': ['Singles', 'Doubles'],
 };
 
 export function getSportCategories(sportId) {
@@ -52,7 +53,7 @@ export function defaultScoreDetail(sportId) {
       current_ball_result: '', over_progression: '', last_wickets: '', fall_of_wickets: '', top_performers: '', events_feed: '',
       team1_logo: '', team2_logo: '',
     },
-    carrom: { points_t1: 0, points_t2: 0, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' } },
+    carrom: { points_t1: 0, points_t2: 0, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' }, category: 'Singles' },
     'kho-kho': { winner: null, minutes: 0, seconds: 0, category: 'Boys' },
     chess: { winner: 'draw', category: 'Rapid' },
     athletics: { time_t1_sec: 0, time_t2_sec: 0 },
@@ -95,7 +96,7 @@ export function hydrateScoreDetail(sportId, match) {
       runs_t1: t1,
       runs_t2: t2,
     },
-    carrom: { points_t1: t1, points_t2: t2, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' } },
+    carrom: { points_t1: t1, points_t2: t2, match_type: 'individuals', color_assignment: { t1: 'black', t2: 'white' }, category: 'Singles' },
     'kho-kho': { ...defaultScoreDetail('kho-kho') },
     chess: { winner: t1 === t2 ? 'draw' : t1 > t2 ? 't1' : 't2', category: 'Rapid' },
     athletics: { time_t1_sec: t1 || 0, time_t2_sec: t2 || 0 },

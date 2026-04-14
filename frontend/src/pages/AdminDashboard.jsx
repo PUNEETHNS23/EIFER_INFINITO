@@ -35,9 +35,9 @@ function AdminDashboard() {
   const teamsRefreshTimeoutRef = useRef(null);
 
   const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
-  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting'];
+  const squadSports = ['cricket', 'volleyball', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting', 'carrom'];
   const allowSubstituteSports = ['volleyball', 'kho-kho'];
-  const racketSports = ['badminton', 'table-tennis'];
+  const racketSports = ['badminton', 'table-tennis', 'carrom'];
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   
   const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
@@ -169,7 +169,8 @@ function AdminDashboard() {
       const players = (newTeam.squad || []).map((p) => (p.name || '').trim()).filter(Boolean);
       const limit = getRacketCategoryPlayerLimit(newTeam.category);
       if (players.length !== limit) {
-        alert(`${newTeam.sport_id === 'badminton' ? 'Badminton' : 'Table Tennis'} ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
+        const sportName = newTeam.sport_id === 'badminton' ? 'Badminton' : newTeam.sport_id === 'table-tennis' ? 'Table Tennis' : 'Carrom';
+        alert(`${sportName} ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
         return;
       }
       if (new Set(players).size !== players.length) {
