@@ -6,6 +6,35 @@ import { SPORTS, CATEGORY_SPORTS } from '../sports/sportsConfig';
 import { useMatchSocket } from '../hooks/useMatchSocket';
 import './Home.css';
 
+const LIVE_SPORT_PRIORITY = [
+  'cricket',
+  'volleyball',
+  'football',
+  'badminton',
+  'table-tennis',
+];
+
+const getLiveSportPriorityIndex = (sportId) => {
+  const idx = LIVE_SPORT_PRIORITY.indexOf(sportId);
+  return idx === -1 ? LIVE_SPORT_PRIORITY.length : idx;
+};
+
+const sortLiveMatchesByPriority = (matches) => (
+  [...matches].sort((a, b) => {
+    const priorityDiff = getLiveSportPriorityIndex(a.sport_id) - getLiveSportPriorityIndex(b.sport_id);
+    if (priorityDiff !== 0) return priorityDiff;
+
+    const sportDiff = String(a.sport_id || '').localeCompare(String(b.sport_id || ''));
+    if (sportDiff !== 0) return sportDiff;
+
+    const aTime = new Date(a.scheduled_time || 0).getTime();
+    const bTime = new Date(b.scheduled_time || 0).getTime();
+    if (aTime !== bTime) return aTime - bTime;
+
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  })
+);
+
 function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
@@ -150,7 +179,7 @@ function Home() {
         </div>
         <div className="live-matches-grid">
           {liveMatches.length > 0 ? (
-            liveMatches.map((match) => (
+            sortLiveMatchesByPriority(liveMatches).map((match) => (
               <div key={match.id} className="match-card-live">
                 <div className="match-card-live-glow"></div>
                 <div className="match-card-live-header">
