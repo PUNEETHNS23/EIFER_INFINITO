@@ -29,7 +29,20 @@ function AdminCreateMatch() {
   });
   const [scheduledLocal, setScheduledLocal] = useState('');
   const [tossDone, setTossDone] = useState(false);
+  const [participantCount, setParticipantCount] = useState(4);
+  const [qualifierCount, setQualifierCount] = useState(2);
+  const [selectedTeamIds, setSelectedTeamIds] = useState([]);
+  const [allMatches, setAllMatches] = useState([]);
+  const [onlyQualified, setOnlyQualified] = useState(false);
+  const [eventType, setEventType] = useState('boys_100m');
+  const [isFinal, setIsFinal] = useState(false);
   const scheduledInputRef = useRef(null);
+
+  const ATHLETICS_EVENTS = [
+    { value: 'boys_100m', label: 'Boys 100m' },
+    { value: 'girls_100m', label: 'Girls 100m' },
+    { value: 'relay_4x100', label: '4 × 100m Relay' },
+  ];
 
   const meta = getSportMeta(sportId);
   const requiresToss = SPORTS.find(s => s.id === sportId)?.requiresToss || false;
@@ -66,7 +79,16 @@ function AdminCreateMatch() {
         console.error("Failed to fetch teams", e);
       }
     };
+    const fetchMatches = async () => {
+      try {
+        const res = await api.get(`/matches/sport/${sportId}`);
+        setAllMatches(res.data);
+      } catch (e) {
+        console.error("Failed to fetch matches", e);
+      }
+    };
     fetchTeams();
+    fetchMatches();
   }, [user, authLoading, navigate, sportId]);
 
   const selectedCategory = newMatch.score_detail?.category || (isCategorizedSport ? getSportCategories(sportId)[0] : '');
@@ -94,9 +116,37 @@ function AdminCreateMatch() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!newMatch.team1_id || !newMatch.team2_id) {
-      alert("Please select both teams.");
-      return;
+    if (sportId === 'athletics') {
+      const filledIds = selectedTeamIds.filter(Boolean);
+      if (filledIds.length < participantCount) {
+        alert(`Please select all ${participantCount} participants.`);
+        return;
+      }
+      if (qualifierCount > participantCount) {
+        alert('Qualifiers cannot exceed number of participants.');
+        return;
+      }
+      // Build the full score_detail for this athletics match
+      const athleticsDetail = {
+        event_type: eventType,
+        is_final: isFinal,
+        participant_count: participantCount,
+        qualifier_count: qualifierCount,
+        participants: filledIds.map(id => ({
+          team_id: id,
+          rank: null,
+          time: null,
+          qualified: false,
+        })),
+      };
+      newMatch.score_detail = athleticsDetail;
+      newMatch.team1_id = filledIds[0];
+      newMatch.team2_id = filledIds[1];
+    } else {
+      if (!newMatch.team1_id || !newMatch.team2_id) {
+        alert("Please select both teams.");
+        return;
+      }
     }
 
     if (requiresToss && !tossDone) {
@@ -104,7 +154,7 @@ function AdminCreateMatch() {
       return;
     }
 
-    if (isCategorizedSport) {
+    if (isCategorizedSport && sportId !== 'athletics') {
       const team1 = teams.find((t) => String(t.id) === String(newMatch.team1_id));
       const team2 = teams.find((t) => String(t.id) === String(newMatch.team2_id));
       if (!team1 || !team2) {
@@ -182,35 +232,161 @@ function AdminCreateMatch() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div className="input-group" style={{ flex: 1 }}>
-              <label className="input-label">Team 1</label>
-              <select
-                className="input-field"
-                value={newMatch.team1_id}
-                onChange={e => setNewMatch({ ...newMatch, team1_id: e.target.value })}
-                required
-              >
-                <option value="">Select</option>
-                {categoryFilteredTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+          {sportId === 'athletics' ? (
+            <>
+              {/* Athletics Match Setup */}
+              <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: '0 0 1.25rem', fontSize: '0.95rem', color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🏃 Athletics Match Settings</h3>
+
+                <div className="input-group">
+                  <label className="input-label">Event Type</label>
+                  <select
+                    className="input-field"
+                    value={eventType}
+                    onChange={e => setEventType(e.target.value)}
+                    required
+                  >
+                    {ATHLETICS_EVENTS.map(ev => (
+                      <option key={ev.value} value={ev.value}>{ev.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="input-group">
+                    <label className="input-label">Number of Participants</label>
+                    <input
+                      type="number" min="2" max="16"
+                      className="input-field"
+                      value={participantCount}
+                      onChange={e => {
+                        const count = Math.max(2, parseInt(e.target.value) || 2);
+                        setParticipantCount(count);
+                        setQualifierCount(prev => Math.min(prev, count));
+                        setSelectedTeamIds(prev => prev.slice(0, count));
+                      }}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Number of Qualifiers</label>
+                    <input
+                      type="number" min="1" max={participantCount}
+                      className="input-field"
+                      value={qualifierCount}
+                      onChange={e => setQualifierCount(Math.min(participantCount, Math.max(1, parseInt(e.target.value) || 1)))}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                  <input
+                    type="checkbox" id="is-final" checked={isFinal}
+                    onChange={e => setIsFinal(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="is-final" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>
+                    {isFinal ? '🏆 This is the Final (winners get leaderboard points)' : 'Mark as Final Match'}
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Select Participants</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input
+                      type="checkbox" id="qualified-only" checked={onlyQualified}
+                      onChange={e => { setOnlyQualified(e.target.checked); setSelectedTeamIds([]); }}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="qualified-only" style={{ fontSize: '0.8rem', cursor: 'pointer', color: onlyQualified ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>Qualified Teams Only</label>
+                  </div>
+                </div>
+
+                {onlyQualified && (() => {
+                  const qualifiedIds = new Set(
+                    allMatches
+                      .filter(m => m.score_detail?.event_type === eventType)
+                      .flatMap(m => (m.score_detail?.participants || [])
+                        .filter(p => p.qualified)
+                        .map(p => String(p.team_id))
+                      )
+                  );
+                  if (qualifiedIds.size === 0) {
+                    return <p style={{ fontSize: '0.85rem', color: '#f59e0b', marginBottom: '1rem' }}>⚠️ No qualified teams found for this event type yet. Disable the toggle to select freely.</p>;
+                  }
+                  return null;
+                })()}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  {Array.from({ length: participantCount }).map((_, idx) => {
+                    const qualifiedSet = onlyQualified ? new Set(
+                      allMatches
+                        .filter(m => m.score_detail?.event_type === eventType)
+                        .flatMap(m => (m.score_detail?.participants || [])
+                          .filter(p => p.qualified)
+                          .map(p => String(p.team_id))
+                        )
+                    ) : null;
+                    const available = teams.filter(t =>
+                      (!qualifiedSet || qualifiedSet.has(String(t.id))) &&
+                      (!selectedTeamIds.includes(String(t.id)) || String(t.id) === String(selectedTeamIds[idx]))
+                    );
+                    return (
+                      <div key={idx} className="input-group" style={{ marginBottom: 0 }}>
+                        <label className="input-label">Participant {idx + 1}</label>
+                        <select
+                          className="input-field"
+                          value={selectedTeamIds[idx] || ''}
+                          onChange={e => {
+                            const next = [...selectedTeamIds];
+                            next[idx] = e.target.value;
+                            setSelectedTeamIds(next);
+                          }}
+                          required
+                        >
+                          <option value="">Select team</option>
+                          {available.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  Top {qualifierCount} team{qualifierCount !== 1 ? 's' : ''} will be marked as qualified per match.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className="input-group" style={{ flex: 1 }}>
+                <label className="input-label">Team 1</label>
+                <select
+                  className="input-field"
+                  value={newMatch.team1_id}
+                  onChange={e => setNewMatch({ ...newMatch, team1_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select</option>
+                  {categoryFilteredTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              
+              <div className="input-group" style={{ flex: 1 }}>
+                <label className="input-label">Team 2</label>
+                <select
+                  className="input-field"
+                  value={newMatch.team2_id}
+                  onChange={e => setNewMatch({ ...newMatch, team2_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select</option>
+                  {categoryFilteredTeams
+                    .filter(t => String(t.id) !== String(newMatch.team1_id))
+                    .map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
             </div>
-            
-            <div className="input-group" style={{ flex: 1 }}>
-              <label className="input-label">Team 2</label>
-              <select
-                className="input-field"
-                value={newMatch.team2_id}
-                onChange={e => setNewMatch({ ...newMatch, team2_id: e.target.value })}
-                required
-              >
-                <option value="">Select</option>
-                {categoryFilteredTeams
-                  .filter(t => String(t.id) !== String(newMatch.team1_id))
-                  .map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-          </div>
+          )}
 
           {isCategorizedSport && categoryFilteredTeams.length < 2 && (
             <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem', marginBottom: '1rem', fontSize: '0.9rem' }}>

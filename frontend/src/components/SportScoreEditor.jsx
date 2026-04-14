@@ -155,6 +155,7 @@ export default function SportScoreEditor({ match, onSaved }) {
   const [manualStatusOverride, setManualStatusOverride] = useState(false);
   const [team1Data, setTeam1Data] = useState(null);
   const [team2Data, setTeam2Data] = useState(null);
+  const [allTeams, setAllTeams] = useState([]);
 
   useEffect(() => {
     setDetail(hydrateScoreDetail(sid, match));
@@ -168,6 +169,9 @@ export default function SportScoreEditor({ match, onSaved }) {
          setTeam1Data(res.data.find(t => String(t.id) === String(match.team1_id)) || null);
          setTeam2Data(res.data.find(t => String(t.id) === String(match.team2_id)) || null);
       });
+    }
+    if (sid === 'athletics') {
+      api.get(`/teams`).then(res => setAllTeams(res.data));
     }
   }, [sid, match.team1_id, match.team2_id]);
 
@@ -187,6 +191,17 @@ export default function SportScoreEditor({ match, onSaved }) {
     await api.put(`/matches/${match.id}`, { score_detail: detailRef.current, status: 'completed' });
     onSaved?.();
   }, [match.id, onSaved]);
+ 
+  const finalizeTournament = async () => {
+    if (!window.confirm("🏆 Are you sure you want to finalize the tournament for this sport? \n\nThis will reset the Athletics leaderboard and recalculate points based on all matches marked as 'Final'. This action cannot be easily undone.")) return;
+    try {
+      await api.post(`/sports/${sid}/finalize`);
+      alert("Leaderboard updated successfully!");
+      onSaved?.();
+    } catch (err) {
+      alert("Failed to finalize tournament: " + (err.response?.data?.detail || err.message));
+    }
+  };
 
   // For interactive sports: auto-save whenever detail changes (each point)
   const saveTimeoutRef = useRef(null);
@@ -374,14 +389,166 @@ export default function SportScoreEditor({ match, onSaved }) {
         </div>
       );
       break;
-    case 'athletics':
+    case 'athletics': {
+      const participants = detail.participants || [];
+      const qualifierCount = detail.qualifier_count || 1;
+      const eventType = detail.event_type || 'event';
+      const eventLabels = { boys_100m: 'Boys 100m', girls_100m: 'Girls 100m', relay_4x100: '4 × 100m Relay' };
+      const eventLabel = eventLabels[eventType] || eventType;
+
+      // Validation helpers
+      const ranks = participants.map(p => p.rank).filter(Boolean);
+      const hasDuplicateRanks = ranks.length !== new Set(ranks).size;
+      const sortedRanks = [...ranks].sort((a, b) => a - b);
+      const hasGapInRanks = sortedRanks.some((r, i) => i > 0 && r !== sortedRanks[i - 1] + 1);
+      const qualifiedCount = participants.filter(p => p.qualified).length;
+      const overQualified = qualifiedCount > qualifierCount;
+
+      const autoSelectQualifiers = () => {
+        const sorted = [...participants].sort((a, b) => {
+          if (a.rank && b.rank) return a.rank - b.rank;
+          if (a.rank) return -1;
+          if (b.rank) return 1;
+          if (a.time && b.time) return a.time - b.time;
+          return 0;
+        });
+        const qualifiedIds = new Set(sorted.slice(0, qualifierCount).map(p => p.team_id));
+        const next = participants.map(p => ({ ...p, qualified: qualifiedIds.has(p.team_id) }));
+        patch({ participants: next });
+      };
+
       form = (
-        <div className="sbe-grid">
-          <Num label={`${team1} time (sec)`} value={detail.time_t1_sec} onChange={(v) => patch({ time_t1_sec: v })} step={0.01} />
-          <Num label={`${team2} time (sec)`} value={detail.time_t2_sec} onChange={(v) => patch({ time_t2_sec: v })} step={0.01} />
+        <div style={{ marginTop: '0.5rem' }}>
+          {/* Match Info Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.04)', borderRadius: '8px' }}>
+            <span style={{ fontWeight: 700, fontSize: '1rem' }}>{eventLabel}</span>
+            {detail.is_final && (
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, background: '#fbbf24', color: '#000', padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.08em' }}>FINAL</span>
+            )}
+            <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              {qualifierCount} qualifier{qualifierCount !== 1 ? 's' : ''} from {participants.length} participants
+            </span>
+          </div>
+
+          {/* Validation alerts */}
+          {hasDuplicateRanks && (
+            <div style={{ padding: '0.6rem 1rem', background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.3)', borderRadius: '6px', color: '#ff6b6b', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+              ⚠️ Duplicate ranks detected. Each participant must have a unique rank.
+            </div>
+          )}
+          {hasGapInRanks && (
+            <div style={{ padding: '0.6rem 1rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '6px', color: '#f59e0b', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+              ⚠️ Ranks are not continuous (e.g. 1, 3 — missing 2). Please use consecutive ranks.
+            </div>
+          )}
+          {overQualified && (
+            <div style={{ padding: '0.6rem 1rem', background: 'rgba(255,68,68,0.1)', border: '1px solid rgba(255,68,68,0.3)', borderRadius: '6px', color: '#ff6b6b', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+              ⚠️ {qualifiedCount} teams marked qualified, but only {qualifierCount} can advance. Uncheck {qualifiedCount - qualifierCount} team(s).
+            </div>
+          )}
+
+          {/* Auto-qualify button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={autoSelectQualifiers}
+              style={{ padding: '0.4rem 1rem', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.4)', borderRadius: '6px', color: '#34d399', fontSize: '0.83rem', cursor: 'pointer', fontWeight: 600 }}
+            >
+              ⚡ Auto-select Top {qualifierCount} Qualifier{qualifierCount !== 1 ? 's' : ''}
+            </button>
+          </div>
+
+          {/* Results table */}
+          <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+              <thead>
+                <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
+                  <th style={{ padding: '0.6rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.78rem', textTransform: 'uppercase' }}>Team</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.78rem', textTransform: 'uppercase' }}>Rank</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.78rem', textTransform: 'uppercase' }}>Time (s)</th>
+                  <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.78rem', textTransform: 'uppercase' }}>Qualified</th>
+                </tr>
+              </thead>
+              <tbody>
+                {participants.map((p, idx) => {
+                  const teamName = allTeams.find(t => String(t.id) === String(p.team_id))?.name || `Team ${p.team_id}`;
+                  const isDuplicate = p.rank && ranks.filter(r => r === p.rank).length > 1;
+                  return (
+                    <tr key={p.team_id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: p.qualified ? 'rgba(52,211,153,0.04)' : 'transparent' }}>
+                      <td style={{ padding: '0.55rem 1rem' }}>
+                        <strong>{teamName}</strong>
+                        {p.qualified && <span style={{ marginLeft: '0.5rem', fontSize: '0.72rem', color: '#34d399' }}>✅ Q</span>}
+                      </td>
+                      <td style={{ padding: '0.55rem 0.75rem', textAlign: 'center' }}>
+                        <input
+                          type="number"
+                          min="1"
+                          className="input-field"
+                          style={{ width: '60px', padding: '0.25rem 0.4rem', textAlign: 'center', borderColor: isDuplicate ? '#ff6b6b' : undefined }}
+                          value={p.rank || ''}
+                          onChange={e => {
+                            const next = [...participants];
+                            next[idx] = { ...next[idx], rank: parseInt(e.target.value) || null };
+                            patch({ participants: next });
+                          }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.55rem 0.75rem', textAlign: 'center' }}>
+                        <input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          className="input-field"
+                          style={{ width: '85px', padding: '0.25rem 0.4rem', textAlign: 'center' }}
+                          value={p.time || ''}
+                          onChange={e => {
+                            const next = [...participants];
+                            next[idx] = { ...next[idx], time: parseFloat(e.target.value) || null };
+                            patch({ participants: next });
+                          }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.55rem 0.75rem', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={!!p.qualified}
+                          onChange={e => {
+                            const next = [...participants];
+                            next[idx] = { ...next[idx], qualified: e.target.checked };
+                            patch({ participants: next });
+                          }}
+                          style={{ width: '17px', height: '17px', cursor: 'pointer' }}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Finalize tournament panel */}
+          <div style={{ marginTop: '2rem', padding: '1.25rem', background: 'rgba(251,191,36,0.05)', borderRadius: '12px', border: '1px solid rgba(251,191,36,0.2)' }}>
+            <h4 style={{ margin: '0 0 0.5rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>🏁</span> Tournament Completion
+            </h4>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+              Once all heats and final matches are done, push results to the official leaderboard.
+              This distributes 5 / 3 / 1 points to the Top 3 from each <strong>Final</strong> match.
+            </p>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={finalizeTournament}
+              style={{ background: '#fbbf24', color: '#000', fontWeight: 700 }}
+            >
+              🏆 Push Final Results to Leaderboard
+            </button>
+          </div>
         </div>
       );
       break;
+    }
 
     case 'badminton':
     case 'table-tennis': {
@@ -475,7 +642,13 @@ export default function SportScoreEditor({ match, onSaved }) {
     <div className="sport-editor-card" data-sport={sid}>
       <div className="sbe-head">
         <h3>
-          {team1} <span className="sbe-vs">vs</span> {team2}
+          {sid === 'athletics'
+            ? (() => {
+                const evLabels = { boys_100m: 'Boys 100m', girls_100m: 'Girls 100m', relay_4x100: '4 × 100m Relay' };
+                return evLabels[detail.event_type] || detail.event_type || 'Athletics Match';
+              })()
+            : `${team1} vs ${team2}`
+          }
         </h3>
         <div className="sbe-head-meta">
           <span className="sbe-id">Match #{match.id}</span>
@@ -495,7 +668,7 @@ export default function SportScoreEditor({ match, onSaved }) {
             }}
           >
             <option value="upcoming">Upcoming</option>
-            <option value="live">Live</option>
+            {sid !== 'athletics' && <option value="live">Live</option>}
             <option value="completed">Completed</option>
           </select>
         </label>

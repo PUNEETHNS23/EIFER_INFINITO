@@ -414,6 +414,43 @@ def _reverse_match_points(db: Session, team1_id: int, team2_id: int, score_t1: i
         t2.points = max(0, t2.points - 1)
 
 
+def _apply_athletics_points(db: Session, detail: Optional[dict]):
+    if not detail or not detail.get("is_final"):
+        return
+    participants = detail.get("participants", [])
+    for p in participants:
+        rank = _as_int(p.get("rank"))
+        team_id = p.get("team_id")
+        if rank and team_id:
+            team = db.query(models.Team).filter(models.Team.id == team_id).first()
+            if team:
+                if rank == 1: team.points += 5
+                elif rank == 2: team.points += 3
+                elif rank == 3: team.points += 1
+
+
+def _reverse_athletics_points(db: Session, detail: Optional[dict]):
+    if not detail or not detail.get("is_final"):
+        return
+    participants = detail.get("participants", [])
+    for p in participants:
+        rank = _as_int(p.get("rank"))
+        team_id = p.get("team_id")
+        if rank and team_id:
+            team = db.query(models.Team).filter(models.Team.id == team_id).first()
+            if team:
+                if rank == 1: team.points = max(0, team.points - 5)
+                elif rank == 2: team.points = max(0, team.points - 3)
+                elif rank == 3: team.points = max(0, team.points - 1)
+
+
+def _as_int(v: Any, default: int = 0) -> int:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
 def _derive_scores_for_status(sport_id: str, detail: Optional[dict], status: str) -> tuple[int, int]:
     # Chess should only publish canonical score once the match is completed.
     if sport_id == "chess" and status != "completed":
@@ -513,10 +550,17 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
     # - If the match was previously completed, remove the old result points.
     # - If the match is now completed, apply points for the new result.
     if old_status == "completed":
-        _reverse_match_points(db, db_match.team1_id, db_match.team2_id, old_score_t1, old_score_t2)
+        if db_match.sport_id == "athletics":
+            _reverse_athletics_points(db, db_match.score_detail)
+        else:
+            _reverse_match_points(db, db_match.team1_id, db_match.team2_id, old_score_t1, old_score_t2)
 
     if db_match.status == "completed":
-        _apply_match_points(db, db_match.team1_id, db_match.team2_id, db_match.score_t1, db_match.score_t2)
+        if db_match.sport_id == "athletics":
+            # Athletics points are now handled manually via the /finalize endpoint
+            pass
+        else:
+            _apply_match_points(db, db_match.team1_id, db_match.team2_id, db_match.score_t1, db_match.score_t2)
             
     db.commit()
     db.refresh(db_match)
@@ -524,6 +568,37 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
     result = map_match_names(db_match, db)
     await manager.broadcast_json({"type": "match_updated", "match": result})
     return result
+ 
+@app.post("/api/sports/{sport_id}/finalize")
+def finalize_sport(sport_id: str, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    # 1. Reset all team points for this sport
+    db.query(models.Team).filter(models.Team.sport_id == sport_id).update({models.Team.points: 0})
+    
+    # 2. Find ALL completed matches for this sport
+    matches = db.query(models.Match).filter(
+        models.Match.sport_id == sport_id,
+        models.Match.status == "completed"
+    ).all()
+    
+    # 3. Group by event_type, find the final match per event
+    # If a match has is_final=True, use that for points.
+    # Grouped so each event_type (boys_100m, relay_4x100, etc.) contributes independently.
+    from collections import defaultdict
+    by_event = defaultdict(list)
+    for m in matches:
+        et = (m.score_detail or {}).get("event_type", "default")
+        by_event[et].append(m)
+    
+    total_applied = 0
+    for event_type, event_matches in by_event.items():
+        # Find the Final match for this event
+        finals = [m for m in event_matches if (m.score_detail or {}).get("is_final")]
+        for final_match in finals:
+            _apply_athletics_points(db, final_match.score_detail)
+            total_applied += 1
+            
+    db.commit()
+    return {"detail": f"Leaderboard updated. Applied points from {total_applied} final match(es) across {len(by_event)} event type(s)."}
 
 @app.delete("/api/matches/{match_id}")
 def delete_match(match_id: int, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
