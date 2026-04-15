@@ -46,6 +46,9 @@ function racketToVolleyballDetail(detail, sid) {
     setTargets,
     setHistory,
     servingTeam: d.serving === 't2' ? 'B' : 'A',
+    toss_decided: Boolean(d.toss_decided),
+    toss_winner: d.toss_winner || '',
+    toss_decision: d.toss_decision || '',
     status: d.status || 'upcoming',
     winner: d.winner || null,
     history: d.history || [],
@@ -58,7 +61,7 @@ function racketToVolleyballDetail(detail, sid) {
 }
 
 function volleyballPatchToRacket(prevDetail, partial, sid) {
-  const next = { ...prevDetail };
+  const next = { ...prevDetail, ...partial };
 
   if (partial.sets_t1 != null || partial.setsA != null) next.games_t1 = Number(partial.sets_t1 ?? partial.setsA ?? next.games_t1 ?? 0);
   if (partial.sets_t2 != null || partial.setsB != null) next.games_t2 = Number(partial.sets_t2 ?? partial.setsB ?? next.games_t2 ?? 0);

@@ -187,7 +187,7 @@ export default function LiveVolleyballScorer({
     initState(detail, team1, team2)
   );
 
-  const tossDecided = !!detail.toss_decided;
+  const tossDecided = Boolean(detail.toss_decided || (detail.toss_winner && detail.toss_decision));
 
   const [targetInput, setTargetInput] = useState(() => {
     const currentSet = Number(detail?.currentSet || 1);
