@@ -72,3 +72,60 @@ class AdminUser(BaseModel):
 
 class DisqualifyRequest(BaseModel):
     reason: str
+
+
+# ── Athletics Leaderboard ────────────────────────────────────────────────────
+
+class AthleticsEntry(BaseModel):
+    id: Optional[str] = None
+    team_name: str
+    players: list[str] = []
+    time_sec: float
+    is_disqualified: bool = False
+
+class AthleticsEventCreate(BaseModel):
+    event_type: str   # relay_4x100 | boys_100m | girls_100m
+    label: Optional[str] = None
+
+class AthleticsEventOut(BaseModel):
+    id: int
+    event_type: str
+    label: Optional[str] = None
+    status: str
+    entries: Optional[list[dict[str, Any]]] = None
+    finalized_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Weight Lifting Leaderboard ───────────────────────────────────────────────
+
+class WLAttempts(BaseModel):
+    """3 attempts for one lift category (kg). 0 means not attempted / failed."""
+    a1: float = 0.0
+    a2: float = 0.0
+    a3: float = 0.0
+
+class WeightLiftingEntry(BaseModel):
+    id: Optional[str] = None
+    name: str
+    squat: list[float] = [0.0, 0.0, 0.0]          # 3 attempts
+    bench_press: list[float] = [0.0, 0.0, 0.0]    # 3 attempts
+    dead_lift: list[float] = [0.0, 0.0, 0.0]      # 3 attempts
+    is_disqualified: bool = False
+
+class WeightLiftingEventCreate(BaseModel):
+    label: Optional[str] = None
+
+class WeightLiftingEventOut(BaseModel):
+    id: int
+    label: Optional[str] = None
+    status: str
+    entries: Optional[list[dict[str, Any]]] = None
+    finalized_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
