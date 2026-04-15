@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, JSON
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, JSON, Text
 from sqlalchemy.orm import relationship
 import datetime
 
@@ -40,3 +40,29 @@ class Match(Base):
 
     team1 = relationship("Team", foreign_keys=[team1_id])
     team2 = relationship("Team", foreign_keys=[team2_id])
+
+
+class AthleticsEvent(Base):
+    __tablename__ = "athletics_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # relay_4x100 | boys_100m | girls_100m
+    event_type = Column(String, index=True, nullable=False)
+    label = Column(String, nullable=True)           # human-readable name e.g. "Heat 1" or "Final"
+    status = Column(String, default="upcoming")     # upcoming | completed
+    entries = Column(JSON, nullable=True)           # list of entry dicts (see below)
+    finalized_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class WeightLiftingEvent(Base):
+    __tablename__ = "weightlifting_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String, nullable=True)           # e.g. "Men's Open", "Final"
+    status = Column(String, default="upcoming")     # upcoming | completed
+    # Each entry: { id, name, squat:[a1,a2,a3], bench:[a1,a2,a3], dead_lift:[a1,a2,a3],
+    #               squat_best, bench_best, dead_lift_best, total, is_disqualified }
+    entries = Column(JSON, nullable=True)
+    finalized_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
