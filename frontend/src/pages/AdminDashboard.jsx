@@ -413,9 +413,19 @@ function AdminDashboard() {
             </p>
             <div className="admin-grid-desks">
               {SPORTS.map((s) => (
-                <Link key={s.id} to={`/admin/score/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center' }}>
-                  {s.icon} {s.name}
-                </Link>
+                s.id === 'athletics' ? (
+                  <Link key={s.id} to="/admin/athletics" className="btn-outline btn-sm" style={{ textAlign: 'center', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
+                    {s.icon} {s.name}
+                  </Link>
+                ) : s.id === 'weight-lifting' ? (
+                  <Link key={s.id} to="/admin/weight-lifting" className="btn-outline btn-sm" style={{ textAlign: 'center', borderColor: '#a78bfa', color: '#a78bfa' }}>
+                    {s.icon} {s.name}
+                  </Link>
+                ) : (
+                  <Link key={s.id} to={`/admin/score/${s.id}`} className="btn-outline btn-sm" style={{ textAlign: 'center' }}>
+                    {s.icon} {s.name}
+                  </Link>
+                )
               ))}
             </div>
           </div>

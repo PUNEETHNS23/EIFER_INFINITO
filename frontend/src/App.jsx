@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link, Outlet, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Outlet, useLocation, useParams, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
@@ -9,6 +9,12 @@ import AdminCreateMatch from './pages/AdminCreateMatch';
 import AdminAutomaticSchedule from './pages/AdminAutomaticSchedule';
 import AdminSportScore from './pages/AdminSportScore';
 import AdminWeightLifting from './pages/AdminWeightLifting';
+import AdminAthleticsEventManager from './pages/AdminAthleticsEventManager';
+import AthleticsEvents from './pages/AthleticsEvents';
+import AthleticsEventDetail from './pages/AthleticsEventDetail';
+import AdminWeightliftingEventManager from './pages/AdminWeightliftingEventManager';
+import WeightliftingEvents from './pages/WeightliftingEvents';
+import WeightliftingEventDetail from './pages/WeightliftingEventDetail';
 import Login from './pages/Login';
 import Leaderboard from './pages/Leaderboard';
 import MatchDetailsCricket from './pages/MatchDetailsCricket';
@@ -102,13 +108,19 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
+            <Route path="sport/athletics" element={<AthleticsEvents />} />
+            <Route path="sport/weight-lifting" element={<WeightliftingEvents />} />
             <Route path="sport/:id" element={<SportDetails />} />
+            <Route path="athletics/:eventId" element={<AthleticsEventDetail />} />
+            <Route path="weightlifting/:eventId" element={<WeightliftingEventDetail />} />
             <Route path="match/:id" element={<MatchDetailsBridge />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="admin/create-match/:sportId" element={<AdminCreateMatch />} />
             <Route path="admin/automatic-schedule/:sportId" element={<AdminAutomaticSchedule />} />
             <Route path="admin/score/weight-lifting" element={<AdminWeightLifting />} />
+            <Route path="admin/athletics" element={<AdminAthleticsEventManager />} />
+            <Route path="admin/weight-lifting" element={<AdminWeightliftingEventManager />} />
             <Route path="admin/score/:sportId" element={<AdminSportScore />} />
             <Route path="login" element={<Login />} />
           </Route>
