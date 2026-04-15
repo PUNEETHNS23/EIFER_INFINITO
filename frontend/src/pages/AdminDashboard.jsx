@@ -19,7 +19,7 @@ function AdminDashboard() {
 
   // Form states
   const footballSquadLimit = 11;
-  const createTeamState = (sportId = 'athletics') => ({
+  const createTeamState = (sportId = 'cricket') => ({
     name: '',
     sport_id: sportId,
     squad: [],
@@ -27,14 +27,14 @@ function AdminDashboard() {
 
   const [newTeam, setNewTeam] = useState(createTeamState());
   const [tempPlayerName, setTempPlayerName] = useState('');
-  const [newMatch, setNewMatch] = useState({ sport_id: 'athletics', team1_id: '', team2_id: '', scheduled_time: '' });
+  const [newMatch, setNewMatch] = useState({ sport_id: 'cricket', team1_id: '', team2_id: '', scheduled_time: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '' });
   const [adminMsg, setAdminMsg] = useState('');
   const [dqReason, setDqReason] = useState({});
   const teamsRefreshTimeoutRef = useRef(null);
 
-  const sportsEnum = ['athletics', 'cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'weight-lifting', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
-  const squadSports = ['cricket', 'volleyball', 'football', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'weight-lifting', 'carrom', 'athletics'];
+  const sportsEnum = ['cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
+  const squadSports = ['cricket', 'volleyball', 'football', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'carrom'];
   const allowSubstituteSports = ['volleyball', 'kho-kho', 'cricket'];
   const racketSports = ['badminton', 'table-tennis', 'carrom'];
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
@@ -436,7 +436,7 @@ function AdminDashboard() {
               Create bulk randomized matches for any sport. Team compositions are auto-generated from squads (for applicable sports) and fully editable before saving.
             </p>
             <div className="admin-grid-desks">
-              {SPORTS.filter(s => s.id !== 'weight-lifting').map((s) => (
+              {SPORTS.filter(s => !['weight-lifting', 'athletics'].includes(s.id)).map((s) => (
                 <Link
                   key={s.id}
                   to={`/admin/automatic-schedule/${s.id}`}
