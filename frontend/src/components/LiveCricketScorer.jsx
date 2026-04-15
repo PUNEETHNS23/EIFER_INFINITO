@@ -107,21 +107,22 @@ function NoBallModal({ onConfirm, onCancel }) {
 
   return (
     <div className="fade-in" style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 9999
+      zIndex: 9999, backdropFilter: 'blur(5px)'
     }}>
       <div className="modal-pop" style={{
-        background: 'var(--color-surface)', borderRadius: '16px',
-        padding: '2.5rem', width: '420px', border: '1px solidvar(--color-border)',
-        boxShadow: '0 25px 80px rgba(0,0,0,0.5)'
+        background: 'linear-gradient(145deg, var(--color-surface), #1f2937)', 
+        borderRadius: '24px',
+        padding: '2.5rem', width: '420px', border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 30px 100px rgba(0,0,0,0.7)'
       }}>
-        <h3 style={{ margin: '0 0 1.5rem', color: '#f59e0b', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>⚠️</span> No Ball
+        <h3 style={{ margin: '0 0 1.5rem', color: '#f59e0b', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.75rem', textShadow: '0 0 10px rgba(245,158,11,0.3)' }}>
+          <span style={{ fontSize: '1.6rem' }}>⚠️</span> No Ball
         </h3>
 
         <div className="input-group">
-          <label className="input-label">Runs scored off the bat?</label>
+          <label className="input-label" style={{ color: 'var(--color-text-muted)' }}>Runs scored off the bat?</label>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {[0, 1, 2, 3, 4, 6].map(v => (
               <button
@@ -130,10 +131,11 @@ function NoBallModal({ onConfirm, onCancel }) {
                 className="interactive-btn"
                 onClick={() => setRuns(v)}
                 style={{
-                  flex: 1, minWidth: '40px', padding: '0.6rem',
-                  border: `2px solid ${runs === v ? '#f59e0b' : 'var(--color-border)'}`,
-                  borderRadius: '10px', background: runs === v ? 'rgba(245,158,11,0.15)' : 'transparent',
-                  color: 'var(--color-text-main)', cursor: 'pointer', fontWeight: runs === v ? 'bold' : 'normal',
+                  flex: 1, minWidth: '40px', padding: '0.75rem',
+                  border: `2px solid ${runs === v ? '#f59e0b' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: '12px', background: runs === v ? 'rgba(245,158,11,0.15)' : 'rgba(0,0,0,0.2)',
+                  color: runs === v ? '#f59e0b' : 'var(--color-text-main)', cursor: 'pointer', fontWeight: runs === v ? 'bold' : 'normal',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
               >
                 {v}
@@ -142,30 +144,36 @@ function NoBallModal({ onConfirm, onCancel }) {
           </div>
         </div>
 
-        <div className="input-group" style={{ marginTop: '1.25rem' }}>
-          <label className="input-label">Reason</label>
-          <select
-            className="input-field interactive-select"
-            value={reason}
-            onChange={e => {
-              const val = e.target.value;
-              setReason(val);
-              if (val === 'Body Contact') setFreeHit(false);
-              else if (val === 'Foot Fault' || val === 'Waist High Full Toss') setFreeHit(true);
-            }}
-          >
-            <option value="Foot Fault">Foot Fault</option>
-            <option value="Waist High Full Toss">Waist High Full Toss</option>
-            <option value="Body Contact">Body Contact</option>
-            <option value="Other">Other</option>
-          </select>
+        <div className="input-group" style={{ marginTop: '1.5rem' }}>
+          <label className="input-label" style={{ color: 'var(--color-text-muted)' }}>Reason</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            {['Foot Fault', 'Waist High Full Toss', 'Body Contact', 'Other'].map(r => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => {
+                  setReason(r);
+                  if (r === 'Body Contact') setFreeHit(false);
+                  else if (r === 'Foot Fault' || r === 'Waist High Full Toss') setFreeHit(true);
+                }}
+                style={{
+                  padding: '0.6rem', border: `1px solid ${reason === r ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: '10px', background: reason === r ? 'rgba(59,130,246,0.15)' : 'rgba(0,0,0,0.2)',
+                  color: reason === r ? '#3b82f6' : 'var(--color-text-muted)', fontSize: '0.85rem', cursor: 'pointer',
+                  transition: 'all 0.2s', textAlign: 'center'
+                }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <label className={`fh-toggle-label ${freeHit ? 'active' : ''}`}>
+        <label className={`fh-toggle-label ${freeHit ? 'active' : ''}`} style={{ marginTop: '1.5rem', background: freeHit ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${freeHit ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.05)'}` }}>
            <input type="checkbox" className="fh-toggle-checkbox" checked={freeHit} onChange={e => setFreeHit(e.target.checked)} />
            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontWeight: 800, color: freeHit ? '#f59e0b' : 'var(--color-text-main)', fontSize: '0.9rem' }}>FREE HIT</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{freeHit ? 'The next ball will be a Free Hit' : 'No Free Hit for this delivery'}</span>
+              <span style={{ fontWeight: 800, color: freeHit ? '#f59e0b' : 'var(--color-text-main)', fontSize: '0.9rem', letterSpacing: '0.5px' }}>FREE HIT</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{freeHit ? 'The next ball will be a Free Hit' : 'No Free Hit applied'}</span>
            </div>
         </label>
 
@@ -174,11 +182,40 @@ function NoBallModal({ onConfirm, onCancel }) {
           <button
             type="button"
             className="btn-primary interactive-btn"
-            style={{ flex: 2, background: '#f59e0b', borderColor: '#f59e0b', color: '#000', fontSize: '1.05rem', fontWeight: 800, padding: '0.85rem' }}
+            style={{ flex: 2, background: '#f59e0b', borderColor: '#f59e0b', color: '#000', fontSize: '1.05rem', fontWeight: 800, padding: '0.85rem', boxShadow: '0 0 20px rgba(245,158,11,0.4)' }}
             onClick={() => onConfirm(runs, reason, freeHit)}
           >
             Apply No Ball
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Inline modal for Match Completion ───────────────────────────────────────
+function MatchCompleteModal({ msg, isTie, onFinish, onEdit, onSuperOver }) {
+  return (
+    <div className="fade-in" style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999, backdropFilter: 'blur(5px)'
+    }}>
+      <div className="modal-pop" style={{
+        background: 'linear-gradient(145deg, var(--color-surface), #1f2937)', 
+        borderRadius: '24px',
+        padding: '3rem', width: '450px', border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 30px 100px rgba(0,0,0,0.7)', textAlign: 'center'
+      }}>
+        <h2 style={{ fontSize: '2.2rem', margin: '0 0 1rem', color: '#10b981', textShadow: '0 0 20px rgba(16,185,129,0.3)' }}>🏆 Match Completed!</h2>
+        <p style={{ fontSize: '1.25rem', margin: '0 0 2.5rem', color: 'var(--color-text-main)' }}>{msg}</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem' }} onClick={onFinish}>Finish Match (Lock Score)</button>
+          {isTie && (
+            <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem', background: '#f59e0b', color: '#000', borderColor: '#f59e0b', boxShadow: '0 0 20px rgba(245,158,11,0.4)' }} onClick={onSuperOver}>⚡ Start Super Over</button>
+          )}
+          <button className="btn-outline interactive-btn" style={{ padding: '0.8rem', opacity: 0.8 }} onClick={onEdit}>Wait, I made a mistake (Edit)</button>
         </div>
       </div>
     </div>
@@ -292,6 +329,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   // ── Apply wicket (called from modal) ────────────────────────────────────
   const applyWicket = (who, dismissalStr) => {
     setWicketModal(false);
+    if (detail.match_finalized || detail.match_completed_info) return;
     saveHistory();
     let updates = JSON.parse(JSON.stringify(detail));
     if (!updates[battingCardKey]) updates[battingCardKey] = {};
@@ -396,7 +434,19 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
         updates.events_feed = `🛑 First Innings Ends. Target: ${updates.target}\n` + (updates.events_feed || '');
         alert('All 10 wickets down! Innings 2 begins.');
       } else {
-        updates.events_feed = `🏆 MATCH OVER. ${bowlingTeamName} win!\n` + (updates.events_feed || '');
+        const t = updates.target || Infinity;
+        let msg = '';
+        let isTie = false;
+        if (updates[`runs${battingPrefix}`] < t - 1) {
+           msg = `${bowlingTeamName} won! They defended the target successfully.`;
+        } else if (updates[`runs${battingPrefix}`] === t - 1) {
+           msg = "Scores are LEVEL! It's a TIE!";
+           isTie = true;
+        } else {
+           msg = `${battingTeamName} won! (All Out)`;
+        }
+        updates.events_feed = `🏆 MATCH OVER. ${msg}\n` + (updates.events_feed || '');
+        updates.match_completed_info = { msg, isTie };
       }
     }
 
@@ -405,6 +455,14 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
 
   // ── Normal ball ──────────────────────────────────────────────────────────
   const handleBall = (type, extraData = null) => {
+    if (detail.match_finalized) {
+      alert('Match is finalized. You cannot score anymore.');
+      return;
+    }
+    if (detail.match_completed_info) {
+      alert('Please select an option in the match completion popup.');
+      return;
+    }
     if (!detail.striker || !detail.non_striker || !detail.current_bowler) {
       alert('Please select striker, non-striker, and bowler from the dropdowns first!');
       return;
@@ -589,7 +647,9 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
 
     // 8. Auto Innings Logic
     if (updates[`runs${battingPrefix}`] >= (updates.target || Infinity) && innings === 2) {
-      updates.events_feed = `🏆 MATCH OVER. ${battingTeamName} chased the target!\n` + (updates.events_feed || '');
+      const msg = `${battingTeamName} chased the target by ${10 - updates[`wickets${battingPrefix}`]} wickets!`;
+      updates.events_feed = `🏆 MATCH OVER. ${msg}\n` + (updates.events_feed || '');
+      updates.match_completed_info = { msg, isTie: false };
     } else if (matchBallsTotal >= maxOvers * 6) {
       if (innings === 1) {
         updates.target = updates[`runs${battingPrefix}`] + 1;
@@ -599,7 +659,19 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
         updates.events_feed = `🛑 1st Innings Done. Target: ${updates.target}\n` + (updates.events_feed || '');
         alert(`1st Innings complete! Target: ${updates.target}. Select openers for 2nd innings.`);
       } else {
-        updates.events_feed = `🏆 MATCH OVER. ${bowlingTeamName} win!\n` + (updates.events_feed || '');
+        const t = updates.target || Infinity;
+        let msg = '';
+        let isTie = false;
+        if (updates[`runs${battingPrefix}`] < t - 1) {
+           msg = `${bowlingTeamName} won! They defended the target.`;
+        } else if (updates[`runs${battingPrefix}`] === t - 1) {
+           msg = "Scores are LEVEL! It's a TIE!";
+           isTie = true;
+        } else {
+           msg = `${battingTeamName} won!`;
+        }
+        updates.events_feed = `🏆 MATCH OVER. ${msg}\n` + (updates.events_feed || '');
+        updates.match_completed_info = { msg, isTie };
       }
     }
 
@@ -698,6 +770,34 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
             handleBall('NB', { runs, reason, isFreeHit });
           }}
           onCancel={() => setNbModal(false)}
+        />
+      )}
+
+      {detail.match_completed_info && (
+        <MatchCompleteModal
+          msg={detail.match_completed_info.msg}
+          isTie={detail.match_completed_info.isTie}
+          onFinish={() => patch({ match_finalized: true, match_completed_info: null })}
+          onEdit={() => patch({ match_completed_info: null })}
+          onSuperOver={() => {
+            if (!window.confirm("Initialize Super Over? This clears the scores to 0/0 and sets max overs to 1 while keeping the same teams.")) return;
+            saveHistory();
+            patch({
+              runs_t1: 0, wickets_t1: 0, overs_t1: "0.0", extras_t1: 0, extras_nb_t1: 0, extras_wd_t1: 0,
+              runs_t2: 0, wickets_t2: 0, overs_t2: "0.0", extras_t2: 0, extras_nb_t2: 0, extras_wd_t2: 0,
+              batting_card_t1: {}, bowling_card_t1: {}, batting_card_t2: {}, bowling_card_t2: {},
+              match_type: 'Custom',
+              custom_overs: 1,
+              innings: 1,
+              target: 0,
+              striker: '', non_striker: '', current_bowler: '',
+              match_completed_info: null,
+              match_finalized: false,
+              events_feed: "⚡ SUPER OVER BEGUN!\n" + (detail.events_feed || ''),
+              over_progression: '',
+              prev_over_progression: ''
+            });
+          }}
         />
       )}
 
