@@ -1,4 +1,5 @@
 import os
+import uuid
 from pathlib import Path
 from typing import Optional, Any
 from dotenv import load_dotenv
@@ -694,3 +695,375 @@ def delete_match(match_id: int, db: Session = Depends(get_db), current_user: str
     _recalculate_leaderboard_points(db)
     db.commit()
     return {"detail": "Match deleted"}
+
+
+# ── Athletics Leaderboard Routes ─────────────────────────────────────────────
+
+def _sort_entries(entries: list) -> list:
+    """Sort entries: valid times ascending first, then disqualified at the end."""
+    if not entries:
+        return []
+    valid = sorted(
+        [e for e in entries if not e.get("is_disqualified") and (e.get("time_sec") or 0) > 0],
+        key=lambda e: float(e.get("time_sec", 1e9))
+    )
+    no_time = [e for e in entries if not e.get("is_disqualified") and not ((e.get("time_sec") or 0) > 0)]
+    dq = [e for e in entries if e.get("is_disqualified")]
+    # Assign ranks
+    rank = 1
+    prev_time = None
+    for e in valid:
+        t = float(e.get("time_sec", 0))
+        if t != prev_time:
+            e["rank"] = rank
+            prev_time = t
+        else:
+            e["rank"] = rank - 1  # tied rank
+        rank += 1
+    for e in no_time:
+        e["rank"] = None
+    for e in dq:
+        e["rank"] = None
+    return valid + no_time + dq
+
+
+@app.get("/api/athletics/events", response_model=list[schemas.AthleticsEventOut])
+def list_athletics_events(db: Session = Depends(get_db)):
+    events = db.query(models.AthleticsEvent).order_by(models.AthleticsEvent.created_at).all()
+    return events
+
+
+@app.post("/api/athletics/events", response_model=schemas.AthleticsEventOut)
+def create_athletics_event(
+    payload: schemas.AthleticsEventCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    allowed = {"relay_4x100", "boys_100m", "girls_100m"}
+    if payload.event_type not in allowed:
+        raise HTTPException(status_code=400, detail=f"event_type must be one of {allowed}")
+    ev = models.AthleticsEvent(
+        event_type=payload.event_type,
+        label=payload.label or "",
+        status="upcoming",
+        entries=[]
+    )
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.get("/api/athletics/events/{event_id}", response_model=schemas.AthleticsEventOut)
+def get_athletics_event(event_id: int, db: Session = Depends(get_db)):
+    ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    # Return with sorted entries
+    ev.entries = _sort_entries(list(ev.entries or []))
+    return ev
+
+
+@app.post("/api/athletics/events/{event_id}/entries", response_model=schemas.AthleticsEventOut)
+def add_athletics_entry(
+    event_id: int,
+    entry: schemas.AthleticsEntry,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized. No further edits allowed.")
+    entries = list(ev.entries or [])
+    new_entry = {
+        "id": str(uuid.uuid4()),
+        "team_name": entry.team_name.strip(),
+        "players": [p.strip() for p in (entry.players or [])],
+        "time_sec": float(entry.time_sec),
+        "is_disqualified": bool(entry.is_disqualified)
+    }
+    entries.append(new_entry)
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.put("/api/athletics/events/{event_id}/entries/{entry_id}", response_model=schemas.AthleticsEventOut)
+def update_athletics_entry(
+    event_id: int,
+    entry_id: str,
+    entry: schemas.AthleticsEntry,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized. No further edits allowed.")
+    entries = list(ev.entries or [])
+    idx = next((i for i, e in enumerate(entries) if e.get("id") == entry_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    entries[idx] = {
+        "id": entry_id,
+        "team_name": entry.team_name.strip(),
+        "players": [p.strip() for p in (entry.players or [])],
+        "time_sec": float(entry.time_sec),
+        "is_disqualified": bool(entry.is_disqualified)
+    }
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.delete("/api/athletics/events/{event_id}/entries/{entry_id}", response_model=schemas.AthleticsEventOut)
+def delete_athletics_entry(
+    event_id: int,
+    entry_id: str,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized. No further edits allowed.")
+    entries = [e for e in (ev.entries or []) if e.get("id") != entry_id]
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.post("/api/athletics/events/{event_id}/finalize", response_model=schemas.AthleticsEventOut)
+def finalize_athletics_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is already finalized.")
+    ev.status = "completed"
+    ev.finalized_at = datetime.utcnow()
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.delete("/api/athletics/events/{event_id}")
+def delete_athletics_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    db.delete(ev)
+    db.commit()
+    return {"detail": "Event deleted"}
+
+
+# ── Weight Lifting Leaderboard Routes ────────────────────────────────────────
+
+def _best(attempts: list) -> float:
+    """Return the highest valid (> 0) attempt or 0."""
+    return max((float(a) for a in (attempts or []) if float(a) > 0), default=0.0)
+
+
+def _calc_wl_entry(entry: dict) -> dict:
+    """Compute squat_best, bench_best, dead_lift_best, total in-place."""
+    squat_best   = _best(entry.get("squat",       [0, 0, 0]))
+    bench_best   = _best(entry.get("bench_press",  [0, 0, 0]))
+    dl_best      = _best(entry.get("dead_lift",    [0, 0, 0]))
+    entry["squat_best"]     = squat_best
+    entry["bench_best"]     = bench_best
+    entry["dead_lift_best"] = dl_best
+    entry["total"]          = squat_best + bench_best + dl_best
+    return entry
+
+
+def _sort_wl_entries(entries: list) -> list:
+    """Sort descending by total; DQ'd at the bottom; assign ranks."""
+    if not entries:
+        return []
+    for e in entries:
+        _calc_wl_entry(e)
+
+    valid = sorted(
+        [e for e in entries if not e.get("is_disqualified")],
+        key=lambda e: e["total"], reverse=True
+    )
+    dq = [e for e in entries if e.get("is_disqualified")]
+
+    rank = 1
+    prev_total = None
+    for e in valid:
+        if e["total"] != prev_total:
+            e["rank"] = rank
+            prev_total = e["total"]
+        else:
+            e["rank"] = rank - 1
+        rank += 1
+
+    for e in dq:
+        e["rank"] = None
+
+    return valid + dq
+
+
+@app.get("/api/weightlifting/events", response_model=list[schemas.WeightLiftingEventOut])
+def list_wl_events(db: Session = Depends(get_db)):
+    return db.query(models.WeightLiftingEvent).order_by(models.WeightLiftingEvent.created_at).all()
+
+
+@app.post("/api/weightlifting/events", response_model=schemas.WeightLiftingEventOut)
+def create_wl_event(
+    payload: schemas.WeightLiftingEventCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = models.WeightLiftingEvent(label=payload.label or "", status="upcoming", entries=[])
+    db.add(ev)
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.get("/api/weightlifting/events/{event_id}", response_model=schemas.WeightLiftingEventOut)
+def get_wl_event(event_id: int, db: Session = Depends(get_db)):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    ev.entries = _sort_wl_entries(list(ev.entries or []))
+    return ev
+
+
+@app.post("/api/weightlifting/events/{event_id}/entries", response_model=schemas.WeightLiftingEventOut)
+def add_wl_entry(
+    event_id: int,
+    entry: schemas.WeightLiftingEntry,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized.")
+    entries = list(ev.entries or [])
+    new_entry = _calc_wl_entry({
+        "id": str(uuid.uuid4()),
+        "name": entry.name.strip(),
+        "squat":       [float(x) for x in (entry.squat or [0, 0, 0])],
+        "bench_press": [float(x) for x in (entry.bench_press or [0, 0, 0])],
+        "dead_lift":   [float(x) for x in (entry.dead_lift or [0, 0, 0])],
+        "is_disqualified": bool(entry.is_disqualified),
+    })
+    entries.append(new_entry)
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_wl_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.put("/api/weightlifting/events/{event_id}/entries/{entry_id}", response_model=schemas.WeightLiftingEventOut)
+def update_wl_entry(
+    event_id: int,
+    entry_id: str,
+    entry: schemas.WeightLiftingEntry,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized.")
+    entries = list(ev.entries or [])
+    idx = next((i for i, e in enumerate(entries) if e.get("id") == entry_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    entries[idx] = _calc_wl_entry({
+        "id": entry_id,
+        "name": entry.name.strip(),
+        "squat":       [float(x) for x in (entry.squat or [0, 0, 0])],
+        "bench_press": [float(x) for x in (entry.bench_press or [0, 0, 0])],
+        "dead_lift":   [float(x) for x in (entry.dead_lift or [0, 0, 0])],
+        "is_disqualified": bool(entry.is_disqualified),
+    })
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_wl_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.delete("/api/weightlifting/events/{event_id}/entries/{entry_id}", response_model=schemas.WeightLiftingEventOut)
+def delete_wl_entry(
+    event_id: int,
+    entry_id: str,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized.")
+    entries = [e for e in (ev.entries or []) if e.get("id") != entry_id]
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_wl_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.post("/api/weightlifting/events/{event_id}/finalize", response_model=schemas.WeightLiftingEventOut)
+def finalize_wl_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is already finalized.")
+    ev.status = "completed"
+    ev.finalized_at = datetime.utcnow()
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.delete("/api/weightlifting/events/{event_id}")
+def delete_wl_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    db.delete(ev)
+    db.commit()
+    return {"detail": "Event deleted"}
