@@ -211,11 +211,11 @@ function MatchCompleteModal({ msg, isTie, onFinish, onEdit, onSuperOver }) {
         <p style={{ fontSize: '1.25rem', margin: '0 0 2.5rem', color: 'var(--color-text-main)' }}>{msg}</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem' }} onClick={onFinish}>Finish Match (Lock Score)</button>
+          <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem' }} onClick={() => { if (onEndMatch) onEndMatch(); patch({ match_finalized: true, match_completed_info: null }); }}>Finish Match (Lock Score)</button>
           {isTie && (
             <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem', background: '#f59e0b', color: '#000', borderColor: '#f59e0b', boxShadow: '0 0 20px rgba(245,158,11,0.4)' }} onClick={onSuperOver}>⚡ Start Super Over</button>
           )}
-          <button className="btn-outline interactive-btn" style={{ padding: '0.8rem', opacity: 0.8 }} onClick={onEdit}>Wait, I made a mistake (Edit)</button>
+          <button className="btn-outline interactive-btn" style={{ padding: '0.8rem', opacity: 0.8 }} onClick={popHistory}>Wait, I made a mistake (Edit)</button>
         </div>
       </div>
     </div>
@@ -223,7 +223,7 @@ function MatchCompleteModal({ msg, isTie, onFinish, onEdit, onSuperOver }) {
 }
 
 // ── Main Scorer ─────────────────────────────────────────────────────────────
-export default function LiveCricketScorer({ detail, patch, team1, team2, team1Data, team2Data }) {
+export default function LiveCricketScorer({ detail, patch, team1, team2, team1Data, team2Data, onEndMatch }) {
   const [history, setHistory] = useState(() => detail.history || []);
   const [wicketModal, setWicketModal] = useState(false);
   const [nbModal, setNbModal] = useState(false);

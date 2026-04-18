@@ -295,7 +295,7 @@ export default function SportScoreEditor({ match, onSaved }) {
         </div>
       );
     case 'cricket':
-      form = <LiveCricketScorer detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} />;
+      form = <LiveCricketScorer detail={detail} patch={patch} team1={team1} team2={team2} team1Data={team1Data} team2Data={team2Data} onEndMatch={endMatch} />;
       break;
     case 'carrom':
       form = !detail.toss_decided && status !== 'completed' ? (
