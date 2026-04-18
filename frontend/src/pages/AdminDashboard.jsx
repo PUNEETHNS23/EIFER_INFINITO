@@ -20,11 +20,17 @@ function AdminDashboard() {
 
   // Form states
   const footballSquadLimit = 11;
-  const createTeamState = (sportId = 'cricket') => ({
+  const createTeamState = (sportId = 'cricket', category = '') => ({
     name: '',
     sport_id: sportId,
+    category,
     squad: [],
   });
+
+  const resetTeamFormForSport = (sportId) => {
+    const categories = getSportCategories(sportId);
+    setNewTeam(createTeamState(sportId, categories[0] || ''));
+  };
 
   const [newTeam, setNewTeam] = useState(createTeamState());
   const [tempPlayerName, setTempPlayerName] = useState('');
@@ -144,7 +150,7 @@ function AdminDashboard() {
         squad: newTeam.squad,
       });
       fetchTeams();
-      setNewTeam(createTeamState());
+      resetTeamFormForSport(selectedSportForTeam || newTeam.sport_id);
     } catch (e) {
       alert('Error adding team');
     }
@@ -454,11 +460,7 @@ function AdminDashboard() {
                       key={s.id}
                       onClick={() => {
                         setSelectedSportForTeam(s.id);
-                        setNewTeam(createTeamState(s.id));
-                        const cats = getSportCategories(s.id);
-                        if (cats.length > 0) {
-                           setNewTeam(prev => ({ ...prev, category: cats[0] }));
-                        }
+                        resetTeamFormForSport(s.id);
                       }}
                       className="btn-outline btn-sm"
                       style={{ textAlign: 'center', borderColor: 'rgba(255,255,255,0.1)', color: 'var(--color-text)' }}
