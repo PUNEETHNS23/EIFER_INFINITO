@@ -1290,93 +1290,148 @@ BRACKET_SPORTS = {
 }
 
 
-def _next_pow2(n: int) -> int:
-    p = 1
-    while p < n:
-        p *= 2
-    return p
-
+def _generate_balanced_seeding(num_teams: int) -> list:
+    """Returns a list of seeds in balanced order (e.g. [1, 8, 4, 5, 2, 7, 3, 6] for 8 teams)."""
+    seeds = [1, 2]
+    while len(seeds) < num_teams:
+        next_seeds = []
+        for s in seeds:
+            next_seeds.append(s)
+            next_seeds.append(len(seeds) * 2 + 1 - s)
+        seeds = next_seeds
+    return seeds
 
 def _generate_bracket(teams: list) -> list:
     """
-    Returns bracket as list-of-rounds.
-    Each round is a list of match dicts:
-      uid, round, position, teamA, teamB, winner, match_id, scheduled_at
-    teamA/teamB: {id, name} | None (None = BYE in R1, TBD in later rounds)
+    Returns bracket as list-of-rounds using Play-in logic and Graph Linking.
+    N teams -> target_size = largest power of 2 <= N.
+    Play-in Matches = N - target_size.
     """
     n = len(teams)
-    if n < 2:
-        return []
+    if n < 2: return []
 
-    total_slots = _next_pow2(n)
-    byes = total_slots - n
-
-    # No shuffling — use the provided selection order as seeding
-    # For N=9, byes=7. Top 7 teams get Byes, last 2 play in R1.
-    bye_teams  = teams[:byes]
-    real_teams = teams[byes:]
-
-    # R1 slot pairs
-    r1_pairs = [(t, None) for t in bye_teams]           # (team, BYE)
-    for i in range(0, len(real_teams), 2):
-        t1 = real_teams[i]
-        t2 = real_teams[i + 1] if i + 1 < len(real_teams) else None
-        r1_pairs.append((t1, t2))
-
+    # 1. Determine Main Bracket Size (power of 2)
+    target_size = 1
+    while target_size * 2 <= n:
+        target_size *= 2
+    
+    num_playins = n - target_size
+    num_byes    = target_size - num_playins
+    
+    # 2. Assign Seeds (1 to N)
+    # Selection order is treated as seeding (Team at index 0 is Seed 1)
+    # We use a balanced order for the target power-of-2 bracket
+    main_seeds_order = _generate_balanced_seeding(target_size)
+    
+    # 3. Prepare Round 1 (Play-ins) and Round 2 (Main)
+    # High seeds (1 to num_byes) get a BYE.
+    # Mid-low seeds (num_byes + 1 to target_size) play against lowest seeds (target_size + 1 to N).
+    
     rounds = []
-
-    # ── Round 1 ──
     r1_matches = []
-    r1_next_winners = []
-    for i, (tA, tB) in enumerate(r1_pairs):
-        is_bye    = tB is None
-        auto_win  = tA if is_bye else None
-        r1_matches.append({
-            "uid":          f"r1m{i + 1}",
-            "round":        1,
-            "position":     i + 1,
-            "teamA":        tA,
-            "teamB":        tB,       # None = BYE
-            "winner":       auto_win,
-            "match_id":     None,
-            "scheduled_at": None,
-        })
-        r1_next_winners.append(auto_win)   # real team or None (TBD)
-    rounds.append(r1_matches)
-
-    # ── Subsequent rounds (all TBD until winners are set) ──
-    round_num         = 2
-    current_winners   = r1_next_winners   # list of team-dicts or None
-
-    while len(current_winners) > 1:
-        next_matches = []
-        next_winners = []
-        for i in range(0, len(current_winners), 2):
-            tA  = current_winners[i]
-            tB  = current_winners[i + 1] if i + 1 < len(current_winners) else None
-            pos = i // 2 + 1
-            next_matches.append({
-                "uid":          f"r{round_num}m{pos}",
-                "round":        round_num,
-                "position":     pos,
-                "teamA":        tA,    # real team if feeder was a BYE winner, else None
-                "teamB":        tB,    # real team if feeder was a BYE winner, else None
+    main_round_matches = [] # This will be Round 2 (e.g. Quarterfinals)
+    
+    # Track who goes where
+    # main_slots holds either a team (BYE) or a placeholder for a R1 winner
+    main_slots = [None] * target_size 
+    
+    # Assign seeds to slots
+    for i, seed in enumerate(main_seeds_order):
+        if seed <= num_byes:
+            # BYE team
+            main_slots[i] = teams[seed - 1]
+        else:
+            # Replaced by a play-in
+            p1 = teams[seed - 1]
+            p2 = teams[target_size + (seed - num_byes) - 1]
+            m_uid = f"r1m{len(r1_matches) + 1}"
+            
+            match_obj = {
+                "uid":          m_uid,
+                "round":        1,
+                "position":     len(r1_matches) + 1,
+                "teamA":        p1,
+                "teamB":        p2,
                 "winner":       None,
                 "match_id":     None,
                 "scheduled_at": None,
-            })
-            next_winners.append(None)
-        rounds.append(next_matches)
-        current_winners = next_winners
-        round_num += 1
+                "next_match_uid": None, # Set later
+                "next_match_slot": None # Set later
+            }
+            r1_matches.append(match_obj)
+            main_slots[i] = {"_playin_winner_from": m_uid}
 
-    # Add 3rd place match if there are at least 4 teams (Semifinal round exists)
-    if len(rounds) >= 2:
-        final_round_idx = len(rounds) - 1
-        rounds[final_round_idx].append({
+    if r1_matches:
+        rounds.append(r1_matches)
+
+    # 4. Generate Main Bracket rounds
+    # We keep going until we have a single match (Final)
+    current_slots = main_slots
+    current_round_num = 2 if r1_matches else 1
+    
+    while len(current_slots) > 1:
+        match_round = []
+        next_slots = []
+        for i in range(0, len(current_slots), 2):
+            tA = current_slots[i]
+            tB = current_slots[i+1]
+            
+            m_pos = len(match_round) + 1
+            m_uid = f"r{current_round_num}m{m_pos}"
+            
+            match_obj = {
+                "uid":          m_uid,
+                "round":        current_round_num,
+                "position":     m_pos,
+                "teamA":        tA if isinstance(tA, dict) and "id" in tA else None,
+                "teamB":        tB if isinstance(tB, dict) and "id" in tB else None,
+                "winner":       None,
+                "match_id":     None,
+                "scheduled_at": None,
+                "next_match_uid": None,
+                "next_match_slot": None
+            }
+            
+            # If tA is a play-in winner placeholder, link that play-in to this match
+            if isinstance(tA, dict) and "_playin_winner_from" in tA:
+                # Find the R1 match and update it
+                source_uid = tA["_playin_winner_from"]
+                for rm in r1_matches:
+                    if rm["uid"] == source_uid:
+                        rm["next_match_uid"] = m_uid
+                        rm["next_match_slot"] = "teamA"
+            
+            if isinstance(tB, dict) and "_playin_winner_from" in tB:
+                source_uid = tB["_playin_winner_from"]
+                for rm in r1_matches:
+                    if rm["uid"] == source_uid:
+                        rm["next_match_uid"] = m_uid
+                        rm["next_match_slot"] = "teamB"
+            
+            match_round.append(match_obj)
+            next_slots.append({"_winner_from": m_uid})
+            
+        rounds.append(match_round)
+        # Link previous round to this round if not R1 (handled above)
+        if len(rounds) > 1:
+            prev_round = rounds[-2]
+            # Skip if prev_round is Round 1 and we already handled it
+            if not (current_round_num == 2 and r1_matches):
+                for j, m in enumerate(prev_round):
+                    m["next_match_uid"] = match_round[j // 2]["uid"]
+                    m["next_match_slot"] = "teamA" if j % 2 == 0 else "teamB"
+                    
+        current_slots = next_slots
+        current_round_num += 1
+
+    # Add 3rd place match if there are at least 4 main slots
+    if target_size >= 4:
+        semi_idx = len(rounds) - 2
+        final_round = rounds[-1]
+        final_round.append({
             "uid":          "3rd_place",
-            "round":        final_round_idx + 1,
-            "position":     2, # position 1 is the Grand Final
+            "round":        len(rounds),
+            "position":     2,
             "teamA":        None,
             "teamB":        None,
             "winner":       None,
@@ -1389,36 +1444,54 @@ def _generate_bracket(teams: list) -> list:
 
 
 def _set_bracket_winner(bracket: list, match_uid: str, winner: dict) -> list:
-    """Set winner in bracket and advance to next round."""
+    """Set winner in bracket and advance to next round using graph links."""
+    # 1. Identify current match and rounds
+    match_found = None
+    r_idx_found = None
     for r_idx, rnd in enumerate(bracket):
-        for m_idx, m in enumerate(rnd):
-            if m["uid"] != match_uid:
-                continue
-            bracket[r_idx][m_idx]["winner"] = winner
-            # Propagate to next round
-            if r_idx + 1 < len(bracket):
-                pos            = m["position"]           # 1-indexed
-                next_match_idx = (pos - 1) // 2          # 0-indexed
-                is_team_a      = (pos % 2 == 1)
-                if next_match_idx < len(bracket[r_idx + 1]):
-                    key = "teamA" if is_team_a else "teamB"
-                    bracket[r_idx + 1][next_match_idx][key] = winner
-            
-            # Propagate LOSER to 3rd place match if this is a Semifinal
-            if r_idx == len(bracket) - 2 and len(bracket) >= 2:
-                # Find the 3rd place match in the final round
-                third_match = next((x for x in bracket[-1] if x.get("is_3rd_place")), None)
-                if third_match:
-                    tA = m.get("teamA")
-                    tB = m.get("teamB")
-                    loser = tA if (tA and tA.get("id") != winner.get("id")) else tB
-                    if m["position"] % 2 == 1:
-                        third_match["teamA"] = loser
-                    else:
-                        third_match["teamB"] = loser
+        for m in rnd:
+            if m["uid"] == match_uid:
+                match_found = m
+                r_idx_found = r_idx
+                break
+        if match_found: break
+    
+    if not match_found:
+        raise ValueError(f"Match {match_uid} not found")
 
-            return bracket
-    raise ValueError(f"Match {match_uid} not found")
+    # 2. Set winner
+    match_found["winner"] = winner
+
+    # 3. Propagate to next match via explicit link
+    next_uid = match_found.get("next_match_uid")
+    next_slot = match_found.get("next_match_slot")
+    
+    if next_uid and next_slot:
+        # Search for that match
+        for rnd in bracket:
+            for m in rnd:
+                if m["uid"] == next_uid:
+                    m[next_slot] = winner
+                    break
+
+    # 4. Propagate LOSER to 3rd place match if this is a Semifinal
+    # Semi-finals are in the second-to-last round (not counting rounds with only 3rd place matches)
+    # Actually, smarter check: if this match is linked to the first match of the final round.
+    # But simpler: check round indices.
+    if r_idx_found == len(bracket) - 2:
+        third_match = next((x for x in bracket[-1] if x.get("is_3rd_place")), None)
+        if third_match:
+            tA = match_found.get("teamA")
+            tB = match_found.get("teamB")
+            loser = tA if (tA and tA.get("id") != winner.get("id")) else tB
+            # If position 1 of semi -> slot teamA of 3rd place
+            # If position 2 of semi -> slot teamB of 3rd place
+            if match_found["position"] == 1:
+                third_match["teamA"] = loser
+            elif match_found["position"] == 2:
+                third_match["teamB"] = loser
+
+    return bracket
 
 
 def _ensure_match_entries(bracket: list, sport_id: str, category: Optional[str], db) -> list:
@@ -1680,6 +1753,60 @@ def bulk_set_tournament_details(
     return t
 
 
+def _is_any_downstream_completed(bracket: list, match_uid: str) -> bool:
+    """Recursively check if any match that depends on this match's winner is completed."""
+    # Find the match
+    m = None
+    for rnd in bracket:
+        for match in rnd:
+            if match["uid"] == match_uid:
+                m = match
+                break
+        if m: break
+    
+    if not m: return False
+    if m.get("winner"): return True # Current match is completed
+
+    next_uid = m.get("next_match_uid")
+    if not next_uid: return False # Final match
+
+    return _is_any_downstream_completed(bracket, next_uid)
+
+def _propagate_team_update(bracket: list, match_uid: str, old_team_id: int, new_team: Optional[dict]):
+    """Recursively update a team's presence in downstream matches if they haven't started."""
+    # Find match
+    m = None
+    for rnd in bracket:
+        for match in rnd:
+            if match["uid"] == match_uid:
+                m = match
+                break
+        if m: break
+    
+    if not m: return
+    
+    # If the match is already completed, we STOP. We don't modify completed matches.
+    if m.get("winner"): return
+
+    # Check if old_team was in teamA or teamB
+    changed = False
+    if m.get("teamA") and m["teamA"].get("id") == old_team_id:
+        m["teamA"] = new_team
+        changed = True
+    elif m.get("teamB") and m["teamB"].get("id") == old_team_id:
+        m["teamB"] = new_team
+        changed = True
+
+    if changed:
+        # If this match has a real DB entry, sync it
+        # (Note: We'll do a batch sync later or handle it here)
+        pass
+
+    # Continue to next match
+    next_uid = m.get("next_match_uid")
+    if next_uid:
+        _propagate_team_update(bracket, next_uid, old_team_id, new_team)
+
 @app.post("/api/tournaments/{tournament_id}/swap-teams", response_model=schemas.TournamentOut)
 def swap_tournament_teams(
     tournament_id: int,
@@ -1693,43 +1820,49 @@ def swap_tournament_teams(
 
     bracket = list(t.bracket or [])
     
-    # Validation block: Ensure matches are not played (no winner)
     def find_match(uid):
-        for r, rnd in enumerate(bracket):
-            for m, match in enumerate(rnd):
-                if match["uid"] == uid:
-                    if match.get("winner"):
-                        raise ValueError(f"Cannot swap teams in a match that is already decided ({uid})")
-                    return match
-        raise ValueError(f"Match not found: {uid}")
+        for rnd in bracket:
+            for match in rnd:
+                if match["uid"] == uid: return match
+        return None
 
-    try:
-        match_src = find_match(payload.match_uid_src)
-        match_tgt = find_match(payload.match_uid_tgt)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+    m_src = find_match(payload.match_uid_src)
+    m_tgt = find_match(payload.match_uid_tgt)
 
-    # Pull existing teams
-    src_val = match_src.get(payload.team_key_src)
-    tgt_val = match_tgt.get(payload.team_key_tgt)
+    if not m_src or not m_tgt:
+        raise HTTPException(404, "Match not found")
 
-    # Swap in bracket JSON
-    match_src[payload.team_key_src] = tgt_val
-    match_tgt[payload.team_key_tgt] = src_val
+    # VALIDATION: No completed matches in the paths
+    if _is_any_downstream_completed(bracket, m_src["uid"]):
+        raise HTTPException(400, detail="Cannot swap teams because this match or a dependent match is already completed.")
+    if _is_any_downstream_completed(bracket, m_tgt["uid"]):
+        raise HTTPException(400, detail="Cannot swap teams because this match or a dependent match is already completed.")
 
-    # Update real Match rows if they exist
-    def _sync_match_db(m):
-        match_id = m.get("match_id")
-        tA = m.get("teamA")
-        tB = m.get("teamB")
-        if match_id and tA and tB:
-            db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
-            if db_match:
-                db_match.team1_id = tA.get("id")
-                db_match.team2_id = tB.get("id")
+    # Record old teams for propagation
+    old_team_src = m_src.get(payload.team_key_src)
+    old_team_tgt = m_tgt.get(payload.team_key_tgt)
 
-    _sync_match_db(match_src)
-    _sync_match_db(match_tgt)
+    # Perform SWAP in JSON
+    m_src[payload.team_key_src] = old_team_tgt
+    m_tgt[payload.team_key_tgt] = old_team_src
+
+    # PROPAGATION: If these teams were already in next rounds (e.g. via BYE or manual result), update them
+    if old_team_src and m_src.get("next_match_uid"):
+        _propagate_team_update(bracket, m_src["next_match_uid"], old_team_src.get("id"), old_team_tgt)
+    if old_team_tgt and m_tgt.get("next_match_uid"):
+        _propagate_team_update(bracket, m_tgt["next_match_uid"], old_team_tgt.get("id"), old_team_src)
+
+    # DATABASE SYNC: Update active Match rows
+    def _sync_bracket_to_matches(b):
+        for rnd in b:
+            for m in rnd:
+                if m.get("match_id"):
+                    db_m = db.query(models.Match).filter(models.Match.id == m["match_id"]).first()
+                    if db_m:
+                        db_m.team1_id = m["teamA"].get("id") if m.get("teamA") else None
+                        db_m.team2_id = m["teamB"].get("id") if m.get("teamB") else None
+
+    _sync_bracket_to_matches(bracket)
 
     from sqlalchemy.orm.attributes import flag_modified
     t.bracket = bracket

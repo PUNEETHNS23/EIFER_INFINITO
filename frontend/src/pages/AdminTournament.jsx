@@ -39,15 +39,41 @@ function fmtTime(iso) {
   return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
+// ── ConfirmationModal ────────────────────────────────────────────────────────
+function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel }) {
+  if (!isOpen) return null;
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+    }}>
+      <div style={{
+        background: '#111', border: '1px solid var(--color-primary)', borderRadius: 24,
+        padding: '2.5rem', maxWidth: 450, width: '90%', textAlign: 'center',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.5)', animation: 'scaleUp 0.3s ease-out'
+      }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1.5rem' }}>⚠️</div>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '1rem', color: '#fff' }}>{title}</h2>
+        <p style={{ color: 'var(--color-text-muted)', marginBottom: '2.5rem', lineHeight: '1.6' }}>{message}</p>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={onCancel} className="btn-outline" style={{ flex: 1, padding: '1rem' }}>❌ Cancel</button>
+          <button onClick={onConfirm} className="btn-primary" style={{ flex: 1, padding: '1rem', boxShadow: '0 0 20px rgba(99,102,241,0.3)' }}>✅ Confirm</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── MatchCard ─────────────────────────────────────────────────────────────────
 function MatchCard({ 
   match, sportId, tournamentId, isAdmin, 
-  onSetWinner, onDragStart, onDropTeam, draggingRef 
+  onSetWinner, onDragStart, onDropTeam, draggingRef, onInternalSwap
 }) {
   const navigate = useNavigate();
   const [showWinner, setShowWinner] = useState(false);
 
-  const isBye    = match.teamB === null && match.teamA !== null;
+  const isBye    = (match.teamB === null && match.teamA !== null) || (!match.is_3rd_place && match.round === 1 && match.teamB === null);
   const teamASet = !!match.teamA;
   const teamBSet = !!match.teamB;
   const bothSet  = teamASet && teamBSet;
@@ -108,9 +134,18 @@ function MatchCard({
       {/* Header */}
       <div style={{ padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: '10px 10px 0 0' }}>
         <span style={{ fontSize: '0.65rem', fontWeight: 700, color: match.is_3rd_place ? '#f59e0b' : 'var(--color-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          {match.is_3rd_place ? '🥉 3rd Place Match' : match.uid.replace('r', 'R').replace('m', 'M')}
+          {match.is_3rd_place ? '🥉 3rd Place' : match.uid.replace('r', 'R').replace('m', 'M')}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isAdmin && bothSet && !hasWon && (
+            <button 
+              onClick={() => onInternalSwap(match.uid)}
+              title="Swap Side A / B"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', fontSize: '0.85rem', padding: '0 4px', opacity: 0.7 }}
+            >
+              🔄
+            </button>
+          )}
           {(match.scheduled_at || match.venue) && (
             <span style={{ fontSize: '0.62rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>
               {fmtTime(match.scheduled_at)}
@@ -216,11 +251,19 @@ function BracketVisualization({ rounds, sportId, tournamentId, isAdmin, onSetWin
     </div>
   );
 
-  const numR1    = rounds[0].length;
-  const totalH   = numR1 * BASE_SLOT_H;
-  const totalW   = rounds.length * ROUND_W + CARD_W + 60;
-  const slotH    = (rIdx) => totalH / rounds[rIdx].length;
-  const champion = rounds[rounds.length - 1]?.[0]?.winner;
+  // Robust height calculation: use the round with the MOST matches
+  const maxMatches = Math.max(...rounds.map(r => r.length));
+  const totalH     = maxMatches * BASE_SLOT_H;
+  const totalW     = rounds.length * ROUND_W + CARD_W + 60;
+  
+  // slotH is now local to each round to support centering
+  const getMatchY = (rIdx, mIdx) => {
+    const numMatches = rounds[rIdx].length;
+    const sh = totalH / numMatches;
+    return HEADER_H + mIdx * sh + (sh - CARD_H) / 2;
+  };
+
+  const champion = rounds[rounds.length - 1]?.find(m => !m.is_3rd_place)?.winner;
 
   const handleDragStart = (matchUid, teamKey) => {
     draggingRef.current = { matchUid, teamKey };
@@ -234,7 +277,7 @@ function BracketVisualization({ rounds, sportId, tournamentId, isAdmin, onSetWin
 
   return (
     <div style={{ overflowX: 'auto', overflowY: 'visible', paddingBottom: '1rem', paddingTop: '0.5rem' }}>
-      <div style={{ position: 'relative', width: totalW, height: totalH + HEADER_H + 16 }}>
+      <div style={{ position: 'relative', width: totalW, height: totalH + HEADER_H + 32 }}>
 
         {/* Round headers */}
         {rounds.map((_, rIdx) => (
@@ -250,9 +293,8 @@ function BracketVisualization({ rounds, sportId, tournamentId, isAdmin, onSetWin
         {/* Match cards */}
         {rounds.map((round, rIdx) =>
           round.map((match, mIdx) => {
-            const sh = slotH(rIdx);
-            const y  = HEADER_H + mIdx * sh + (sh - CARD_H) / 2;
-            const x  = rIdx * ROUND_W;
+            const x = rIdx * ROUND_W;
+            const y = getMatchY(rIdx, mIdx);
             return (
               <div key={match.uid} style={{ position: 'absolute', left: x, top: y, zIndex: 10 }}>
                 <MatchCard
@@ -264,35 +306,56 @@ function BracketVisualization({ rounds, sportId, tournamentId, isAdmin, onSetWin
                   onDragStart={handleDragStart}
                   onDropTeam={handleDropTeam}
                   draggingRef={draggingRef}
+                  onInternalSwap={(uid) => onSwapTeams(uid, 'teamA', uid, 'teamB')}
                 />
               </div>
             );
           })
         )}
 
-        {/* SVG connector lines */}
+        {/* SVG connector lines using Graph Links */}
         {rounds.map((round, rIdx) => {
-          if (rIdx >= rounds.length - 1) return null;
-          const nextRound = rounds[rIdx + 1];
-          const csh = slotH(rIdx);
           return (
             <svg key={`c${rIdx}`} style={{
-              position: 'absolute', left: rIdx * ROUND_W + CARD_W, top: HEADER_H,
-              width: CONN_W, height: totalH, overflow: 'visible', pointerEvents: 'none',
+              position: 'absolute', left: 0, top: 0,
+              width: totalW, height: totalH + HEADER_H, overflow: 'visible', pointerEvents: 'none',
               zIndex: 1
             }}>
-              {nextRound.map((_, nIdx) => {
-                const m1Y  = (nIdx * 2)      * csh + csh / 2;
-                const m2Y  = (nIdx * 2 + 1)  * csh + csh / 2;
-                const midY = (m1Y + m2Y) / 2;
-                const cx   = CONN_W / 2;
-                const col  = 'rgba(99,102,241,0.25)';
+              {round.map((match, mIdx) => {
+                const nextUid = match.next_match_uid;
+                if (!nextUid) return null;
+
+                // Find destination match coords
+                let destMatch = null;
+                let drIdx = -1;
+                let dmIdx = -1;
+                for (let r = 0; r < rounds.length; r++) {
+                  const idx = rounds[r].findIndex(m => m.uid === nextUid);
+                  if (idx !== -1) {
+                    destMatch = rounds[r][idx];
+                    drIdx = r;
+                    dmIdx = idx;
+                    break;
+                  }
+                }
+                if (!destMatch) return null;
+
+                const x1 = rIdx * ROUND_W + CARD_W;
+                const y1 = getMatchY(rIdx, mIdx) + CARD_H / 2;
+                const x2 = drIdx * ROUND_W;
+                const y2 = getMatchY(drIdx, dmIdx) + (match.next_match_slot === 'teamA' ? CARD_H * 0.25 : CARD_H * 0.75);
+
+                const cx = x1 + (x2 - x1) / 2;
+                const col = 'rgba(99,102,241,0.25)';
+
                 return (
-                  <g key={nIdx}>
-                    <line x1={0}  y1={m1Y}  x2={cx}  y2={m1Y}  stroke={col} strokeWidth="2" />
-                    <line x1={0}  y1={m2Y}  x2={cx}  y2={m2Y}  stroke={col} strokeWidth="2" />
-                    <line x1={cx} y1={m1Y}  x2={cx}  y2={m2Y}  stroke={col} strokeWidth="2" />
-                    <line x1={cx} y1={midY} x2={CONN_W} y2={midY} stroke={col} strokeWidth="2" />
+                  <g key={`l-${match.uid}`}>
+                    <path 
+                      d={`M ${x1} ${y1} L ${cx} ${y1} L ${cx} ${y2} L ${x2} ${y2}`}
+                      fill="none" 
+                      stroke={col} 
+                      strokeWidth="2" 
+                    />
                   </g>
                 );
               })}
@@ -412,8 +475,15 @@ export default function AdminTournament() {
     } catch (err) { alert(err.response?.data?.detail || 'Failed to set winner'); }
   };
 
-  const handleSwapTeams = async (srcUid, srcKey, tgtUid, tgtKey) => {
-    if (!tournament) return;
+  const [pendingSwap, setPendingSwap] = useState(null);
+
+  const handleSwapTeams = (srcUid, srcKey, tgtUid, tgtKey) => {
+    setPendingSwap({ srcUid, srcKey, tgtUid, tgtKey });
+  };
+
+  const confirmSwap = async () => {
+    if (!tournament || !pendingSwap) return;
+    const { srcUid, srcKey, tgtUid, tgtKey } = pendingSwap;
     try {
       const res = await api.post(`/tournaments/${tournament.id}/swap-teams`, {
         match_uid_src: srcUid,
@@ -423,6 +493,7 @@ export default function AdminTournament() {
       });
       setTournament(res.data);
     } catch (err) { alert(err.response?.data?.detail || 'Failed to swap teams'); }
+    finally { setPendingSwap(null); }
   };
 
   const handleDelete = async (id) => {
@@ -670,6 +741,15 @@ export default function AdminTournament() {
           )}
         </div>
       )}
+
+      {/* Swap Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!pendingSwap}
+        title="Confirm Team Switch"
+        message="Are you sure you want to switch these teams? This action may affect match progression if winners were already predicted downstream."
+        onConfirm={confirmSwap}
+        onCancel={() => setPendingSwap(null)}
+      />
     </div>
   );
 }
