@@ -389,7 +389,58 @@ def map_match_names(m, db):
 
 
 def _should_count_for_leaderboard(sport_id: str) -> bool:
-    return True
+    bracket_sports = {
+        'cricket', 'volleyball', 'football', 'badminton',
+        'table-tennis', 'chess', 'carrom', 'tug-of-war', 'kho-kho', 'arm-wrestling'
+    }
+    return sport_id not in bracket_sports
+
+
+def _is_tournament_bracket_complete(bracket: list) -> bool:
+    if not bracket:
+        return False
+
+    for rnd in bracket:
+        for match in rnd:
+            team_a = match.get("teamA")
+            team_b = match.get("teamB")
+            winner = match.get("winner")
+
+            # If both competitors are known, this match must have a winner.
+            if team_a and team_b and not winner:
+                return False
+
+            # For scheduled DB matches, winner must be present once teams are known.
+            if match.get("match_id") and team_a and team_b and not winner:
+                return False
+
+    # Grand final winner is mandatory for completion.
+    grand_final = bracket[-1][0] if bracket[-1] else None
+    return bool(grand_final and grand_final.get("winner"))
+
+
+def _extract_tournament_podium_team_ids(bracket: list) -> tuple[Optional[int], Optional[int], Optional[int]]:
+    if not bracket or not bracket[-1]:
+        return (None, None, None)
+
+    final_match = bracket[-1][0]
+    champion = final_match.get("winner") or {}
+    champion_id = champion.get("id")
+
+    team_a = final_match.get("teamA") or {}
+    team_b = final_match.get("teamB") or {}
+
+    runner_up_id = None
+    if champion_id is not None:
+        if team_a.get("id") == champion_id:
+            runner_up_id = team_b.get("id")
+        elif team_b.get("id") == champion_id:
+            runner_up_id = team_a.get("id")
+
+    third_place_match = next((m for m in bracket[-1] if m.get("is_3rd_place")), None)
+    third_place_id = (third_place_match or {}).get("winner", {}).get("id") if third_place_match else None
+
+    return (champion_id, runner_up_id, third_place_id)
 
 def _apply_match_points(db: Session, team1_id: int, team2_id: int, score_t1: int, score_t2: int):
     t1 = db.query(models.Team).filter(models.Team.id == team1_id).first()
@@ -414,6 +465,33 @@ def _recalculate_leaderboard_points(db: Session):
     for match in completed_matches:
         if _should_count_for_leaderboard(match.sport_id):
             _apply_match_points(db, match.team1_id, match.team2_id, match.score_t1, match.score_t2)
+
+    bracket_sports = {
+        'cricket', 'volleyball', 'football', 'badminton',
+        'table-tennis', 'chess', 'carrom', 'tug-of-war', 'kho-kho', 'arm-wrestling'
+    }
+    tournaments = db.query(models.Tournament).filter(models.Tournament.sport_id.in_(list(bracket_sports))).all()
+    for tournament in tournaments:
+        bracket = list(tournament.bracket or [])
+        if not _is_tournament_bracket_complete(bracket):
+            continue
+
+        champion_id, runner_up_id, third_place_id = _extract_tournament_podium_team_ids(bracket)
+
+        if champion_id:
+            champion = db.query(models.Team).filter(models.Team.id == champion_id).first()
+            if champion:
+                champion.points += 4
+
+        if runner_up_id:
+            runner_up = db.query(models.Team).filter(models.Team.id == runner_up_id).first()
+            if runner_up:
+                runner_up.points += 2
+
+        if third_place_id:
+            third_place = db.query(models.Team).filter(models.Team.id == third_place_id).first()
+            if third_place:
+                third_place.points += 1
 
 
 def _sync_leaderboard_points():
@@ -610,11 +688,12 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
         setattr(db_match, key, value)
 
     db.flush()
-    _recalculate_leaderboard_points(db)
-    
+
     # Tournament Sync Hook
     if next_status == "completed":
         _sync_tournament_bracket(db_match, db)
+
+    _recalculate_leaderboard_points(db)
 
     db.commit()
     db.refresh(db_match)
@@ -1411,7 +1490,7 @@ def _sync_tournament_bracket(db_match: models.Match, db: Session):
                 bracket = _ensure_match_entries(bracket, t.sport_id, t.category, db)
                 t.bracket = bracket
                 # Check if entire tournament is now finished
-                if bracket and bracket[-1] and bracket[-1][0].get("winner"):
+                if _is_tournament_bracket_complete(bracket):
                     t.status = "completed"
                 flag_modified(t, "bracket")
             except Exception as e:
@@ -1489,13 +1568,15 @@ def set_tournament_winner(
     # Create Match DB entries for newly-unblocked matches
     bracket = _ensure_match_entries(bracket, t.sport_id, t.category, db)
 
-    # Check if tournament is finished (final winner set)
-    if bracket and bracket[-1] and bracket[-1][0].get("winner"):
+    # Check if tournament is finished (all required bracket outcomes are set)
+    if _is_tournament_bracket_complete(bracket):
         t.status = "completed"
 
     from sqlalchemy.orm.attributes import flag_modified
     t.bracket = bracket
     flag_modified(t, "bracket")
+
+    _recalculate_leaderboard_points(db)
     db.commit()
     db.refresh(t)
     return t
