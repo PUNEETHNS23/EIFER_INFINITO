@@ -128,7 +128,7 @@ function Home() {
 
         <div className="hero-content container">
           <div className="hero-text">
-            <p className="hero-tag">EIFER SPORTS CLUB PRESENTS</p>
+            <p className="hero-tag">EIFER SPORTS SOCIETY PRESENTS</p>
             <h1 className="hero-title">
               <span className="hero-title-line1">SPORTS FEST</span>
               <span className="hero-title-line2">Infinito</span>

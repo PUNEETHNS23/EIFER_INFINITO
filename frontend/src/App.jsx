@@ -74,7 +74,7 @@ function Layout() {
         <div className="footer-inner container">
           <div className="footer-brand">
             <span className="footer-logo-text">INFINITO</span>
-            <span className="footer-tagline">by EIFER Sports Club</span>
+            <span className="footer-tagline">by EIFER Sports Society</span>
           </div>
           <p className="footer-copy">&copy; {new Date().getFullYear()} SportsFest INFINITO. All rights reserved.</p>
         </div>
