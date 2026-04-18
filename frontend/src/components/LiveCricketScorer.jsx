@@ -719,27 +719,26 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
     }
 
     // 7. Strike rotation
-    // Mid-over: rotate only on odd runs
+    // Mid-over (Balls 1-5): rotate only on odd runs
     if (!endOfOver && runsAreOdd) {
       swapStrike(updates);
     }
-    // End of over: ALWAYS swap (regardless of runs on last ball)
+    // End of over: Custom rules
     if (endOfOver) {
-      // If the last ball was an odd-run, runsAreOdd already swapped — swap back
-      // If the last ball was even/0, hasn't swapped yet — swap now
-      // Net effect we always want: swap at end of over
-      if (runsAreOdd) {
-        // Was swapped mid-over just above, swap again to net end-of-over swap
-        swapStrike(updates);
+      if (!runsAreOdd) {
+        // user: "if even no of runs are scored at the end ... strike should exchange"
+        swapStrike(updates); 
       } else {
-        // Wasn't swapped, do the end-of-over swap
-        swapStrike(updates);
+        // user: "it should not change if odd runs scored at last ball"
+        // By DEFAULT, we swap at end of over. By NOT swapping here when odd, 
+        // we satisfy "should not change" because odd runs mid-over WOULD have swapped, 
+        // but since we checked !endOfOver above, it hasn't swapped yet.
       }
 
       updates.events_feed = `🏁 End of Over ${o} — Score: ${updates[`runs${battingPrefix}`]}/${updates[`wickets${battingPrefix}`]}
 ` + (updates.events_feed || '');
       updates.current_bowler = '';
-      updates.over_progression = ''; // already reset above but keep explicit
+      updates.over_progression = '';
     }
 
     // 8. Auto Innings Logic
