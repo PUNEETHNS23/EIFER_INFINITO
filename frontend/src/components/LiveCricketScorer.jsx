@@ -188,6 +188,16 @@ function NoBallModal({ onConfirm, onCancel }) {
             Apply No Ball
           </button>
         </div>
+        
+        <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+           <button 
+             type="button" 
+             style={{ background: 'transparent', border: 'none', color: '#3b82f6', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}
+             onClick={() => { onConfirm(-1, "TRIGGER_PENALTY", false); }}
+           >
+             Add Penalty Runs Instead?
+           </button>
+        </div>
       </div>
     </div>
   );
@@ -854,7 +864,11 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
         <NoBallModal
           onConfirm={(runs, reason, isFreeHit) => {
             setNbModal(false);
-            handleBall('NB', { runs, reason, isFreeHit });
+            if (runs === -1 && reason === "TRIGGER_PENALTY") {
+              setPenModal(true);
+            } else {
+              handleBall('NB', { runs, reason, isFreeHit });
+            }
           }}
           onCancel={() => setNbModal(false)}
         />
