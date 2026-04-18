@@ -20,6 +20,10 @@ import Leaderboard from './pages/Leaderboard';
 import MatchDetailsCricket from './pages/MatchDetailsCricket';
 import MatchDetailsVolleyball from './pages/MatchDetailsVolleyball';
 import MatchDetailsFootball from './pages/MatchDetailsFootball';
+import AdminTournament from './pages/AdminTournament';
+import AdminTournamentMatchEdit from './pages/AdminTournamentMatchEdit';
+import AdminTournamentBulkSchedule from './pages/AdminTournamentBulkSchedule';
+import TournamentBracketView from './pages/TournamentBracketView';
 import api from './api';
 import './App.css';
 
@@ -123,6 +127,10 @@ function App() {
             <Route path="admin/weight-lifting" element={<AdminWeightliftingEventManager />} />
             <Route path="admin/score/:sportId" element={<AdminSportScore />} />
             <Route path="login" element={<Login />} />
+            <Route path="admin/tournament/:sportId?" element={<AdminTournament />} />
+            <Route path="admin/tournament/:tournamentId/match/:matchUid" element={<AdminTournamentMatchEdit />} />
+            <Route path="admin/tournament/:tournamentId/schedule" element={<AdminTournamentBulkSchedule />} />
+            <Route path="tournament/:tournamentId" element={<TournamentBracketView />} />
           </Route>
         </Routes>
       </AuthProvider>
