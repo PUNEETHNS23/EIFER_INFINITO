@@ -129,3 +129,45 @@ class WeightLiftingEventOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Tournament Bracket ────────────────────────────────────────────────────────
+
+class TournamentCreate(BaseModel):
+    sport_id:  str
+    name:      str
+    category:  Optional[str] = None
+    team_ids:  list[int]
+
+class TournamentSetWinner(BaseModel):
+    match_uid:   str
+    winner_id:   int
+    winner_name: str
+
+class TournamentSetDetails(BaseModel):
+    match_uid:    str
+    scheduled_at: Optional[str] = None   # ISO datetime string or null
+    venue:        Optional[str] = None
+
+class TournamentBulkSetDetails(BaseModel):
+    updates: list[TournamentSetDetails]
+
+
+class TournamentSwapTeams(BaseModel):
+    match_uid_src: str
+    team_key_src:  str   # "teamA" or "teamB"
+    match_uid_tgt: str
+    team_key_tgt:  str   # "teamA" or "teamB"
+
+
+class TournamentOut(BaseModel):
+    id:        int
+    sport_id:  str
+    name:      str
+    category:  Optional[str] = None
+    status:    str
+    bracket:   Optional[list] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

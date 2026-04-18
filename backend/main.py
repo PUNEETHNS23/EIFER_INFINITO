@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.engine.url import make_url
 from datetime import datetime, timedelta
 
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, String, cast
 from . import models, schemas, database, auth, scoring
 
 
@@ -326,6 +326,22 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
             
         if len(player_names) != 1:
             raise HTTPException(status_code=400, detail="Weight-lifting requires exactly 1 player per team.")
+        team.squad = normalized_squad
+    if team.sport_id == "arm-wrestling":
+        squad = team.squad or []
+        normalized_squad = []
+        for player in squad:
+            if player.get("is_substitute"):
+                raise HTTPException(status_code=400, detail="Substitutes are not allowed in arm-wrestling.")
+            normalized_player = dict(player)
+            normalized_player["name"] = (player.get("name") or "").strip()
+            normalized_squad.append(normalized_player)
+            
+        player_names = [p.get("name") or "" for p in normalized_squad]
+        if any(not name for name in player_names):
+            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
+        if len(player_names) != 1:
+            raise HTTPException(status_code=400, detail="Arm-wrestling requires exactly 1 player per team.")
         team.squad = normalized_squad
 
     db_team = models.Team(**team.model_dump())
@@ -646,6 +662,11 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
 
     db.flush()
     _recalculate_leaderboard_points(db)
+    
+    # Tournament Sync Hook
+    if next_status == "completed":
+        _sync_tournament_bracket(db_match, db)
+
     db.commit()
     db.refresh(db_match)
     
@@ -1067,3 +1088,457 @@ def delete_wl_event(
     db.delete(ev)
     db.commit()
     return {"detail": "Event deleted"}
+
+
+# ── Tournament Bracket Routes ─────────────────────────────────────────────────
+
+BRACKET_SPORTS = {
+    'cricket', 'volleyball', 'football', 'badminton',
+    'table-tennis', 'chess', 'carrom', 'tug-of-war', 'kho-kho', 'arm-wrestling'
+}
+
+
+def _next_pow2(n: int) -> int:
+    p = 1
+    while p < n:
+        p *= 2
+    return p
+
+
+def _generate_bracket(teams: list) -> list:
+    """
+    Returns bracket as list-of-rounds.
+    Each round is a list of match dicts:
+      uid, round, position, teamA, teamB, winner, match_id, scheduled_at
+    teamA/teamB: {id, name} | None (None = BYE in R1, TBD in later rounds)
+    """
+    import random as _rand
+    n = len(teams)
+    if n < 2:
+        return []
+
+    total_slots = _next_pow2(n)
+    byes = total_slots - n
+
+    shuffled = list(teams)
+    _rand.shuffle(shuffled)
+
+    # BYE teams face None; rest are paired normally
+    bye_teams  = shuffled[:byes]
+    real_teams = shuffled[byes:]
+
+    # R1 slot pairs
+    r1_pairs = [(t, None) for t in bye_teams]           # (team, BYE)
+    for i in range(0, len(real_teams), 2):
+        t1 = real_teams[i]
+        t2 = real_teams[i + 1] if i + 1 < len(real_teams) else None
+        r1_pairs.append((t1, t2))
+
+    rounds = []
+
+    # ── Round 1 ──
+    r1_matches = []
+    r1_next_winners = []
+    for i, (tA, tB) in enumerate(r1_pairs):
+        is_bye    = tB is None
+        auto_win  = tA if is_bye else None
+        r1_matches.append({
+            "uid":          f"r1m{i + 1}",
+            "round":        1,
+            "position":     i + 1,
+            "teamA":        tA,
+            "teamB":        tB,       # None = BYE
+            "winner":       auto_win,
+            "match_id":     None,
+            "scheduled_at": None,
+        })
+        r1_next_winners.append(auto_win)   # real team or None (TBD)
+    rounds.append(r1_matches)
+
+    # ── Subsequent rounds (all TBD until winners are set) ──
+    round_num         = 2
+    current_winners   = r1_next_winners   # list of team-dicts or None
+
+    while len(current_winners) > 1:
+        next_matches = []
+        next_winners = []
+        for i in range(0, len(current_winners), 2):
+            tA  = current_winners[i]
+            tB  = current_winners[i + 1] if i + 1 < len(current_winners) else None
+            pos = i // 2 + 1
+            next_matches.append({
+                "uid":          f"r{round_num}m{pos}",
+                "round":        round_num,
+                "position":     pos,
+                "teamA":        tA,    # real team if feeder was a BYE winner, else None
+                "teamB":        tB,    # real team if feeder was a BYE winner, else None
+                "winner":       None,
+                "match_id":     None,
+                "scheduled_at": None,
+            })
+            next_winners.append(None)
+        rounds.append(next_matches)
+        current_winners = next_winners
+        round_num += 1
+
+    return rounds
+
+
+def _set_bracket_winner(bracket: list, match_uid: str, winner: dict) -> list:
+    """Set winner in bracket and advance to next round."""
+    for r_idx, rnd in enumerate(bracket):
+        for m_idx, m in enumerate(rnd):
+            if m["uid"] != match_uid:
+                continue
+            bracket[r_idx][m_idx]["winner"] = winner
+            # Propagate to next round
+            if r_idx + 1 < len(bracket):
+                pos            = m["position"]           # 1-indexed
+                next_match_idx = (pos - 1) // 2          # 0-indexed
+                is_team_a      = (pos % 2 == 1)
+                if next_match_idx < len(bracket[r_idx + 1]):
+                    key = "teamA" if is_team_a else "teamB"
+                    bracket[r_idx + 1][next_match_idx][key] = winner
+            return bracket
+    raise ValueError(f"Match {match_uid} not found")
+
+
+def _ensure_match_entries(bracket: list, sport_id: str, category: Optional[str], db) -> list:
+    """Create Match DB entries for any bracket slot where both teams are now known."""
+    for r_idx, rnd in enumerate(bracket):
+        for m_idx, m in enumerate(rnd):
+            if m.get("match_id"):
+                continue
+            tA = m.get("teamA")
+            tB = m.get("teamB")
+            if not tA or not tB:
+                continue   # BYE or TBD — skip
+            if tA.get("id") is None or tB.get("id") is None:
+                continue
+            # Both teams known → create Match
+            sd = scoring.default_score_detail(sport_id)
+            if category:
+                sd["category"] = category
+            sd["_tournament_match_uid"] = m["uid"]
+            db_match = models.Match(
+                sport_id  = sport_id,
+                team1_id  = tA["id"],
+                team2_id  = tB["id"],
+                status    = "upcoming",
+                score_detail = sd,
+            )
+            db.add(db_match)
+            db.flush()
+            bracket[r_idx][m_idx]["match_id"] = db_match.id
+    return bracket
+
+
+def _detect_match_winner(db_match: models.Match, db: Session) -> Optional[dict]:
+    """Calculate the winner team based on scores and return snapshot {id, name}."""
+    t1, t2 = scoring.derive_primary_scores(db_match.sport_id, db_match.score_detail)
+    if t1 > t2:
+        return {"id": db_match.team1_id, "name": db_match.team1.name if db_match.team1 else "Team 1"}
+    elif t2 > t1:
+        return {"id": db_match.team2_id, "name": db_match.team2.name if db_match.team2 else "Team 2"}
+    return None  # Draw or undecided
+
+
+def _sync_tournament_bracket(db_match: models.Match, db: Session):
+    """Find any tournaments linked to this match and automatically advance the winner."""
+    # Find tournaments that reference this match_id in their JSON bracket
+    tournaments = db.query(models.Tournament).filter(
+        models.Tournament.bracket.cast(String).contains(f'"match_id": {db_match.id}')
+    ).all()
+
+    winner = _detect_match_winner(db_match, db)
+    if not winner:
+         return
+
+    from sqlalchemy.orm.attributes import flag_modified
+    for t in tournaments:
+        bracket = list(t.bracket or [])
+        found_uid = None
+        # Locate the specific match UID in the JSON
+        for rnd in bracket:
+            for m in rnd:
+                if m.get("match_id") == db_match.id:
+                    found_uid = m["uid"]
+                    break
+            if found_uid: break
+
+        if found_uid:
+            try:
+                bracket = _set_bracket_winner(bracket, found_uid, winner)
+                bracket = _ensure_match_entries(bracket, t.sport_id, t.category, db)
+                t.bracket = bracket
+                # Check if entire tournament is now finished
+                if bracket and bracket[-1] and bracket[-1][0].get("winner"):
+                    t.status = "completed"
+                flag_modified(t, "bracket")
+            except Exception as e:
+                print(f"Failed to auto-advance bracket for Tournament {t.id}: {e}")
+
+    db.flush()
+
+
+@app.get("/api/tournaments", response_model=list[schemas.TournamentOut])
+def list_tournaments(sport_id: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(models.Tournament)
+    if sport_id:
+        q = q.filter(models.Tournament.sport_id == sport_id)
+    return q.order_by(models.Tournament.created_at.desc()).all()
+
+
+@app.post("/api/tournaments", response_model=schemas.TournamentOut)
+def create_tournament(
+    payload: schemas.TournamentCreate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token),
+):
+    if payload.sport_id not in BRACKET_SPORTS:
+        raise HTTPException(400, f"Tournament brackets only for: {', '.join(sorted(BRACKET_SPORTS))}")
+    if len(payload.team_ids) < 2:
+        raise HTTPException(400, "At least 2 teams are required to create a bracket.")
+
+    teams_db = db.query(models.Team).filter(models.Team.id.in_(payload.team_ids)).all()
+    if len(teams_db) < 2:
+        raise HTTPException(400, "Could not resolve enough teams.")
+
+    team_snapshots = [{"id": t.id, "name": t.name} for t in teams_db]
+    bracket = _generate_bracket(team_snapshots)
+    bracket = _ensure_match_entries(bracket, payload.sport_id, payload.category, db)
+
+    tournament = models.Tournament(
+        sport_id = payload.sport_id,
+        name     = payload.name,
+        category = payload.category,
+        status   = "active",
+        bracket  = bracket,
+    )
+    db.add(tournament)
+    db.commit()
+    db.refresh(tournament)
+    return tournament
+
+
+@app.get("/api/tournaments/{tournament_id}", response_model=schemas.TournamentOut)
+def get_tournament(tournament_id: int, db: Session = Depends(get_db)):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Tournament not found")
+    return t
+
+
+@app.post("/api/tournaments/{tournament_id}/set-winner", response_model=schemas.TournamentOut)
+def set_tournament_winner(
+    tournament_id: int,
+    payload: schemas.TournamentSetWinner,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token),
+):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Tournament not found")
+
+    bracket = list(t.bracket or [])
+    winner  = {"id": payload.winner_id, "name": payload.winner_name}
+    try:
+        bracket = _set_bracket_winner(bracket, payload.match_uid, winner)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    # Create Match DB entries for newly-unblocked matches
+    bracket = _ensure_match_entries(bracket, t.sport_id, t.category, db)
+
+    # Check if tournament is finished (final winner set)
+    if bracket and bracket[-1] and bracket[-1][0].get("winner"):
+        t.status = "completed"
+
+    from sqlalchemy.orm.attributes import flag_modified
+    t.bracket = bracket
+    flag_modified(t, "bracket")
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+@app.post("/api/tournaments/{tournament_id}/set-details", response_model=schemas.TournamentOut)
+def set_tournament_details(
+    tournament_id: int,
+    payload: schemas.TournamentSetDetails,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token),
+):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Tournament not found")
+
+    bracket = list(t.bracket or [])
+    found = False
+    for r_idx, rnd in enumerate(bracket):
+        for m_idx, m in enumerate(rnd):
+            if m["uid"] == payload.match_uid:
+                if payload.scheduled_at is not None:
+                    bracket[r_idx][m_idx]["scheduled_at"] = payload.scheduled_at
+                if payload.venue is not None:
+                    bracket[r_idx][m_idx]["venue"] = payload.venue
+                
+                # Check if Match exists to sync
+                match_id = m.get("match_id")
+                if match_id:
+                    db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
+                    if db_match:
+                        from dateutil import parser
+                        if payload.scheduled_at:
+                            try:
+                                db_match.scheduled_time = parser.parse(payload.scheduled_at)
+                            except:
+                                pass
+                        if payload.venue is not None:
+                            sd = dict(db_match.score_detail) if db_match.score_detail else {}
+                            sd["venue"] = payload.venue
+                            db_match.score_detail = sd
+                found = True
+                break
+    if not found:
+        raise HTTPException(404, f"Match {payload.match_uid} not found")
+
+    flag_modified(t, "bracket")
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+@app.post("/api/tournaments/{tournament_id}/bulk-set-details", response_model=schemas.TournamentOut)
+def bulk_set_tournament_details(
+    tournament_id: int,
+    payload: schemas.TournamentBulkSetDetails,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token),
+):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Tournament not found")
+
+    bracket = list(t.bracket or [])
+    from dateutil import parser
+
+    # Create a map for fast lookup of updates
+    update_map = {up.match_uid: up for up in payload.updates}
+
+    for r_idx, rnd in enumerate(bracket):
+        for m_idx, m in enumerate(rnd):
+            uid = m.get("uid")
+            if uid in update_map:
+                up = update_map[uid]
+                # Update JSON bracket
+                if up.scheduled_at is not None:
+                    bracket[r_idx][m_idx]["scheduled_at"] = up.scheduled_at
+                if up.venue is not None:
+                    bracket[r_idx][m_idx]["venue"] = up.venue
+                
+                # Update DB match if exists
+                match_id = m.get("match_id")
+                if match_id:
+                    db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
+                    if db_match:
+                        if up.scheduled_at:
+                            try:
+                                db_match.scheduled_time = parser.parse(up.scheduled_at)
+                            except:
+                                pass
+                        if up.venue is not None:
+                            sd = dict(db_match.score_detail) if db_match.score_detail else {}
+                            sd["venue"] = up.venue
+                            db_match.score_detail = sd
+
+    from sqlalchemy.orm.attributes import flag_modified
+    t.bracket = bracket
+    flag_modified(t, "bracket")
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+@app.post("/api/tournaments/{tournament_id}/swap-teams", response_model=schemas.TournamentOut)
+def swap_tournament_teams(
+    tournament_id: int,
+    payload: schemas.TournamentSwapTeams,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token),
+):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Tournament not found")
+
+    bracket = list(t.bracket or [])
+    
+    # Validation block: Ensure matches are not played (no winner)
+    def find_match(uid):
+        for r, rnd in enumerate(bracket):
+            for m, match in enumerate(rnd):
+                if match["uid"] == uid:
+                    if match.get("winner"):
+                        raise ValueError(f"Cannot swap teams in a match that is already decided ({uid})")
+                    return match
+        raise ValueError(f"Match not found: {uid}")
+
+    try:
+        match_src = find_match(payload.match_uid_src)
+        match_tgt = find_match(payload.match_uid_tgt)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    # Pull existing teams
+    src_val = match_src.get(payload.team_key_src)
+    tgt_val = match_tgt.get(payload.team_key_tgt)
+
+    # Swap in bracket JSON
+    match_src[payload.team_key_src] = tgt_val
+    match_tgt[payload.team_key_tgt] = src_val
+
+    # Update real Match rows if they exist
+    def _sync_match_db(m):
+        match_id = m.get("match_id")
+        tA = m.get("teamA")
+        tB = m.get("teamB")
+        if match_id and tA and tB:
+            db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
+            if db_match:
+                db_match.team1_id = tA.get("id")
+                db_match.team2_id = tB.get("id")
+
+    _sync_match_db(match_src)
+    _sync_match_db(match_tgt)
+
+    from sqlalchemy.orm.attributes import flag_modified
+    t.bracket = bracket
+    flag_modified(t, "bracket")
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+@app.delete("/api/tournaments/{tournament_id}")
+def delete_tournament(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token),
+):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Tournament not found")
+
+    # Delete linked Match rows
+    match_ids = [
+        m["match_id"]
+        for rnd in (t.bracket or [])
+        for m in rnd
+        if m.get("match_id")
+    ]
+    if match_ids:
+        db.query(models.Match).filter(models.Match.id.in_(match_ids)).delete(synchronize_session=False)
+
+    db.delete(t)
+    db.commit()
+    return {"detail": "Tournament deleted"}

@@ -66,3 +66,17 @@ class WeightLiftingEvent(Base):
     entries = Column(JSON, nullable=True)
     finalized_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class Tournament(Base):
+    __tablename__ = "tournaments"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    sport_id    = Column(String, index=True)
+    name        = Column(String)
+    category    = Column(String, nullable=True)
+    status      = Column(String, default="active")  # active | completed
+    # Full bracket: list of rounds, each round = list of match dicts
+    # match dict keys: uid, round, position, teamA, teamB, winner, match_id, scheduled_at
+    bracket     = Column(JSON, nullable=True)
+    created_at  = Column(DateTime, default=datetime.datetime.utcnow)
