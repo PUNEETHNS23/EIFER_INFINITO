@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { getSportMeta, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';
 import SportScoreboard from '../components/SportScoreboard';
+import BracketView from '../components/BracketView';
 import { useMatchSocket } from '../hooks/useMatchSocket';
 import './SportDetails.css';
 
@@ -15,6 +16,9 @@ function SportDetails() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedMatch, setSelectedMatch] = useState(null); // For Athletics detail modal
   const [allTeams, setAllTeams] = useState([]); // Cross-sport teams for resolving IDs
+  const [tournaments, setTournaments] = useState([]);
+  const [selectedTournament, setSelectedTournament] = useState(null);
+  const [loadingBrackets, setLoadingBrackets] = useState(false);
 
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   const isCategorizedSport = categorizedSports.includes(id);
@@ -50,6 +54,17 @@ function SportDetails() {
         if (id === 'athletics') {
           const allTeamsRes = await api.get('/teams');
           setAllTeams(allTeamsRes.data);
+        }
+
+        // Fetch tournaments for this sport
+        setLoadingBrackets(true);
+        try {
+          const tourRes = await api.get(`/tournaments?sport_id=${id}`);
+          setTournaments(tourRes.data || []);
+        } catch (err) {
+          console.error('Failed to fetch tournaments', err);
+        } finally {
+          setLoadingBrackets(false);
         }
       } catch (err) {
         console.error('Failed to fetch sport details', err);
@@ -146,6 +161,15 @@ function SportDetails() {
         >
           {id === 'weight-lifting' ? 'Leaderboard' : 'Teams & Leaderboard'}
         </button>
+        
+        {['cricket','volleyball','football','badminton','table-tennis','chess','carrom','tug-of-war','kho-kho', 'arm-wrestling'].includes(id) && (
+          <button 
+            className={`sd-tab-btn ${activeTab === 'brackets' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('brackets')}
+          >
+            Brackets
+          </button>
+        )}
       </div>
 
       {activeTab === 'matches' && (
@@ -289,6 +313,56 @@ function SportDetails() {
           </div>
         );
       })()}
+
+      {activeTab === 'brackets' && (
+        <div style={{ marginTop: '1rem' }}>
+          {loadingBrackets ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>Loading brackets...</div>
+          ) : tournaments.length === 0 ? (
+            <div className="empty-state-premium">
+              No tournament brackets generated for {meta.name} yet.
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '1.5rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Select Event:</span>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                   {tournaments.map(t => (
+                     <button 
+                       key={t.id}
+                       onClick={() => setSelectedTournament(t)}
+                       className={`btn-outline btn-sm ${selectedTournament?.id === t.id ? 'active' : ''}`}
+                       style={{ 
+                         borderColor: selectedTournament?.id === t.id ? 'var(--color-primary)' : 'rgba(255,255,255,0.1)',
+                         background: selectedTournament?.id === t.id ? 'rgba(99,102,241,0.1)' : 'transparent',
+                         color: selectedTournament?.id === t.id ? 'var(--color-primary)' : 'inherit'
+                       }}
+                     >
+                       {t.name} {t.category ? `(${t.category})` : ''}
+                     </button>
+                   ))}
+                </div>
+              </div>
+
+              {selectedTournament ? (
+                <div>
+                  <div style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '0.5rem' }}>
+                     <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>{selectedTournament.name}</h3>
+                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                       {selectedTournament.status === 'completed' ? '🏆 Tournament Concluded' : '⚡ In Progress'}
+                     </span>
+                  </div>
+                  <BracketView rounds={selectedTournament.bracket || []} />
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12 }}>
+                   Please select a tournament event above to view the bracket.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Athletics Match Detail Modal */}
       {selectedMatch && id === 'athletics' && (() => {

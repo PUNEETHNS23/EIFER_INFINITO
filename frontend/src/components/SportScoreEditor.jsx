@@ -601,9 +601,21 @@ export default function SportScoreEditor({ match, onSaved }) {
     }
     case 'arm-wrestling':
       form = (
-        <div className="sbe-grid">
-          <Num label={`${team1} rounds`} value={detail.rounds_t1} onChange={(v) => patch({ rounds_t1: v })} />
-          <Num label={`${team2} rounds`} value={detail.rounds_t2} onChange={(v) => patch({ rounds_t2: v })} />
+        <div className="sbe-grid" style={{ gap: '1rem' }}>
+          <label className="sbe-field" style={{ gridColumn: '1 / -1' }}>
+            <span>Match format</span>
+            <select
+              className="input-field"
+              value={detail.match_format || 'Best of 3'}
+              onChange={(e) => patch({ match_format: e.target.value })}
+            >
+              <option value="Best of 3">Best of 3 Rounds</option>
+              <option value="Best of 5">Best of 5 Rounds</option>
+              <option value="1 Game">Single Match</option>
+            </select>
+          </label>
+          <Num label={`${team1} rounds won`} value={detail.rounds_t1} onChange={(v) => patch({ rounds_t1: v })} />
+          <Num label={`${team2} rounds won`} value={detail.rounds_t2} onChange={(v) => patch({ rounds_t2: v })} />
         </div>
       );
       break;
