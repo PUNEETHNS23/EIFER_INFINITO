@@ -17,6 +17,12 @@ const STATUS_COLORS = {
 
 const RANK_MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
+const TEAM_CATEGORY_BY_EVENT_TYPE = {
+  relay_4x100: '4 X 100 meter run',
+  boys_100m: 'Boys 100 meter run',
+  girls_100m: 'Girls 100 meter run',
+};
+
 /* ─── Helpers ────────────────────────────────────────────────────── */
 const emptyEntry = (eventType) => ({
   team_name: '',
@@ -45,6 +51,7 @@ export default function AdminAthleticsEventManager() {
   const { user, authLoading } = useAuth();
 
   const [events, setEvents] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [eventDetail, setEventDetail] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +77,15 @@ export default function AdminAthleticsEventManager() {
     }
   }, []);
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await api.get('/teams/sport/athletics');
+      setTeams(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   const fetchEventDetail = useCallback(async (id) => {
     if (!id) return;
     try {
@@ -80,7 +96,51 @@ export default function AdminAthleticsEventManager() {
     }
   }, []);
 
-  useEffect(() => { if (user) fetchEvents(); }, [user, fetchEvents]);
+  useEffect(() => {
+    if (user) {
+      fetchEvents();
+      fetchTeams();
+    }
+  }, [user, fetchEvents, fetchTeams]);
+
+  const getTeamPlayers = useCallback((team) => {
+    const squad = Array.isArray(team?.squad) ? team.squad : [];
+    return [...squad]
+      .sort((a, b) => Number(Boolean(a?.is_substitute)) - Number(Boolean(b?.is_substitute)))
+      .map((player) => (player?.name || '').trim())
+      .filter(Boolean);
+  }, []);
+
+  const getEligibleTeams = useCallback(() => {
+    if (!eventDetail) return [];
+    const requiredCategory = TEAM_CATEGORY_BY_EVENT_TYPE[eventDetail.event_type];
+    if (!requiredCategory) return teams;
+    return teams.filter((team) => (team.category || '').trim() === requiredCategory);
+  }, [teams, eventDetail]);
+
+  const applySelectedTeam = (teamId) => {
+    if (!eventDetail) return;
+    if (!teamId) {
+      setEntryForm((prev) => ({
+        ...(prev || emptyEntry(eventDetail.event_type)),
+        team_id: '',
+        team_name: '',
+        players: eventDetail.event_type === 'relay_4x100' ? ['', '', '', ''] : [],
+      }));
+      return;
+    }
+
+    const selectedTeam = teams.find((team) => String(team.id) === String(teamId));
+    const autoPlayers = getTeamPlayers(selectedTeam);
+    setEntryForm((prev) => ({
+      ...(prev || emptyEntry(eventDetail.event_type)),
+      team_id: teamId,
+      team_name: selectedTeam?.name || '',
+      players: eventDetail.event_type === 'relay_4x100'
+        ? [...autoPlayers, '', '', '', ''].slice(0, 4)
+        : [],
+    }));
+  };
 
   const selectEvent = (id) => {
     setSelectedEventId(id);
@@ -120,13 +180,18 @@ export default function AdminAthleticsEventManager() {
   const openAddEntry = () => {
     if (!eventDetail) return;
     setEditingEntryId(null);
-    setEntryForm(emptyEntry(eventDetail.event_type));
+    setEntryForm({
+      ...emptyEntry(eventDetail.event_type),
+      team_id: '',
+    });
   };
 
   const openEditEntry = (entry) => {
     setEditingEntryId(entry.id);
     const et = eventDetail.event_type;
+    const matchedTeam = teams.find((team) => team.name === entry.team_name);
     setEntryForm({
+      team_id: matchedTeam?.id || '',
       team_name: entry.team_name,
       players: et === 'relay_4x100'
         ? [...(entry.players || []), '', '', '', ''].slice(0, 4)
@@ -222,6 +287,7 @@ export default function AdminAthleticsEventManager() {
 
   const isFinalized = eventDetail?.status === 'completed';
   const isRelay = eventDetail?.event_type === 'relay_4x100';
+  const eligibleTeams = getEligibleTeams();
   const entries = eventDetail?.entries || [];
   const tiedPodiumGroups = [1, 2, 3]
     .map((rank) => ({
@@ -454,15 +520,23 @@ export default function AdminAthleticsEventManager() {
                   <form onSubmit={handleSaveEntry}>
                     <div style={{ display: 'grid', gridTemplateColumns: isRelay ? '1fr 1fr' : '1fr 1fr', gap: '1rem' }}>
                       <div className="input-group">
-                        <label className="input-label">{isRelay ? 'Team Name' : 'Player Name'}</label>
-                        <input
-                          type="text"
+                        <label className="input-label">Team Name</label>
+                        <select
                           className="input-field"
-                          placeholder={isRelay ? 'e.g. CS24' : 'e.g. IT24'}
-                          value={entryForm.team_name}
-                          onChange={e => setEntryForm(f => ({ ...f, team_name: e.target.value }))}
+                          value={entryForm.team_id || ''}
+                          onChange={(e) => applySelectedTeam(e.target.value)}
                           required
-                        />
+                        >
+                          <option value="">Select a team</option>
+                          {eligibleTeams.map((team) => (
+                            <option key={team.id} value={team.id}>{team.name}</option>
+                          ))}
+                        </select>
+                        {eligibleTeams.length === 0 && (
+                          <div style={{ marginTop: '0.45rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                            No athletics teams found for this event category.
+                          </div>
+                        )}
                       </div>
                       <div className="input-group">
                         <label className="input-label">⏱️ Time (seconds)</label>
@@ -481,7 +555,7 @@ export default function AdminAthleticsEventManager() {
 
                     {isRelay && (
                       <div style={{ marginBottom: '1rem' }}>
-                        <label className="input-label">Players (4 required)</label>
+                        <label className="input-label">Players (auto-fetched from selected team)</label>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                           {[0, 1, 2, 3].map(i => (
                             <input
@@ -490,13 +564,13 @@ export default function AdminAthleticsEventManager() {
                               className="input-field"
                               placeholder={`Player ${i + 1}`}
                               value={entryForm.players[i] || ''}
-                              onChange={e => {
-                                const players = [...entryForm.players];
-                                players[i] = e.target.value;
-                                setEntryForm(f => ({ ...f, players }));
-                              }}
+                              readOnly
+                              tabIndex={-1}
                             />
                           ))}
+                        </div>
+                        <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                          Player names are populated automatically from the selected team squad.
                         </div>
                       </div>
                     )}

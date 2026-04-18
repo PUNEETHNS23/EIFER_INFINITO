@@ -8,6 +8,12 @@ const EVENT_TYPES = {
   girls_100m:  { label: 'Girls 100m',      icon: '🏃‍♀️',     color: '#ec4899' },
 };
 
+const getEventStatus = (event) => {
+  if (event.status === 'completed') return { label: 'COMPLETED', color: '#34d399', background: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.3)' };
+  if ((event.entries || []).length > 0) return { label: 'LIVE', color: 'var(--color-primary)', background: 'rgba(255,26,26,0.12)', border: 'rgba(255,26,26,0.3)' };
+  return { label: 'UPCOMING', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
+};
+
 export default function AthleticsEvents() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +93,7 @@ export default function AthleticsEvents() {
             const meta = EVENT_TYPES[ev.event_type] || { label: ev.event_type, icon: '🏃', color: '#6366f1' };
             const entries = ev.entries || [];
             const leader = entries[0]; // already sorted by backend
-            const isCompleted = ev.status === 'completed';
+            const status = getEventStatus(ev);
 
             return (
               <Link key={ev.id} to={`/athletics/${ev.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -121,13 +127,13 @@ export default function AthleticsEvents() {
                         borderRadius: '999px',
                         fontSize: '0.72rem',
                         fontWeight: 700,
-                        background: isCompleted ? 'rgba(52,211,153,0.12)' : 'rgba(245,158,11,0.12)',
-                        color: isCompleted ? '#34d399' : '#f59e0b',
-                        border: `1px solid ${isCompleted ? 'rgba(52,211,153,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                        background: status.background,
+                        color: status.color,
+                        border: `1px solid ${status.border}`,
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
                       }}>
-                        {isCompleted ? '🔒 Final' : '⏳ Live'}
+                        {status.label}
                       </span>
                     </div>
 

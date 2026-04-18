@@ -38,6 +38,7 @@ const sortLiveMatchesByPriority = (matches) => (
 function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
+  const [upcomingAthleticsEvents, setUpcomingAthleticsEvents] = useState([]);
   const [teamCount, setTeamCount] = useState(null);
   const [matchCount, setMatchCount] = useState(null);
 
@@ -71,6 +72,16 @@ function Home() {
         setUpcomingMatches(allRes.data.filter(m => m.status === 'upcoming').slice(0, 4));
       } catch (err) {
         console.error('Failed to fetch matches', err);
+      }
+      try {
+        const athleticsRes = await api.get('/athletics/events');
+        setUpcomingAthleticsEvents(
+          (Array.isArray(athleticsRes.data) ? athleticsRes.data : [])
+            .filter((event) => event.status !== 'completed')
+            .slice(0, 4)
+        );
+      } catch (err) {
+        console.error('Failed to fetch athletics events', err);
       }
     };
     fetchData();
@@ -233,35 +244,81 @@ function Home() {
       </section>
 
       {/* ===== UPCOMING MATCHES ===== */}
-      {upcomingMatches.length > 0 && (
+      {(upcomingMatches.length > 0 || upcomingAthleticsEvents.length > 0) && (
         <section className="section container">
           <div className="section-header">
             <div className="section-tag">MARK YOUR CALENDAR</div>
-            <h2 className="section-title">Upcoming Matches</h2>
+            <h2 className="section-title">Upcoming</h2>
           </div>
-          <div className="upcoming-grid">
-            {upcomingMatches.map((match) => (
-              <div key={match.id} className="upcoming-card">
-                <div className="upcoming-card-top">
-                  <span className="match-badge upcoming-badge">UPCOMING</span>
-                  <div className="match-sport-meta">
-                    <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
-                    {getSubcategory(match) && (
-                      <span className="match-subcategory-tag">{getSubcategory(match)}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="upcoming-teams">
-                  <span>{match.team1}</span>
-                  <span className="upcoming-vs">VS</span>
-                  <span>{match.team2}</span>
-                </div>
-                <div className="upcoming-time">
-                  📅 {new Date(match.scheduled_time).toLocaleString()}
-                </div>
+
+          {upcomingMatches.length > 0 && (
+            <>
+              <div style={{ marginBottom: '1rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-ui)', letterSpacing: '1px', textTransform: 'uppercase', fontSize: '0.8rem' }}>
+                Matches
               </div>
-            ))}
-          </div>
+              <div className="upcoming-grid" style={{ marginBottom: upcomingAthleticsEvents.length > 0 ? '2rem' : 0 }}>
+                {upcomingMatches.map((match) => (
+                  <div key={match.id} className="upcoming-card">
+                    <div className="upcoming-card-top">
+                      <span className="match-badge upcoming-badge">UPCOMING</span>
+                      <div className="match-sport-meta">
+                        <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
+                        {getSubcategory(match) && (
+                          <span className="match-subcategory-tag">{getSubcategory(match)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="upcoming-teams">
+                      <span>{match.team1}</span>
+                      <span className="upcoming-vs">VS</span>
+                      <span>{match.team2}</span>
+                    </div>
+                    <div className="upcoming-time">
+                      📅 {new Date(match.scheduled_time).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {upcomingAthleticsEvents.length > 0 && (
+            <>
+              <div style={{ marginBottom: '1rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-ui)', letterSpacing: '1px', textTransform: 'uppercase', fontSize: '0.8rem' }}>
+                Athletics Events
+              </div>
+              <div className="upcoming-grid">
+                {upcomingAthleticsEvents.map((event) => {
+                  const isCompleted = event.status === 'completed';
+                  const isLive = !isCompleted && (event.entries || []).length > 0;
+                  const statusLabel = isCompleted ? 'COMPLETED' : isLive ? 'LIVE' : 'UPCOMING';
+                  const statusStyle = isCompleted
+                    ? { background: 'rgba(52,211,153,0.12)', color: '#34d399', border: 'rgba(52,211,153,0.3)' }
+                    : isLive
+                      ? { background: 'rgba(255,26,26,0.12)', color: 'var(--color-primary)', border: 'rgba(255,26,26,0.3)' }
+                      : { background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' };
+
+                  return (
+                    <Link key={event.id} to={`/athletics/${event.id}`} className="upcoming-card" style={{ display: 'block' }}>
+                      <div className="upcoming-card-top">
+                        <span className="match-badge" style={statusStyle}>{statusLabel}</span>
+                        <div className="match-sport-meta">
+                          <span className="match-sport-tag">ATHLETICS</span>
+                          <span className="match-subcategory-tag">{(event.label || event.event_type).toUpperCase()}</span>
+                        </div>
+                      </div>
+                      <div className="upcoming-teams" style={{ justifyContent: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <span>{event.label || event.event_type}</span>
+                      </div>
+                      <div className="upcoming-time">
+                        👤 {(event.entries || []).filter((entry) => !entry.is_disqualified).length} participants
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </section>
       )}
     </div>

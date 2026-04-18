@@ -56,6 +56,7 @@ export default function AthleticsEventDetail() {
 
   const entries = event.entries || [];
   const isCompleted = event.status === 'completed';
+  const isLive = !isCompleted && entries.length > 0;
   const isRelay = event.event_type === 'relay_4x100';
   const label = event.label || EVENT_LABELS[event.event_type] || event.event_type;
 
@@ -88,12 +89,12 @@ export default function AthleticsEventDetail() {
           borderRadius: '999px',
           fontSize: '0.85rem',
           fontWeight: 700,
-          background: isCompleted ? 'rgba(52,211,153,0.15)' : 'rgba(245,158,11,0.15)',
-          color: isCompleted ? '#34d399' : '#f59e0b',
-          border: `1px solid ${isCompleted ? 'rgba(52,211,153,0.3)' : 'rgba(245,158,11,0.3)'}`,
+          background: isCompleted ? 'rgba(52,211,153,0.15)' : isLive ? 'rgba(255,26,26,0.15)' : 'rgba(245,158,11,0.15)',
+          color: isCompleted ? '#34d399' : isLive ? 'var(--color-primary)' : '#f59e0b',
+          border: `1px solid ${isCompleted ? 'rgba(52,211,153,0.3)' : isLive ? 'rgba(255,26,26,0.3)' : 'rgba(245,158,11,0.3)'}`,
           letterSpacing: '0.05em',
         }}>
-          {isCompleted ? '🔒 FINAL RESULTS' : '⏳ UPCOMING / IN PROGRESS'}
+          {isCompleted ? '🔒 COMPLETED' : isLive ? '🔴 LIVE' : '⏳ UPCOMING'}
         </span>
       </div>
 
