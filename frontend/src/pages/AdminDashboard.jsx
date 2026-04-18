@@ -33,10 +33,11 @@ function AdminDashboard() {
   const [dqReason, setDqReason] = useState({});
   const teamsRefreshTimeoutRef = useRef(null);
 
-  const sportsEnum = ['cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports'];
-  const squadSports = ['cricket', 'volleyball', 'football', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'carrom'];
+  const sportsEnum = ['cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports', 'weight-lifting'];
+  const squadSports = ['cricket', 'volleyball', 'football', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'carrom', 'arm-wrestling', 'weight-lifting'];
   const allowSubstituteSports = ['volleyball', 'kho-kho', 'cricket'];
   const racketSports = ['badminton', 'table-tennis', 'carrom'];
+
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   
   const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
@@ -430,6 +431,7 @@ function AdminDashboard() {
             </div>
           </div>
 
+{/*
           <div className="card" style={{ marginBottom: '2rem' }}>
             <h2 className="admin-section-title">Automatic match scheduling</h2>
             <p className="admin-section-desc">
@@ -448,6 +450,31 @@ function AdminDashboard() {
               ))}
             </div>
           </div>
+*/}
+
+          <div className="card" style={{ marginBottom: '2rem', borderColor: 'rgba(245,158,11,0.3)', background: 'linear-gradient(135deg,rgba(245,158,11,0.05),rgba(99,102,241,0.05))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.75rem' }}>
+              <div>
+                <h2 className="admin-section-title" style={{ margin: 0 }}>🏆 Events & Scheduling</h2>
+                <p className="admin-section-desc" style={{ marginBottom: 0 }}>
+                  Generate single-elimination brackets with automatic BYE handling. Drag &amp; drop teams, set match times &amp; venues, and link directly to live score desks.
+                </p>
+              </div>
+              <Link to="/admin/tournament" className="btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                ⚡ Open Event Manager
+              </Link>
+            </div>
+            <div className="admin-grid-desks" style={{ marginTop: '0.5rem' }}>
+              {SPORTS.filter(s => ['cricket','volleyball','football','badminton','table-tennis','chess','carrom','tug-of-war','kho-kho','arm-wrestling'].includes(s.id)).map(s => (
+                <Link key={s.id} to={`/admin/tournament/${s.id}`}
+                  className="btn-outline btn-sm"
+                  style={{ textAlign: 'center', borderColor: 'rgba(245,158,11,0.4)', color: '#f59e0b' }}>
+                  🏆 {s.icon} {s.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+
 
           <h2>Manage Matches</h2>
           <div className="card" style={{ marginTop: '1rem' }}>
@@ -635,7 +662,9 @@ function AdminDashboard() {
                         canAddMain = mainCount < getRacketCategoryPlayerLimit(newTeam.category);
                         canAddSub = false;
                       } else if (newTeam.sport_id === 'athletics') {
-                        canAddMain = mainCount < getAthleticsCategoryPlayerLimit(newTeam.category);
+                        canAddSub = false;
+                      } else if (newTeam.sport_id === 'arm-wrestling') {
+                        canAddMain = mainCount < 1;
                         canAddSub = false;
                       }
 
