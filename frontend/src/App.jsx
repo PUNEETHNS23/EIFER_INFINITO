@@ -20,6 +20,7 @@ import Leaderboard from './pages/Leaderboard';
 import MatchDetailsCricket from './pages/MatchDetailsCricket';
 import MatchDetailsVolleyball from './pages/MatchDetailsVolleyball';
 import MatchDetailsFootball from './pages/MatchDetailsFootball';
+import MatchDetailsGeneric from './pages/MatchDetailsGeneric';
 import AdminTournament from './pages/AdminTournament';
 import AdminTournamentMatchEdit from './pages/AdminTournamentMatchEdit';
 import AdminTournamentBulkSchedule from './pages/AdminTournamentBulkSchedule';
@@ -100,9 +101,8 @@ function MatchDetailsBridge() {
   if (sportId === 'cricket') return <MatchDetailsCricket />;
   if (sportId === 'volleyball') return <MatchDetailsVolleyball />;
   if (sportId === 'football') return <MatchDetailsFootball />;
-  
-  // Fallback for other sports (can create a generic one later or redirect)
-  return <SportDetails />;
+
+  return <MatchDetailsGeneric />;
 }
 
 function App() {

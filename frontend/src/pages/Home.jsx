@@ -49,16 +49,7 @@ function Home() {
     return typeof raw === 'string' ? raw.trim() : '';
   };
 
-  const getMatchDetailsRoute = (match) => (
-    ['cricket', 'volleyball'].includes(match.sport_id)
-      ? `/match/${match.id}`
-      : (() => {
-          const subcategory = getSubcategory(match);
-          return subcategory
-            ? `/sport/${match.sport_id}?subcategory=${encodeURIComponent(subcategory)}`
-            : `/sport/${match.sport_id}`;
-        })()
-  );
+  const getMatchDetailsRoute = (match) => `/match/${match.id}`;
 
   useEffect(() => {
     const fetchData = async () => {

@@ -26,11 +26,7 @@ function SportDetails() {
   const normalizeCategory = (value) => (typeof value === 'string' ? value.trim() : '');
   const initialCategory = isCategorizedSport ? normalizeCategory(searchParams.get('subcategory')) : '';
 
-  const getMatchRoute = (match) => (
-    ['cricket', 'volleyball', 'football'].includes(match.sport_id)
-      ? `/match/${match.id}`
-      : `/sport/${match.sport_id}`
-  );
+  const getMatchRoute = (match) => `/match/${match.id}`;
 
   const fetchTeamsForSport = async () => {
     try {
