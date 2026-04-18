@@ -38,6 +38,8 @@ const sortLiveMatchesByPriority = (matches) => (
 function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
+  const [teamCount, setTeamCount] = useState(null);
+  const [matchCount, setMatchCount] = useState(null);
 
   const getSubcategory = (match) => {
     if (!Object.keys(CATEGORY_SPORTS).includes(match.sport_id)) {
@@ -61,6 +63,12 @@ function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const teamsRes = await api.get('/teams');
+        setTeamCount(Array.isArray(teamsRes.data) ? teamsRes.data.length : 0);
+      } catch (err) {
+        console.error('Failed to fetch teams', err);
+      }
+      try {
         const liveRes = await api.get('/matches/live');
         setLiveMatches(liveRes.data);
       } catch (err) {
@@ -68,6 +76,7 @@ function Home() {
       }
       try {
         const allRes = await api.get('/matches');
+        setMatchCount(Array.isArray(allRes.data) ? allRes.data.length : 0);
         setUpcomingMatches(allRes.data.filter(m => m.status === 'upcoming').slice(0, 4));
       } catch (err) {
         console.error('Failed to fetch matches', err);
@@ -151,12 +160,12 @@ function Home() {
               </div>
               <div className="hero-stat-divider"></div>
               <div className="hero-stat">
-                <span className="hero-stat-number">50+</span>
+                <span className="hero-stat-number">{teamCount ?? '--'}</span>
                 <span className="hero-stat-label">Teams</span>
               </div>
               <div className="hero-stat-divider"></div>
               <div className="hero-stat">
-                <span className="hero-stat-number">100+</span>
+                <span className="hero-stat-number">{matchCount ?? '--'}</span>
                 <span className="hero-stat-label">Matches</span>
               </div>
             </div>
