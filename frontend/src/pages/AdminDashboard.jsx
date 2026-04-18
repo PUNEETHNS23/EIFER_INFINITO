@@ -489,7 +489,7 @@ function AdminDashboard() {
                     <input 
                       type="text" 
                       className="input-field" 
-                      placeholder="e.g. SRM University" 
+                      placeholder="e.g. CS24" 
                       value={newTeam.name} 
                       onChange={e => setNewTeam({...newTeam, name: e.target.value})} 
                       required 

@@ -398,7 +398,7 @@ export default function AdminAthleticsEventManager() {
                         <input
                           type="text"
                           className="input-field"
-                          placeholder={isRelay ? 'e.g. Team Alpha' : 'e.g. John Doe'}
+                          placeholder={isRelay ? 'e.g. CS24' : 'e.g. IT24'}
                           value={entryForm.team_name}
                           onChange={e => setEntryForm(f => ({ ...f, team_name: e.target.value }))}
                           required
