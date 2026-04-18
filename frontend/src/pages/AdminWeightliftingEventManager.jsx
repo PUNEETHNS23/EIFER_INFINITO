@@ -78,6 +78,7 @@ export default function AdminWeightliftingEventManager() {
   const { user, authLoading } = useAuth();
 
   const [events, setEvents] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [eventDetail, setEventDetail] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +96,15 @@ export default function AdminWeightliftingEventManager() {
     finally { setLoading(false); }
   }, []);
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await api.get('/teams/sport/weight-lifting');
+      setTeams(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   const fetchEventDetail = useCallback(async (id) => {
     if (!id) return;
     try {
@@ -103,7 +113,25 @@ export default function AdminWeightliftingEventManager() {
     } catch (e) { console.error(e); }
   }, []);
 
-  useEffect(() => { if (user) fetchEvents(); }, [user, fetchEvents]);
+  useEffect(() => {
+    if (user) {
+      fetchEvents();
+      fetchTeams();
+    }
+  }, [user, fetchEvents, fetchTeams]);
+
+  const applySelectedTeam = (teamId) => {
+    if (!teamId) {
+      setEntryForm((prev) => ({ ...(prev || emptyEntry()), team_id: '', name: '' }));
+      return;
+    }
+    const selectedTeam = teams.find((team) => String(team.id) === String(teamId));
+    setEntryForm((prev) => ({
+      ...(prev || emptyEntry()),
+      team_id: teamId,
+      name: selectedTeam?.name || '',
+    }));
+  };
 
   const selectEvent = (id) => {
     setSelectedEventId(id);
@@ -133,10 +161,12 @@ export default function AdminWeightliftingEventManager() {
   };
 
   /* ── Entry CRUD ─────────────────────────────────────────────── */
-  const openAdd = () => { setEditingEntryId(null); setEntryForm(emptyEntry()); };
+  const openAdd = () => { setEditingEntryId(null); setEntryForm({ ...emptyEntry(), team_id: '' }); };
   const openEdit = (entry) => {
     setEditingEntryId(entry.id);
+    const matchedTeam = teams.find((team) => team.name === entry.name);
     setEntryForm({
+      team_id: matchedTeam?.id || '',
       name: entry.name,
       squat:       [...(entry.squat || [0, 0, 0])],
       bench_press: [...(entry.bench_press || [0, 0, 0])],
@@ -404,8 +434,17 @@ export default function AdminWeightliftingEventManager() {
                   <form onSubmit={handleSave}>
                     <div className="input-group" style={{ marginBottom: '1.5rem' }}>
                       <label className="input-label">Lifter Name</label>
-                      <input type="text" className="input-field" placeholder="e.g. John Doe" required
-                        value={entryForm.name} onChange={e => setEntryForm(f => ({ ...f, name: e.target.value }))} />
+                      <select
+                        className="input-field"
+                        value={entryForm.team_id || ''}
+                        onChange={(e) => applySelectedTeam(e.target.value)}
+                        required
+                      >
+                        <option value="">Select a registered weight-lifting team</option>
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* 3 lifts × 3 attempts grid */}

@@ -29,7 +29,8 @@ function AdminDashboard() {
 
   const resetTeamFormForSport = (sportId) => {
     const categories = getSportCategories(sportId);
-    setNewTeam(createTeamState(sportId, categories[0] || ''));
+    const initialCategory = sportId === 'weight-lifting' ? '' : (categories[0] || '');
+    setNewTeam(createTeamState(sportId, initialCategory));
   };
 
   const [newTeam, setNewTeam] = useState(createTeamState());
@@ -146,7 +147,7 @@ function AdminDashboard() {
       await api.post('/teams', {
         name: newTeam.name,
         sport_id: newTeam.sport_id,
-        category: newTeam.category || null,
+        category: newTeam.sport_id === 'weight-lifting' ? null : (newTeam.category || null),
         squad: newTeam.squad,
       });
       fetchTeams();
@@ -498,7 +499,7 @@ function AdminDashboard() {
                     />
                   </div>
 
-                  {categorizedSports.includes(newTeam.sport_id) && (
+                  {categorizedSports.includes(newTeam.sport_id) && newTeam.sport_id !== 'weight-lifting' && (
                     <div className="input-group">
                       <label className="input-label">Subcategory</label>
                       <select
