@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import Home from './pages/Home';
+import About from './pages/About';
 import SportDetails from './pages/SportDetails';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminCreateMatch from './pages/AdminCreateMatch';
@@ -54,6 +55,7 @@ function Layout() {
 
         <div className={`nav-links ${menuOpen ? 'nav-open' : ''}`}>
           <Link to="/" className={`nav-link ${isActive('/')}`} onClick={() => setMenuOpen(false)}>Home</Link>
+          <Link to="/about" className={`nav-link ${isActive('/about')}`} onClick={() => setMenuOpen(false)}>About Co-ordinators</Link>
           <Link to="/leaderboard" className={`nav-link ${isActive('/leaderboard')}`} onClick={() => setMenuOpen(false)}>Leaderboard</Link>
           {user ? (
             <>
@@ -112,6 +114,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
+            <Route path="about" element={<About />} />
             <Route path="sport/athletics" element={<AthleticsEvents />} />
             <Route path="sport/weight-lifting" element={<WeightliftingEvents />} />
             <Route path="sport/:id" element={<SportDetails />} />
