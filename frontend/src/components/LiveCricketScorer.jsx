@@ -193,6 +193,70 @@ function NoBallModal({ onConfirm, onCancel }) {
   );
 }
 
+// ── Inline modal for Penalty input ──────────────────────────────────────────
+function PenaltyModal({ onConfirm, onCancel }) {
+  const [runs, setRuns] = useState(5);
+  const [reason, setReason] = useState('Slow over rate');
+
+  return (
+    <div className="fade-in" style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999, backdropFilter: 'blur(5px)'
+    }}>
+      <div className="modal-pop" style={{
+        background: 'linear-gradient(145deg, var(--color-surface), #1f2937)', 
+        borderRadius: '24px',
+        padding: '2.5rem', width: '420px', border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 30px 100px rgba(0,0,0,0.7)'
+      }}>
+        <h3 style={{ margin: '0 0 1.5rem', color: '#3b82f6', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '1.6rem' }}>⚖️</span> Penalty Runs
+        </h3>
+
+        <div className="input-group">
+          <label className="input-label" style={{ color: 'var(--color-text-muted)' }}>How many penalty runs?</label>
+          <input 
+            type="number" 
+            className="input-field" 
+            value={runs} 
+            onChange={e => setRuns(parseInt(e.target.value) || 0)} 
+            style={{ fontSize: '1.2rem', fontWeight: 700, textAlign: 'center' }}
+          />
+        </div>
+
+        <div className="input-group" style={{ marginTop: '1.5rem' }}>
+          <label className="input-label" style={{ color: 'var(--color-text-muted)' }}>Reason</label>
+          <textarea
+            className="input-field"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="e.g. Slow over rate, player conduct..."
+            rows={2}
+            style={{ resize: 'none' }}
+          />
+        </div>
+
+        <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '1rem 0 2rem' }}>
+          * Penalty runs are added to the batting team score but do NOT count as a ball.
+        </p>
+
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button type="button" className="btn-undo interactive-btn" style={{ flex: 1, padding: '0.85rem' }} onClick={onCancel}>Cancel</button>
+          <button
+            type="button"
+            className="btn-primary interactive-btn"
+            style={{ flex: 2, background: '#3b82f6', borderColor: '#3b82f6', color: '#fff', fontSize: '1.05rem', fontWeight: 800, padding: '0.85rem' }}
+            onClick={() => onConfirm(runs, reason)}
+          >
+            Award Penalty
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Inline modal for Match Completion ───────────────────────────────────────
 function MatchCompleteModal({ msg, isTie, onFinish, onEdit, onSuperOver }) {
   return (
@@ -227,6 +291,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   const [history, setHistory] = useState(() => detail.history || []);
   const [wicketModal, setWicketModal] = useState(false);
   const [nbModal, setNbModal] = useState(false);
+  const [penModal, setPenModal] = useState(false);
 
   const isFreeHit = !!detail.is_free_hit;
 
@@ -450,6 +515,28 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       }
     }
 
+    patch(updates);
+  };
+
+  // ── Penalty Logic ────────────────────────────────────────────────────────
+  const handlePenalty = (runs, reason) => {
+    setPenModal(false);
+    if (detail.match_finalized) return;
+    saveHistory();
+    let updates = JSON.parse(JSON.stringify(detail));
+    
+    // 1. Add runs to batting team
+    updates[`runs${battingPrefix}`] = totalRuns + runs;
+    
+    // 2. Add to extras
+    const extKey = `extras${battingPrefix}`;
+    updates[extKey] = (updates[extKey] || 0) + runs;
+    const penKey = `extras_penalty${battingPrefix}`;
+    updates[penKey] = (updates[penKey] || 0) + runs;
+
+    // 3. Highlight
+    updates.events_feed = `⚖️ Penalty (+${runs}) - ${reason}\n` + (updates.events_feed || '');
+    
     patch(updates);
   };
 
@@ -770,6 +857,13 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
             handleBall('NB', { runs, reason, isFreeHit });
           }}
           onCancel={() => setNbModal(false)}
+        />
+      )}
+
+      {penModal && (
+        <PenaltyModal
+          onConfirm={handlePenalty}
+          onCancel={() => setPenModal(false)}
         />
       )}
 
