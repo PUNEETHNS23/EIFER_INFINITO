@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
 import { SPORTS, getSportCategories } from '../sports/sportsConfig';
+import './AdminTournament.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const BRACKET_SPORT_IDS = [
@@ -24,6 +25,11 @@ function getRoundName(total, idx) {
   if (fromEnd === 2) return 'Quarterfinal';
   if (fromEnd === 3) return 'Round of 16';
   if (fromEnd === 4) return 'Round of 32';
+  
+  // If this is the very first round and there are Byes in the system, 
+  // it's effectively a Play-in round.
+  if (idx === 0) return 'Round 1 (Play-in)';
+  
   return `Round ${idx + 1}`;
 }
 
@@ -96,12 +102,13 @@ function MatchCard({
       overflow: 'visible',
       userSelect: 'none',
       transition: 'all 0.2s',
-      boxShadow: bothSet && !hasWon ? '0 0 10px rgba(99,102,241,0.1)' : 'none'
+      boxShadow: bothSet && !hasWon ? '0 0 10px rgba(99,102,241,0.1)' : 'none',
+      cursor: draggingRef?.current ? 'copy' : 'default'
     }}>
       {/* Header */}
       <div style={{ padding: '5px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: '10px 10px 0 0' }}>
-        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          {match.uid.replace('r', 'R').replace('m', 'M')}
+        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: match.is_3rd_place ? '#f59e0b' : 'var(--color-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          {match.is_3rd_place ? '🥉 3rd Place Match' : match.uid.replace('r', 'R').replace('m', 'M')}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {(match.scheduled_at || match.venue) && (
@@ -125,10 +132,11 @@ function MatchCard({
       {/* Team rows */}
       <div 
         style={rowStyle(aWon, teamASet, false)} 
-        draggable={!hasWon} 
+        draggable={!hasWon && teamASet} 
         onDragStart={(e) => handleDragStart(e, 'teamA')}
         onDrop={(e) => handleDrop(e, 'teamA')}
         onDragOver={handleDragOver}
+        className="drag-target"
       >
         {aWon && <span style={{ fontSize: '0.75rem' }}>🏆</span>}
         <span style={nameStyle(aWon, teamASet)}>{teamALabel}</span>
@@ -136,10 +144,11 @@ function MatchCard({
 
       <div 
         style={{ ...rowStyle(bWon, teamBSet, isBye), borderBottom: 'none' }} 
-        draggable={!hasWon} 
+        draggable={!hasWon && teamBSet && !isBye} 
         onDragStart={(e) => handleDragStart(e, 'teamB')}
         onDrop={(e) => handleDrop(e, 'teamB')}
         onDragOver={handleDragOver}
+        className="drag-target"
       >
         {bWon && <span style={{ fontSize: '0.75rem' }}>🏆</span>}
         <span style={nameStyle(bWon, teamBSet)}>{teamBLabel}</span>

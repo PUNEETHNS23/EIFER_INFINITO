@@ -237,112 +237,61 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
         team.category = category
 
         squad = team.squad or []
-        normalized_squad = []
-        for player in squad:
-            normalized_player = dict(player)
-            normalized_player["name"] = (player.get("name") or "").strip()
-            normalized_squad.append(normalized_player)
-        player_names = [p.get("name") or "" for p in normalized_squad]
-        if any(not name for name in player_names):
-            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
-        if len(set(player_names)) != len(player_names):
-            raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
-        if any(bool(p.get("is_substitute")) for p in normalized_squad):
-            raise HTTPException(status_code=400, detail="Substitute players are not allowed for badminton/table-tennis teams.")
+    # SQUAD VALIDATION RULES ENGINE
+    sport_id = team.sport_id
+    category = (team.category or "").strip()
+    squad = team.squad or []
+    
+    # Pre-process squad
+    normalized_squad = []
+    for player in squad:
+        p_dict = dict(player)
+        p_dict["name"] = (player.get("name") or "").strip()
+        normalized_squad.append(p_dict)
+    
+    player_names = [p["name"] for p in normalized_squad if p["name"]]
+    if any(not name for name in player_names):
+        raise HTTPException(status_code=400, detail="Player names cannot be empty.")
+    if len(set(player_names)) != len(player_names):
+        raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
+    
+    mains = [p for p in normalized_squad if not p.get("is_substitute")]
+    subs  = [p for p in normalized_squad if p.get("is_substitute")]
+    
+    limit_main = 99
+    limit_sub = 0
+    
+    if sport_id == "football":
+        limit_main, limit_sub = 6, 3
+    elif sport_id == "volleyball":
+        limit_main, limit_sub = 6, 3
+    elif sport_id == "kho-kho":
+        limit_main, limit_sub = 9, 3
+    elif sport_id == "cricket":
+        limit_main, limit_sub = 11, 3
+    elif sport_id in ["weight-lifting", "arm-wrestling"]:
+        limit_main, limit_sub = 1, 0
+    elif sport_id == "tug-of-war":
+        limit_main, limit_sub = 99, 0
+    elif sport_id in ["badminton", "table-tennis"]:
+        limit_main, limit_sub = (2 if "Doubles" in category or "Mixed" in category else 1), 0
+    elif sport_id == "carrom":
+        limit_main, limit_sub = (2 if "Doubles" in category else 1), 0
+    elif sport_id == "chess":
+        limit_main, limit_sub = {"Rapid": 4, "Hand & Brain": 2, "Blitz": 1}.get(category, 1), 0
+    elif sport_id == "athletics":
+        limit_main, limit_sub = (4 if "4 X 100" in category else 1), 0
+    
+    if len(mains) > limit_main:
+        raise HTTPException(status_code=400, detail=f"{sport_id} {category} allows at most {limit_main} main players.")
+    if len(subs) > limit_sub:
+        raise HTTPException(status_code=400, detail=f"{sport_id} {category} allows at most {limit_sub} substitutes.")
+    if sport_id in ["badminton", "table-tennis", "chess", "carrom", "weight-lifting", "arm-wrestling", "athletics", "kho-kho", "volleyball", "cricket"]:
+        if len(mains) != limit_main:
+             raise HTTPException(status_code=400, detail=f"{sport_id} {category} requires exactly {limit_main} player(s).")
 
-        required_count = 2 if "Doubles" in category else 1
-        if len(player_names) != required_count:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{category} requires exactly {required_count} player(s) per team.",
-            )
-        team.squad = normalized_squad
-
-    if team.sport_id == "football":
-        squad = team.squad or []
-        normalized_squad = []
-        for player in squad:
-            normalized_player = dict(player)
-            normalized_player["name"] = (player.get("name") or "").strip()
-            normalized_squad.append(normalized_player)
-        player_names = [p.get("name") or "" for p in normalized_squad]
-        if len(player_names) > 11:
-            raise HTTPException(status_code=400, detail="Football teams can have at most 11 players.")
-        if any(not name for name in player_names):
-            raise HTTPException(status_code=400, detail="Football player names cannot be empty.")
-        if len(set(player_names)) != len(player_names):
-            raise HTTPException(status_code=400, detail="Football player names must be unique.")
-        team.squad = normalized_squad
-        
-    if team.sport_id == "chess":
-        category = (team.category or "").strip()
-        if category not in {"Rapid", "Blitz", "Hand & Brain"}:
-            raise HTTPException(status_code=400, detail="Chess teams require a valid category.")
-        team.category = category
-
-        squad = team.squad or []
-        normalized_squad = []
-        for player in squad:
-            if player.get("is_substitute"):
-                raise HTTPException(status_code=400, detail="Substitutes are not allowed in chess.")
-            normalized_player = dict(player)
-            normalized_player["name"] = (player.get("name") or "").strip()
-            normalized_squad.append(normalized_player)
-            
-        player_names = [p.get("name") or "" for p in normalized_squad]
-        if any(not name for name in player_names):
-            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
-        if len(set(player_names)) != len(player_names):
-            raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
-            
-        required_count = {"Rapid": 4, "Hand & Brain": 2}.get(category, 1)
-        if len(player_names) != required_count:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Chess {category} requires exactly {required_count} player(s) per team.",
-            )
-        team.squad = normalized_squad
-        
-    if team.sport_id == "weight-lifting":
-        category = (team.category or "").strip()
-        if category not in {"Squat", "Bench Press", "Dead Lift"}:
-            raise HTTPException(status_code=400, detail="Weight-lifting teams require a valid category.")
-        team.category = category
-
-        squad = team.squad or []
-        normalized_squad = []
-        for player in squad:
-            if player.get("is_substitute"):
-                raise HTTPException(status_code=400, detail="Substitutes are not allowed in weight-lifting.")
-            normalized_player = dict(player)
-            normalized_player["name"] = (player.get("name") or "").strip()
-            normalized_squad.append(normalized_player)
-            
-        player_names = [p.get("name") or "" for p in normalized_squad]
-        if any(not name for name in player_names):
-            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
-        if len(set(player_names)) != len(player_names):
-            raise HTTPException(status_code=400, detail="Player names must be unique within the team.")
-            
-        if len(player_names) != 1:
-            raise HTTPException(status_code=400, detail="Weight-lifting requires exactly 1 player per team.")
-        team.squad = normalized_squad
-    if team.sport_id == "arm-wrestling":
-        squad = team.squad or []
-        normalized_squad = []
-        for player in squad:
-            if player.get("is_substitute"):
-                raise HTTPException(status_code=400, detail="Substitutes are not allowed in arm-wrestling.")
-            normalized_player = dict(player)
-            normalized_player["name"] = (player.get("name") or "").strip()
-            normalized_squad.append(normalized_player)
-            
-        player_names = [p.get("name") or "" for p in normalized_squad]
-        if any(not name for name in player_names):
-            raise HTTPException(status_code=400, detail="Player names cannot be empty.")
-        if len(player_names) != 1:
-            raise HTTPException(status_code=400, detail="Arm-wrestling requires exactly 1 player per team.")
-        team.squad = normalized_squad
+    team.squad = normalized_squad
+    team.category = category
 
     db_team = models.Team(**team.model_dump())
     db.add(db_team)
@@ -1112,7 +1061,6 @@ def _generate_bracket(teams: list) -> list:
       uid, round, position, teamA, teamB, winner, match_id, scheduled_at
     teamA/teamB: {id, name} | None (None = BYE in R1, TBD in later rounds)
     """
-    import random as _rand
     n = len(teams)
     if n < 2:
         return []
@@ -1120,12 +1068,10 @@ def _generate_bracket(teams: list) -> list:
     total_slots = _next_pow2(n)
     byes = total_slots - n
 
-    shuffled = list(teams)
-    _rand.shuffle(shuffled)
-
-    # BYE teams face None; rest are paired normally
-    bye_teams  = shuffled[:byes]
-    real_teams = shuffled[byes:]
+    # No shuffling — use the provided selection order as seeding
+    # For N=9, byes=7. Top 7 teams get Byes, last 2 play in R1.
+    bye_teams  = teams[:byes]
+    real_teams = teams[byes:]
 
     # R1 slot pairs
     r1_pairs = [(t, None) for t in bye_teams]           # (team, BYE)
@@ -1181,6 +1127,21 @@ def _generate_bracket(teams: list) -> list:
         current_winners = next_winners
         round_num += 1
 
+    # Add 3rd place match if there are at least 4 teams (Semifinal round exists)
+    if len(rounds) >= 2:
+        final_round_idx = len(rounds) - 1
+        rounds[final_round_idx].append({
+            "uid":          "3rd_place",
+            "round":        final_round_idx + 1,
+            "position":     2, # position 1 is the Grand Final
+            "teamA":        None,
+            "teamB":        None,
+            "winner":       None,
+            "match_id":     None,
+            "scheduled_at": None,
+            "is_3rd_place": True
+        })
+
     return rounds
 
 
@@ -1199,6 +1160,20 @@ def _set_bracket_winner(bracket: list, match_uid: str, winner: dict) -> list:
                 if next_match_idx < len(bracket[r_idx + 1]):
                     key = "teamA" if is_team_a else "teamB"
                     bracket[r_idx + 1][next_match_idx][key] = winner
+            
+            # Propagate LOSER to 3rd place match if this is a Semifinal
+            if r_idx == len(bracket) - 2 and len(bracket) >= 2:
+                # Find the 3rd place match in the final round
+                third_match = next((x for x in bracket[-1] if x.get("is_3rd_place")), None)
+                if third_match:
+                    tA = m.get("teamA")
+                    tB = m.get("teamB")
+                    loser = tA if (tA and tA.get("id") != winner.get("id")) else tB
+                    if m["position"] % 2 == 1:
+                        third_match["teamA"] = loser
+                    else:
+                        third_match["teamB"] = loser
+
             return bracket
     raise ValueError(f"Match {match_uid} not found")
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
-import { SPORTS, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';
+import { SPORTS, CATEGORY_SPORTS, getSportCategories, getSquadLimits } from '../sports/sportsConfig';
 import { useMatchSocket } from '../hooks/useMatchSocket';
 import './AdminDashboard.css';
 
@@ -16,6 +16,7 @@ function AdminDashboard() {
   const [matchSportFilter, setMatchSportFilter] = useState('');
   const [teamSportFilter, setTeamSportFilter] = useState('');
   const [teamCategoryFilter, setTeamCategoryFilter] = useState('');
+  const [selectedSportForTeam, setSelectedSportForTeam] = useState(null);
 
   // Form states
   const footballSquadLimit = 11;
@@ -33,16 +34,7 @@ function AdminDashboard() {
   const [dqReason, setDqReason] = useState({});
   const teamsRefreshTimeoutRef = useRef(null);
 
-  const sportsEnum = ['cricket', 'volleyball', 'football', 'carrom', 'chess', 'arm-wrestling', 'kho-kho', 'badminton', 'table-tennis', 'tug-of-war', 'esports', 'weight-lifting'];
-  const squadSports = ['cricket', 'volleyball', 'football', 'badminton', 'table-tennis', 'kho-kho', 'chess', 'carrom', 'arm-wrestling', 'weight-lifting'];
-  const allowSubstituteSports = ['volleyball', 'kho-kho', 'cricket'];
-  const racketSports = ['badminton', 'table-tennis', 'carrom'];
-
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
-  
-  const getRacketCategoryPlayerLimit = (category) => (category || '').includes('Doubles') ? 2 : 1;
-  const getChessCategoryPlayerLimit = (category) => category === 'Rapid' ? 4 : (category === 'Hand & Brain' ? 2 : 1);
-  const getAthleticsCategoryPlayerLimit = (category) => (category || '').includes('4 X 100') ? 4 : 1;
 
   const getLocalDateKey = (dateValue) => {
     if (!dateValue) return '';
@@ -128,105 +120,18 @@ function AdminDashboard() {
   const handleAddTeam = async (e) => {
     e.preventDefault();
 
-    if (newTeam.sport_id === 'volleyball') {
-      const players = (newTeam.squad || []).filter(p => !p.is_substitute);
-      const subs = (newTeam.squad || []).filter(p => p.is_substitute);
-      if (players.length !== 6) {
-        alert(`A volleyball team must have exactly 6 main players. Currently you have ${players.length}.`);
-        return;
-      }
-      if (subs.length > 3) {
-        alert(`A volleyball team can have a maximum of 3 substitutes. Currently you have ${subs.length}.`);
-        return;
-      }
-    }
+    // SQUAD VALIDATION
+    const limits = getSquadLimits(newTeam.sport_id, newTeam.category);
+    const mainCount = (newTeam.squad || []).filter(p => !p.is_substitute).length;
+    const subCount = (newTeam.squad || []).filter(p => p.is_substitute).length;
 
-    if (newTeam.sport_id === 'kho-kho') {
-      const players = (newTeam.squad || []).filter(p => !p.is_substitute);
-      const subs = (newTeam.squad || []).filter(p => p.is_substitute);
-      if (players.length !== 9) {
-        alert(`A kho-kho team must have exactly 9 main players. Currently you have ${players.length}.`);
+    if (newTeam.sport_id !== 'tug-of-war') {
+      if (mainCount !== limits.main) {
+        alert(`${newTeam.sport_id} ${newTeam.category || ''} requires exactly ${limits.main} main player(s). You have ${mainCount}.`);
         return;
       }
-      if (subs.length !== 3) {
-        alert(`A kho-kho team must have exactly 3 substitutes. Currently you have ${subs.length}.`);
-        return;
-      }
-    }
-
-    if (newTeam.sport_id === 'cricket') {
-      const players = (newTeam.squad || []).filter(p => !p.is_substitute);
-      const subs = (newTeam.squad || []).filter(p => p.is_substitute);
-      if (players.length !== 11) {
-        alert(`A cricket team must have exactly 11 main players. Currently you have ${players.length}.`);
-        return;
-      }
-      if (subs.length > 3) {
-        alert(`A cricket team can have a maximum of 3 substitutes. Currently you have ${subs.length}.`);
-        return;
-      }
-    }
-
-    if (newTeam.sport_id === 'football') {
-      const players = (newTeam.squad || []).map((p) => (p.name || '').trim());
-      if (players.length > footballSquadLimit) {
-        alert(`A football team can have at most ${footballSquadLimit} players.`);
-        return;
-      }
-      if (players.some((name) => !name)) {
-        alert('Football player names cannot be empty.');
-        return;
-      }
-      if (new Set(players).size !== players.length) {
-        alert('Football player names must be unique.');
-        return;
-      }
-    }
-
-    if (racketSports.includes(newTeam.sport_id)) {
-      const players = (newTeam.squad || []).map((p) => (p.name || '').trim()).filter(Boolean);
-      const limit = getRacketCategoryPlayerLimit(newTeam.category);
-      if (players.length !== limit) {
-        const sportName = newTeam.sport_id === 'badminton' ? 'Badminton' : newTeam.sport_id === 'table-tennis' ? 'Table Tennis' : 'Carrom';
-        alert(`${sportName} ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
-        return;
-      }
-      if (new Set(players).size !== players.length) {
-        alert('Player names must be unique within the team squad.');
-        return;
-      }
-    }
-
-    if (newTeam.sport_id === 'athletics') {
-      const players = (newTeam.squad || []).filter(p => !p.is_substitute).map((p) => (p.name || '').trim()).filter(Boolean);
-      const limit = getAthleticsCategoryPlayerLimit(newTeam.category);
-      if (players.length !== limit) {
-        alert(`Athletics ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
-        return;
-      }
-      if (new Set(players).size !== players.length) {
-        alert('Player names must be unique within the team squad.');
-        return;
-      }
-    }
-
-    if (newTeam.sport_id === 'chess') {
-      const players = (newTeam.squad || []).filter(p => !p.is_substitute).map((p) => (p.name || '').trim()).filter(Boolean);
-      const limit = getChessCategoryPlayerLimit(newTeam.category);
-      if (players.length !== limit) {
-        alert(`Chess ${newTeam.category || 'category'} requires exactly ${limit} player${limit > 1 ? 's' : ''} per team. Currently you have ${players.length}.`);
-        return;
-      }
-      if (new Set(players).size !== players.length) {
-        alert('Player names must be unique within the team squad.');
-        return;
-      }
-    }
-
-    if (newTeam.sport_id === 'weight-lifting') {
-      const players = (newTeam.squad || []).filter(p => !p.is_substitute).map((p) => (p.name || '').trim()).filter(Boolean);
-      if (players.length !== 1) {
-        alert(`Weight-lifting requires exactly 1 player per team. Currently you have ${players.length}.`);
+      if (subCount > limits.sub) {
+        alert(`${newTeam.sport_id} allows at most ${limits.sub} substitute(s). You have ${subCount}.`);
         return;
       }
     }
@@ -246,54 +151,27 @@ function AdminDashboard() {
   };
 
   const addPlayerToSquad = (isSubstitute = false) => {
-    if (tempPlayerName.trim()) {
-      if (racketSports.includes(newTeam.sport_id)) {
-        const limit = getRacketCategoryPlayerLimit(newTeam.category);
-        const currentCount = (newTeam.squad || []).length;
-        if (currentCount >= limit) {
-          alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for ${newTeam.category || 'this category'}. Remove a player to add another.`);
-          return;
-        }
-      }
+    if (!tempPlayerName.trim()) return;
 
-      if (newTeam.sport_id === 'chess') {
-        const limit = getChessCategoryPlayerLimit(newTeam.category);
-        const currentCount = (newTeam.squad || []).length;
-        if (currentCount >= limit) {
-          alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for Chess - ${newTeam.category || 'this category'}. Remove a player to add another.`);
-          return;
-        }
-      }
+    const limits = getSquadLimits(newTeam.sport_id, newTeam.category);
+    const squad = newTeam.squad || [];
+    const mainCount = squad.filter(p => !p.is_substitute).length;
+    const subCount = squad.filter(p => p.is_substitute).length;
 
-      if (newTeam.sport_id === 'weight-lifting') {
-        const currentCount = (newTeam.squad || []).length;
-        if (currentCount >= 1) {
-          alert(`Maximum 1 player allowed for Weight-lifting. Remove a player to add another.`);
-          return;
-        }
-      }
-
-      if (newTeam.sport_id === 'football') {
-        const currentCount = (newTeam.squad || []).length;
-        if (currentCount >= footballSquadLimit) {
-          alert(`Maximum ${footballSquadLimit} players allowed for Football. Remove a player to add another.`);
-          return;
-        }
-      }
-
-      if (newTeam.sport_id === 'athletics') {
-        const limit = getAthleticsCategoryPlayerLimit(newTeam.category);
-        const currentCount = (newTeam.squad || []).length;
-        if (currentCount >= limit) {
-          alert(`Maximum ${limit} player${limit > 1 ? 's' : ''} allowed for Athletics - ${newTeam.category || 'this category'}. Remove a player to add another.`);
-          return;
-        }
-      }
-
-      const withSubstituteFlag = allowSubstituteSports.includes(newTeam.sport_id) ? isSubstitute : false;
-      setNewTeam(prev => ({ ...prev, squad: [...(prev.squad || []), { name: tempPlayerName, is_substitute: withSubstituteFlag }] }));
-      setTempPlayerName('');
+    if (!isSubstitute && mainCount >= limits.main) {
+      alert(`Main player limit reached for ${newTeam.sport_id}.`);
+      return;
     }
+    if (isSubstitute && subCount >= limits.sub) {
+      alert(`Substitute limit reached for ${newTeam.sport_id}.`);
+      return;
+    }
+
+    setNewTeam(prev => ({ 
+      ...prev, 
+      squad: [...(prev.squad || []), { name: tempPlayerName.trim(), is_substitute: isSubstitute }] 
+    }));
+    setTempPlayerName('');
   };
 
   const removePlayerFromSquad = (idx) => {
@@ -497,8 +375,8 @@ function AdminDashboard() {
                   onChange={(e) => setMatchSportFilter(e.target.value)}
                 >
                   <option value="">All</option>
-                  {sportsEnum.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                  {SPORTS.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
               </div>
@@ -566,123 +444,98 @@ function AdminDashboard() {
       {/* TEAMS MANAGEMENT SECTION */}
       {activeSection === 'teams' && (
         <>
-          <div className="admin-form-two-col">
-            <div className="card">
-              <h2 className="admin-section-title">Add New Team & Roster</h2>
-              <form onSubmit={handleAddTeam} style={{ marginTop: '1rem' }}>
-                <div className="input-group">
-                  <label className="input-label">Sport</label>
-                  <select
-                    className="input-field"
-                    value={newTeam.sport_id}
-                    onChange={e => {
-                      const sportId = e.target.value;
-                      setNewTeam((prev) => ({
-                        ...prev,
-                        sport_id: sportId,
-                        category: categorizedSports.includes(sportId) ? getSportCategories(sportId)[0] : '',
-                        squad: [],
-                      }));
-                      setTempPlayerName('');
-                    }}
-                  >
-                    {sportsEnum.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+          <div className="card" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.02)' }}>
+            {!selectedSportForTeam ? (
+              <>
+                <h2 className="admin-section-title">Step 1: Select Sport to Create Team</h2>
+                <div className="admin-grid-desks">
+                  {SPORTS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setSelectedSportForTeam(s.id);
+                        setNewTeam(createTeamState(s.id));
+                        const cats = getSportCategories(s.id);
+                        if (cats.length > 0) {
+                           setNewTeam(prev => ({ ...prev, category: cats[0] }));
+                        }
+                      }}
+                      className="btn-outline btn-sm"
+                      style={{ textAlign: 'center', borderColor: 'rgba(255,255,255,0.1)', color: 'var(--color-text)' }}
+                    >
+                      {s.icon} {s.name}
+                    </button>
+                  ))}
                 </div>
-                
-                {!squadSports.includes(newTeam.sport_id) ? (
-                  <>
-                    <div className="input-group">
-                      <label className="input-label">Team Name / Player Name</label>
-                      <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="input-group">
-                      <label className="input-label">Team Name</label>
-                      <input type="text" className="input-field" value={newTeam.name} onChange={e => setNewTeam({...newTeam, name: e.target.value})} required />
-                    </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <button onClick={() => setSelectedSportForTeam(null)} className="btn-outline btn-sm">← Back</button>
+                  <h2 className="admin-section-title" style={{ marginBottom: 0 }}>
+                    {SPORTS.find(s => s.id === selectedSportForTeam)?.icon} Create {SPORTS.find(s => s.id === selectedSportForTeam)?.name} Team
+                  </h2>
+                </div>
+              </div>
+            )}
+          </div>
 
-                    {categorizedSports.includes(newTeam.sport_id) && (
-                      <div className="input-group">
-                        <label className="input-label">Subcategory</label>
-                        <select
-                          className="input-field"
-                          value={newTeam.category || getSportCategories(newTeam.sport_id)[0] || ''}
-                          onChange={(e) => {
-                            const nextCategory = e.target.value;
-                            setNewTeam((prev) => {
-                              const update = { ...prev, category: nextCategory };
-                              if (racketSports.includes(prev.sport_id)) {
-                                update.squad = (prev.squad || []).slice(0, getRacketCategoryPlayerLimit(nextCategory));
-                              } else if (prev.sport_id === 'chess') {
-                                update.squad = (prev.squad || []).slice(0, getChessCategoryPlayerLimit(nextCategory));
-                              } else if (prev.sport_id === 'weight-lifting') {
-                                update.squad = (prev.squad || []).slice(0, 1);
-                              }
-                              return update;
-                            });
-                          }}
-                        >
-                          {getSportCategories(newTeam.sport_id).map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+          {selectedSportForTeam && (
+            <div className="admin-form-two-col">
+              <div className="card">
+                <form onSubmit={handleAddTeam}>
+                  <div className="input-group">
+                    <label className="input-label">Team Name</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      placeholder="e.g. SRM University" 
+                      value={newTeam.name} 
+                      onChange={e => setNewTeam({...newTeam, name: e.target.value})} 
+                      required 
+                    />
+                  </div>
+
+                  {categorizedSports.includes(newTeam.sport_id) && (
+                    <div className="input-group">
+                      <label className="input-label">Subcategory</label>
+                      <select
+                        className="input-field"
+                        value={newTeam.category || getSportCategories(newTeam.sport_id)[0] || ''}
+                        onChange={(e) => {
+                          const nextCategory = e.target.value;
+                          setNewTeam((prev) => ({ 
+                            ...prev, 
+                            category: nextCategory,
+                            squad: [] // Reset squad when category changes to enforce new limits
+                          }));
+                        }}
+                      >
+                        {getSportCategories(newTeam.sport_id).map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                     
                     {(() => {
+                      const limits = getSquadLimits(newTeam.sport_id, newTeam.category);
                       const squad = newTeam.squad || [];
                       const mainCount = squad.filter(p => !p.is_substitute).length;
                       const subCount = squad.filter(p => p.is_substitute).length;
                       
-                      let canAddMain = true;
-                      let canAddSub = allowSubstituteSports.includes(newTeam.sport_id);
+                      const canAddMain = mainCount < limits.main;
+                      const canAddSub = subCount < limits.sub;
 
-                      if (newTeam.sport_id === 'football') {
-                        canAddMain = mainCount < footballSquadLimit;
-                        canAddSub = false;
-                      } else if (newTeam.sport_id === 'cricket') {
-                        canAddMain = mainCount < 11;
-                        canAddSub = subCount < 3;
-                      } else if (newTeam.sport_id === 'volleyball') {
-                        canAddMain = mainCount < 6;
-                        canAddSub = subCount < 3;
-                      } else if (newTeam.sport_id === 'kho-kho') {
-                        canAddMain = mainCount < 9;
-                        canAddSub = subCount < 3;
-                      } else if (newTeam.sport_id === 'weight-lifting') {
-                        canAddMain = mainCount < 1;
-                        canAddSub = false;
-                      } else if (newTeam.sport_id === 'chess') {
-                        canAddMain = mainCount < getChessCategoryPlayerLimit(newTeam.category);
-                        canAddSub = false;
-                      } else if (racketSports.includes(newTeam.sport_id)) {
-                        canAddMain = mainCount < getRacketCategoryPlayerLimit(newTeam.category);
-                        canAddSub = false;
-                      } else if (newTeam.sport_id === 'athletics') {
-                        canAddSub = false;
-                      } else if (newTeam.sport_id === 'arm-wrestling') {
-                        canAddMain = mainCount < 1;
-                        canAddSub = false;
-                      }
 
                       return (
                         <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
                           <h4 className="admin-section-title" style={{ fontSize: '1.1rem' }}>
                             Team Squad ({newTeam.squad?.length || 0})
                           </h4>
-                          {newTeam.sport_id === 'football' && (
-                            <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                              Football allows up to {footballSquadLimit} players.
-                            </p>
-                          )}
-                          {(racketSports.includes(newTeam.sport_id) || newTeam.sport_id === 'athletics') && (
-                            <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                              {newTeam.category} requires exactly {newTeam.sport_id === 'athletics' ? getAthleticsCategoryPlayerLimit(newTeam.category) : getRacketCategoryPlayerLimit(newTeam.category)} players.
-                            </p>
-                          )}
+                          <p style={{ margin: '0.25rem 0 0.6rem', color: 'var(--color-primary)', fontSize: '0.85rem' }}>
+                            Limit: {limits.main} Main {limits.sub > 0 && `+ ${limits.sub} Subs`}
+                          </p>
                           <ul className="admin-squad-list">
                             {newTeam.squad?.map((p, i) => (
                               <li key={i} className="admin-squad-item">
@@ -725,13 +578,12 @@ function AdminDashboard() {
                         </div>
                       );
                     })()}
-                  </>
-                )}
 
-                <button className="btn-primary" style={{ width: '100%' }}>Register Team</button>
-              </form>
-            </div>
-          </div>
+                    <button className="btn-primary" style={{ width: '100%' }}>Register Team</button>
+                  </form>
+                </div>
+              </div>
+            )}
 
           <h2>All Teams</h2>
           <div className="card" style={{ marginTop: '1rem' }}>
@@ -750,9 +602,8 @@ function AdminDashboard() {
                   }}
                   style={{ minWidth: '200px' }}
                 >
-                  <option value="">All</option>
-                  {sportsEnum.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                  {SPORTS.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
               </div>

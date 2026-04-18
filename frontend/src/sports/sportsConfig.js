@@ -7,10 +7,64 @@ export const CATEGORY_SPORTS = {
   'chess': ['Rapid', 'Blitz', 'Hand & Brain'],
   'carrom': ['Singles', 'Doubles'],
   'athletics': ['4 X 100 meter run', 'Boys 100 meter run', 'Girls 100 meter run'],
+  'weight-lifting': ['Squat', 'Bench Press', 'Dead Lift'],
+  'tug-of-war': ['Boys', 'Girls'],
 };
 
 export function getSportCategories(sportId) {
   return CATEGORY_SPORTS[sportId] || [];
+}
+
+export const SQUAD_RULES = {
+  'football': { main: 6, sub: 3 },
+  'volleyball': { main: 6, sub: 3 },
+  'cricket': { main: 11, sub: 3 },
+  'kho-kho': { main: 9, sub: 3 },
+  'weight-lifting': { main: 1, sub: 0 },
+  'arm-wrestling': { main: 1, sub: 0 },
+  'tug-of-war': { main: 99, sub: 0 }, // Variable
+  'badminton': {
+    'Mens Singles': { main: 1, sub: 0 },
+    'Womens Singles': { main: 1, sub: 0 },
+    'Mens Doubles': { main: 2, sub: 0 },
+    'Womens Doubles': { main: 2, sub: 0 },
+    'Mixed Doubles': { main: 2, sub: 0 },
+  },
+  'table-tennis': {
+    'Mens Singles': { main: 1, sub: 0 },
+    'Womens Singles': { main: 1, sub: 0 },
+    'Mens Doubles': { main: 2, sub: 0 },
+    'Womens Doubles': { main: 2, sub: 0 },
+    'Mixed Doubles': { main: 2, sub: 0 },
+  },
+  'carrom': {
+    'Singles': { main: 1, sub: 0 },
+    'Doubles': { main: 2, sub: 0 },
+  },
+  'chess': {
+    'Blitz': { main: 1, sub: 0 },
+    'Rapid': { main: 4, sub: 0 },
+    'Hand & Brain': { main: 2, sub: 0 },
+  },
+  'athletics': {
+    '4 X 100 meter run': { main: 4, sub: 0 },
+    'Boys 100 meter run': { main: 1, sub: 0 },
+    'Girls 100 meter run': { main: 1, sub: 0 },
+  }
+};
+
+export function getSquadLimits(sportId, category = '') {
+  const rule = SQUAD_RULES[sportId];
+  if (!rule) return { main: 99, sub: 99 };
+  
+  // Some sports have category-specific rules
+  if (rule[category]) return rule[category];
+  
+  // Default to the sport's general rule
+  return {
+    main: rule.main ?? 99,
+    sub: rule.sub ?? 0
+  };
 }
 
 export const SPORTS = [
