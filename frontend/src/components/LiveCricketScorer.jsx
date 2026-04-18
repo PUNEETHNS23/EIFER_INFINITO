@@ -1015,6 +1015,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
           ))}
           <button onClick={() => handleBall('WD')} className="btn-score feature-extra interactive-btn">WD</button>
           <button onClick={() => setNbModal(true)} className="btn-score feature-extra interactive-btn">NB</button>
+          <button onClick={() => setPenModal(true)} className="btn-score feature-extra interactive-btn">PEN</button>
           <button onClick={() => handleBall('W')} disabled={isFreeHit} className="btn-score feature-wicket interactive-btn">W</button>
         </div>
 
