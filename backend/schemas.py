@@ -87,6 +87,16 @@ class AthleticsEventCreate(BaseModel):
     event_type: str   # relay_4x100 | boys_100m | girls_100m
     label: Optional[str] = None
 
+
+class LeaderboardRematchScore(BaseModel):
+    entry_id: str
+    final_score: float
+
+
+class LeaderboardRematchResolveRequest(BaseModel):
+    rank: int
+    results: list[LeaderboardRematchScore]
+
 class AthleticsEventOut(BaseModel):
     id: int
     event_type: str

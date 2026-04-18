@@ -673,28 +673,62 @@ def _sort_entries(entries: list) -> list:
     """Sort entries: valid times ascending first, then disqualified at the end."""
     if not entries:
         return []
+
     valid = sorted(
         [e for e in entries if not e.get("is_disqualified") and (e.get("time_sec") or 0) > 0],
         key=lambda e: float(e.get("time_sec", 1e9))
     )
     no_time = [e for e in entries if not e.get("is_disqualified") and not ((e.get("time_sec") or 0) > 0)]
     dq = [e for e in entries if e.get("is_disqualified")]
-    # Assign ranks
+
+    # Group by base score (time), then resolve ties for ranks 1-3 using rematch_score.
+    grouped: list[tuple[int, list[dict[str, Any]]]] = []
     rank = 1
-    prev_time = None
-    for e in valid:
-        t = float(e.get("time_sec", 0))
-        if t != prev_time:
-            e["rank"] = rank
-            prev_time = t
+    i = 0
+    while i < len(valid):
+        current_time = float(valid[i].get("time_sec", 0))
+        group = [valid[i]]
+        j = i + 1
+        while j < len(valid) and float(valid[j].get("time_sec", 0)) == current_time:
+            group.append(valid[j])
+            j += 1
+
+        group_start_rank = rank
+        if group_start_rank in (1, 2, 3) and len(group) > 1:
+            rematch_scores = [float(g.get("rematch_score", 0) or 0) for g in group]
+            if all(score > 0 for score in rematch_scores):
+                # Athletics: lower rematch time wins within the tied podium group.
+                group = sorted(group, key=lambda e: float(e.get("rematch_score", 1e9)))
+
+        grouped.append((group_start_rank, group))
+        rank += len(group)
+        i = j
+
+    rank = 1
+    ordered_valid: list[dict[str, Any]] = []
+    for group_start_rank, group in grouped:
+        if len(group) > 1 and group_start_rank in (1, 2, 3) and all(float(g.get("rematch_score", 0) or 0) > 0 for g in group):
+            prev_rematch = None
+            for g in group:
+                rematch_score = float(g.get("rematch_score", 0) or 0)
+                if prev_rematch is None or rematch_score != prev_rematch:
+                    g["rank"] = rank
+                else:
+                    g["rank"] = rank - 1
+                prev_rematch = rematch_score
+                rank += 1
+                ordered_valid.append(g)
         else:
-            e["rank"] = rank - 1  # tied rank
-        rank += 1
+            for g in group:
+                g["rank"] = rank
+                ordered_valid.append(g)
+            rank += len(group)
+
     for e in no_time:
         e["rank"] = None
     for e in dq:
         e["rank"] = None
-    return valid + no_time + dq
+    return ordered_valid + no_time + dq
 
 
 @app.get("/api/athletics/events", response_model=list[schemas.AthleticsEventOut])
@@ -752,7 +786,8 @@ def add_athletics_entry(
         "team_name": entry.team_name.strip(),
         "players": [p.strip() for p in (entry.players or [])],
         "time_sec": float(entry.time_sec),
-        "is_disqualified": bool(entry.is_disqualified)
+        "is_disqualified": bool(entry.is_disqualified),
+        "rematch_score": None,
     }
     entries.append(new_entry)
     from sqlalchemy.orm.attributes import flag_modified
@@ -785,7 +820,8 @@ def update_athletics_entry(
         "team_name": entry.team_name.strip(),
         "players": [p.strip() for p in (entry.players or [])],
         "time_sec": float(entry.time_sec),
-        "is_disqualified": bool(entry.is_disqualified)
+        "is_disqualified": bool(entry.is_disqualified),
+        "rematch_score": None,
     }
     from sqlalchemy.orm.attributes import flag_modified
     ev.entries = _sort_entries(entries)
@@ -810,6 +846,53 @@ def delete_athletics_entry(
     entries = [e for e in (ev.entries or []) if e.get("id") != entry_id]
     from sqlalchemy.orm.attributes import flag_modified
     ev.entries = _sort_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.post("/api/athletics/events/{event_id}/rematch", response_model=schemas.AthleticsEventOut)
+def resolve_athletics_tie_rematch(
+    event_id: int,
+    payload: schemas.LeaderboardRematchResolveRequest,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized. No rematch updates allowed.")
+    if payload.rank not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Rematch is only allowed for tied ranks 1, 2, or 3.")
+
+    entries = _sort_entries(list(ev.entries or []))
+    tied_group = [e for e in entries if not e.get("is_disqualified") and e.get("rank") == payload.rank]
+    if len(tied_group) < 2:
+        raise HTTPException(status_code=400, detail="No tie found for the requested rank.")
+
+    tied_ids = {e.get("id") for e in tied_group}
+    result_ids = {r.entry_id for r in payload.results}
+    if tied_ids != result_ids:
+        raise HTTPException(status_code=400, detail="Rematch results must include all and only tied entries for the selected rank.")
+
+    score_by_id = {}
+    for result in payload.results:
+        score = float(result.final_score)
+        if score <= 0:
+            raise HTTPException(status_code=400, detail="Each rematch final score must be greater than 0.")
+        score_by_id[result.entry_id] = score
+
+    updated_entries = []
+    for entry in list(ev.entries or []):
+        entry_id = entry.get("id")
+        if entry_id in score_by_id:
+            entry["rematch_score"] = score_by_id[entry_id]
+        updated_entries.append(entry)
+
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_entries(updated_entries)
     flag_modified(ev, "entries")
     db.commit()
     db.refresh(ev)
@@ -880,20 +963,52 @@ def _sort_wl_entries(entries: list) -> list:
     )
     dq = [e for e in entries if e.get("is_disqualified")]
 
+    grouped: list[tuple[int, list[dict[str, Any]]]] = []
     rank = 1
-    prev_total = None
-    for e in valid:
-        if e["total"] != prev_total:
-            e["rank"] = rank
-            prev_total = e["total"]
+    i = 0
+    while i < len(valid):
+        current_total = float(valid[i].get("total", 0))
+        group = [valid[i]]
+        j = i + 1
+        while j < len(valid) and float(valid[j].get("total", 0)) == current_total:
+            group.append(valid[j])
+            j += 1
+
+        group_start_rank = rank
+        if group_start_rank in (1, 2, 3) and len(group) > 1:
+            rematch_scores = [float(g.get("rematch_score", 0) or 0) for g in group]
+            if all(score > 0 for score in rematch_scores):
+                # Weightlifting: higher rematch total wins within the tied podium group.
+                group = sorted(group, key=lambda e: float(e.get("rematch_score", 0) or 0), reverse=True)
+
+        grouped.append((group_start_rank, group))
+        rank += len(group)
+        i = j
+
+    rank = 1
+    ordered_valid: list[dict[str, Any]] = []
+    for group_start_rank, group in grouped:
+        if len(group) > 1 and group_start_rank in (1, 2, 3) and all(float(g.get("rematch_score", 0) or 0) > 0 for g in group):
+            prev_rematch = None
+            for g in group:
+                rematch_score = float(g.get("rematch_score", 0) or 0)
+                if prev_rematch is None or rematch_score != prev_rematch:
+                    g["rank"] = rank
+                else:
+                    g["rank"] = rank - 1
+                prev_rematch = rematch_score
+                rank += 1
+                ordered_valid.append(g)
         else:
-            e["rank"] = rank - 1
-        rank += 1
+            for g in group:
+                g["rank"] = rank
+                ordered_valid.append(g)
+            rank += len(group)
 
     for e in dq:
         e["rank"] = None
 
-    return valid + dq
+    return ordered_valid + dq
 
 
 @app.get("/api/weightlifting/events", response_model=list[schemas.WeightLiftingEventOut])
@@ -943,6 +1058,7 @@ def add_wl_entry(
         "bench_press": [float(x) for x in (entry.bench_press or [0, 0, 0])],
         "dead_lift":   [float(x) for x in (entry.dead_lift or [0, 0, 0])],
         "is_disqualified": bool(entry.is_disqualified),
+        "rematch_score": None,
     })
     entries.append(new_entry)
     from sqlalchemy.orm.attributes import flag_modified
@@ -977,6 +1093,7 @@ def update_wl_entry(
         "bench_press": [float(x) for x in (entry.bench_press or [0, 0, 0])],
         "dead_lift":   [float(x) for x in (entry.dead_lift or [0, 0, 0])],
         "is_disqualified": bool(entry.is_disqualified),
+        "rematch_score": None,
     })
     from sqlalchemy.orm.attributes import flag_modified
     ev.entries = _sort_wl_entries(entries)
@@ -1001,6 +1118,53 @@ def delete_wl_entry(
     entries = [e for e in (ev.entries or []) if e.get("id") != entry_id]
     from sqlalchemy.orm.attributes import flag_modified
     ev.entries = _sort_wl_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
+@app.post("/api/weightlifting/events/{event_id}/rematch", response_model=schemas.WeightLiftingEventOut)
+def resolve_wl_tie_rematch(
+    event_id: int,
+    payload: schemas.LeaderboardRematchResolveRequest,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if ev.status == "completed":
+        raise HTTPException(status_code=400, detail="Event is finalized. No rematch updates allowed.")
+    if payload.rank not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Rematch is only allowed for tied ranks 1, 2, or 3.")
+
+    entries = _sort_wl_entries(list(ev.entries or []))
+    tied_group = [e for e in entries if not e.get("is_disqualified") and e.get("rank") == payload.rank]
+    if len(tied_group) < 2:
+        raise HTTPException(status_code=400, detail="No tie found for the requested rank.")
+
+    tied_ids = {e.get("id") for e in tied_group}
+    result_ids = {r.entry_id for r in payload.results}
+    if tied_ids != result_ids:
+        raise HTTPException(status_code=400, detail="Rematch results must include all and only tied entries for the selected rank.")
+
+    score_by_id = {}
+    for result in payload.results:
+        score = float(result.final_score)
+        if score <= 0:
+            raise HTTPException(status_code=400, detail="Each rematch final score must be greater than 0.")
+        score_by_id[result.entry_id] = score
+
+    updated_entries = []
+    for entry in list(ev.entries or []):
+        entry_id = entry.get("id")
+        if entry_id in score_by_id:
+            entry["rematch_score"] = score_by_id[entry_id]
+        updated_entries.append(entry)
+
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_wl_entries(updated_entries)
     flag_modified(ev, "entries")
     db.commit()
     db.refresh(ev)

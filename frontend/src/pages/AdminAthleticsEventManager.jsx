@@ -186,6 +186,36 @@ export default function AdminAthleticsEventManager() {
     }
   };
 
+  const handlePodiumRematch = async (rank, groupEntries) => {
+    const label = isRelay ? 'team' : 'player';
+    if (!window.confirm(`Start rematch score entry for tied rank #${rank}?`)) return;
+
+    const results = [];
+    for (const entry of groupEntries) {
+      const input = window.prompt(
+        `Enter final rematch time (seconds) for ${label} \"${entry.team_name}\" (rank #${rank} tie):`,
+        ''
+      );
+      if (input === null) {
+        return;
+      }
+      const value = parseFloat(input);
+      if (!Number.isFinite(value) || value <= 0) {
+        alert('Please enter a valid positive rematch time.');
+        return;
+      }
+      results.push({ entry_id: entry.id, final_score: value });
+    }
+
+    try {
+      await api.post(`/athletics/events/${selectedEventId}/rematch`, { rank, results });
+      await fetchEventDetail(selectedEventId);
+      alert('Rematch scores saved. Leaderboard updated.');
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to save rematch scores');
+    }
+  };
+
   /* ── Auth guards ──────────────────────────────────────────────── */
   if (authLoading) return null;
   if (!user) return <Navigate to="/login" />;
@@ -193,6 +223,12 @@ export default function AdminAthleticsEventManager() {
   const isFinalized = eventDetail?.status === 'completed';
   const isRelay = eventDetail?.event_type === 'relay_4x100';
   const entries = eventDetail?.entries || [];
+  const tiedPodiumGroups = [1, 2, 3]
+    .map((rank) => ({
+      rank,
+      entries: entries.filter((entry) => !entry.is_disqualified && entry.rank === rank),
+    }))
+    .filter((group) => group.entries.length > 1);
 
   return (
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '5rem' }}>
@@ -385,6 +421,30 @@ export default function AdminAthleticsEventManager() {
                 )}
               </div>
 
+              {!isFinalized && tiedPodiumGroups.length > 0 && (
+                <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'rgba(245,158,11,0.35)' }}>
+                  <h3 style={{ margin: '0 0 0.65rem', fontSize: '0.95rem', fontWeight: 700, color: '#f59e0b' }}>
+                    🥇🥈🥉 Podium Tie Rematch
+                  </h3>
+                  <p style={{ margin: '0 0 1rem', color: 'var(--color-text-muted)', fontSize: '0.83rem' }}>
+                    Rematch is available only for tied rank 1, 2, or 3. Enter final rematch times to break ties.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    {tiedPodiumGroups.map((group) => (
+                      <button
+                        key={group.rank}
+                        type="button"
+                        className="btn-outline btn-sm"
+                        style={{ borderColor: '#f59e0b', color: '#f59e0b' }}
+                        onClick={() => handlePodiumRematch(group.rank, group.entries)}
+                      >
+                        Resolve Rank #{group.rank} Tie ({group.entries.length})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Add / Edit Entry Form */}
               {entryForm && (
                 <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'rgba(99,102,241,0.3)' }}>
@@ -546,13 +606,20 @@ export default function AdminAthleticsEventManager() {
                               {/* Time */}
                               <td style={{ padding: '0.85rem 1rem' }}>
                                 {entry.time_sec > 0 ? (
-                                  <span style={{
-                                    fontFamily: 'monospace', fontWeight: 700,
-                                    color: rank === 1 ? '#f59e0b' : rank === 2 ? '#94a3b8' : rank === 3 ? '#cd7f32' : 'var(--color-primary)',
-                                    fontSize: '1rem',
-                                  }}>
-                                    {Number(entry.time_sec).toFixed(3)}s
-                                  </span>
+                                  <>
+                                    <span style={{
+                                      fontFamily: 'monospace', fontWeight: 700,
+                                      color: rank === 1 ? '#f59e0b' : rank === 2 ? '#94a3b8' : rank === 3 ? '#cd7f32' : 'var(--color-primary)',
+                                      fontSize: '1rem',
+                                    }}>
+                                      {Number(entry.time_sec).toFixed(3)}s
+                                    </span>
+                                    {Number(entry.rematch_score || 0) > 0 && (
+                                      <div style={{ fontSize: '0.72rem', color: '#10b981', marginTop: '0.15rem', fontWeight: 700 }}>
+                                        Rematch: {Number(entry.rematch_score).toFixed(3)}s
+                                      </div>
+                                    )}
+                                  </>
                                 ) : (
                                   <span style={{ color: 'var(--color-text-muted)' }}>—</span>
                                 )}
