@@ -395,7 +395,7 @@ export default function AdminTournament() {
   const [loadingList,  setLoadingList]  = useState(true);
 
   // Form
-  const [form, setForm] = useState({ sport_id: sportId || 'cricket', name: '', category: '' });
+  const [form, setForm] = useState({ sport_id: sportId || 'cricket', name: '', category: '', venue: '' });
   const [sportTeams,      setSportTeams]      = useState([]);
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
   const [creating,        setCreating]        = useState(false);
@@ -451,11 +451,12 @@ export default function AdminTournament() {
         sport_id: form.sport_id,
         name:     form.name,
         category: form.category || null,
+        venue:    form.venue || null,
         team_ids: selectedTeamIds,
       });
       await fetchList();
       selectTournament(res.data.id);
-      setForm(f => ({ ...f, name: '', category: '' }));
+      setForm(f => ({ ...f, name: '', category: '', venue: '' }));
       setSelectedTeamIds([]);
     } catch (err) {
       alert(err.response?.data?.detail || 'Failed to create tournament');
@@ -588,6 +589,17 @@ export default function AdminTournament() {
                   </select>
                 </div>
               )}
+
+              <div className="input-group">
+                <label className="input-label">Venue / Stadium</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={form.venue}
+                  onChange={e => setForm(f => ({ ...f, venue: e.target.value }))}
+                  placeholder="e.g. Main Stadium, Court 2"
+                />
+              </div>
 
               <div className="input-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>

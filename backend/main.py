@@ -1379,7 +1379,7 @@ def _generate_balanced_seeding(num_teams: int) -> list:
         seeds = next_seeds
     return seeds
 
-def _generate_bracket(teams: list) -> list:
+def _generate_bracket(teams: list, venue: Optional[str] = None) -> list:
     """
     Returns bracket as list-of-rounds using Play-in logic and Graph Linking.
     N teams -> target_size = largest power of 2 <= N.
@@ -1433,6 +1433,7 @@ def _generate_bracket(teams: list) -> list:
                 "winner":       None,
                 "match_id":     None,
                 "scheduled_at": None,
+                "venue":        venue,
                 "next_match_uid": None, # Set later
                 "next_match_slot": None # Set later
             }
@@ -1466,6 +1467,7 @@ def _generate_bracket(teams: list) -> list:
                 "winner":       None,
                 "match_id":     None,
                 "scheduled_at": None,
+                "venue":        venue,
                 "next_match_uid": None,
                 "next_match_slot": None
             }
@@ -1515,6 +1517,7 @@ def _generate_bracket(teams: list) -> list:
             "winner":       None,
             "match_id":     None,
             "scheduled_at": None,
+            "venue":        venue,
             "is_3rd_place": True
         })
 
@@ -1588,6 +1591,8 @@ def _ensure_match_entries(bracket: list, sport_id: str, category: Optional[str],
             sd = scoring.default_score_detail(sport_id)
             if category:
                 sd["category"] = category
+            if m.get("venue") is not None:
+                sd["venue"] = m.get("venue")
             sd["_tournament_match_uid"] = m["uid"]
             db_match = models.Match(
                 sport_id  = sport_id,
@@ -1674,7 +1679,8 @@ def create_tournament(
         raise HTTPException(400, "Could not resolve enough teams.")
 
     team_snapshots = [{"id": t.id, "name": t.name} for t in teams_db]
-    bracket = _generate_bracket(team_snapshots)
+    venue = payload.venue.strip() if isinstance(payload.venue, str) and payload.venue.strip() else None
+    bracket = _generate_bracket(team_snapshots, venue=venue)
     bracket = _ensure_match_entries(bracket, payload.sport_id, payload.category, db)
 
     tournament = models.Tournament(

@@ -151,6 +151,7 @@ class TournamentCreate(BaseModel):
     sport_id:  str
     name:      str
     category:  Optional[str] = None
+    venue:     Optional[str] = None
     team_ids:  list[int]
 
 class TournamentSetWinner(BaseModel):
