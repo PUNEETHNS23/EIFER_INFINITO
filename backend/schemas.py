@@ -162,6 +162,8 @@ class TournamentSetDetails(BaseModel):
     match_uid:    str
     scheduled_at: Optional[str] = None   # ISO datetime string or null
     venue:        Optional[str] = None
+    teamA_id:     Optional[int] = None   # Manual team override for slot A
+    teamB_id:     Optional[int] = None   # Manual team override for slot B
 
 class TournamentBulkSetDetails(BaseModel):
     updates: list[TournamentSetDetails]

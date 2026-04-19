@@ -16,7 +16,7 @@ from sqlalchemy.engine.url import make_url
 from datetime import datetime, timedelta
 
 from sqlalchemy import inspect, text, String, cast
-from . import models, schemas, database, auth, scoring
+import models, schemas, database, auth, scoring
 
 
 def _db_target_string(url: str) -> str:
@@ -1753,9 +1753,40 @@ def set_tournament_details(
                     bracket[r_idx][m_idx]["scheduled_at"] = payload.scheduled_at
                 if payload.venue is not None:
                     bracket[r_idx][m_idx]["venue"] = payload.venue
-                
-                # Check if Match exists to sync
-                match_id = m.get("match_id")
+
+                # ── Manual Team Override ──────────────────────────────────────
+                for slot_key, override_id in [("teamA", payload.teamA_id), ("teamB", payload.teamB_id)]:
+                    if override_id is None:
+                        continue
+
+                    # Validate: match must not be decided
+                    if m.get("winner"):
+                        raise HTTPException(400, f"Cannot change teams in a match that is already decided.")
+
+                    # Validate: no completed downstream
+                    if _is_any_downstream_completed(bracket, m["uid"]):
+                        raise HTTPException(400, "Cannot change teams because a downstream match is already completed.")
+
+                    # Look up the team in the DB
+                    new_team_db = db.query(models.Team).filter(models.Team.id == override_id).first()
+                    if not new_team_db:
+                        raise HTTPException(404, f"Team {override_id} not found")
+
+                    new_team = {"id": new_team_db.id, "name": new_team_db.name}
+                    old_team = m.get(slot_key)
+                    old_team_id = old_team.get("id") if old_team else None
+
+                    # Apply the change
+                    bracket[r_idx][m_idx][slot_key] = new_team
+
+                    # Propagate: if this team was already promoted to later rounds, update those too
+                    if old_team_id is not None:
+                        next_uid = m.get("next_match_uid")
+                        if next_uid:
+                            _propagate_team_update(bracket, next_uid, old_team_id, new_team)
+
+                # ── DB Match Sync (schedule, venue, and team IDs) ─────────────
+                match_id = bracket[r_idx][m_idx].get("match_id")
                 if match_id:
                     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
                     if db_match:
@@ -1769,11 +1800,30 @@ def set_tournament_details(
                             sd = dict(db_match.score_detail) if db_match.score_detail else {}
                             sd["venue"] = payload.venue
                             db_match.score_detail = sd
+                        # Sync teams if overridden
+                        cur = bracket[r_idx][m_idx]
+                        if cur.get("teamA") and cur.get("teamA", {}).get("id"):
+                            db_match.team1_id = cur["teamA"]["id"]
+                        if cur.get("teamB") and cur.get("teamB", {}).get("id"):
+                            db_match.team2_id = cur["teamB"]["id"]
+
+                # Also sync all downstream matches (team propagation may have updated them)
+                for rnd2 in bracket:
+                    for m2 in rnd2:
+                        if m2.get("match_id") and m2["uid"] != payload.match_uid:
+                            db_m2 = db.query(models.Match).filter(models.Match.id == m2["match_id"]).first()
+                            if db_m2:
+                                if m2.get("teamA") and m2["teamA"].get("id"):
+                                    db_m2.team1_id = m2["teamA"]["id"]
+                                if m2.get("teamB") and m2["teamB"].get("id"):
+                                    db_m2.team2_id = m2["teamB"]["id"]
+
                 found = True
                 break
     if not found:
         raise HTTPException(404, f"Match {payload.match_uid} not found")
 
+    from sqlalchemy.orm.attributes import flag_modified
     flag_modified(t, "bracket")
     db.commit()
     db.refresh(t)
