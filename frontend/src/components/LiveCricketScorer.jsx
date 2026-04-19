@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import CoinToss from './CoinToss';
 import './LiveCricketScorer.css';
 
@@ -332,12 +332,23 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   const [wicketModal, setWicketModal] = useState(false);
   const [nbModal, setNbModal] = useState(false);
   const [penModal, setPenModal] = useState(false);
+  const [tossOversInput, setTossOversInput] = useState(() => {
+    if (Number(detail.custom_overs) > 0) return String(detail.custom_overs);
+    return '';
+  });
 
   const isFreeHit = !!detail.is_free_hit;
 
   // Toss UI States
   const isMatchStarted = !!detail.toss_decided;
   const innings = Number(detail.innings || 1);
+
+  useEffect(() => {
+    if (isMatchStarted) return;
+    if (Number(detail.custom_overs) > 0) {
+      setTossOversInput(String(detail.custom_overs));
+    }
+  }, [detail.custom_overs, isMatchStarted]);
 
   const isTeam1BattingFirst = (detail.batting_first === team1);
   const isTeam1Batting = isTeam1BattingFirst ? (innings === 1) : (innings === 2);
@@ -366,6 +377,12 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
 
   // ── Toss screen ─────────────────────────────────────────────────────────
   const handleToss = (tossData) => {
+    const selectedOvers = Number.parseInt(tossOversInput, 10);
+    if (!Number.isInteger(selectedOvers) || selectedOvers <= 0) {
+      alert('Please enter the number of overs before the toss.');
+      return;
+    }
+
     const winnerName = tossData.toss_winner === 't1' ? team1 : team2;
     const decision = tossData.toss_decision === 'bat' ? 'Bat' : 'Bowl';
     
@@ -380,6 +397,8 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       toss_decision: decision,
       batting_first: batFirst,
       innings: 1,
+      match_type: 'Custom',
+      custom_overs: selectedOvers,
       toss: `${winnerName} won the toss and elected to ${decision.toLowerCase()} first`
     });
   };
@@ -859,13 +878,30 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
   };
 
   if (!isMatchStarted) {
+    const parsedTossOvers = Number.parseInt(tossOversInput, 10);
+    const canStartToss = Number.isInteger(parsedTossOvers) && parsedTossOvers > 0;
+
     return (
       <div className="lcs-container" style={{ textAlign: 'center', padding: '1rem' }}>
+        <div style={{ maxWidth: '420px', margin: '0 auto 1rem', textAlign: 'left' }}>
+          <label className="input-label">Overs to be played</label>
+          <input
+            type="number"
+            min={1}
+            className="input-field"
+            value={tossOversInput}
+            placeholder="Enter total overs (e.g. 20)"
+            onChange={(e) => setTossOversInput(e.target.value)}
+          />
+        </div>
+
         <CoinToss
           sportId="cricket"
           team1Name={team1}
           team2Name={team2}
           onTossComplete={handleToss}
+          canFlip={canStartToss}
+          flipBlockedMessage="Enter the number of overs first."
         />
       </div>
     );

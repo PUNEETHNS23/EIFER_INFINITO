@@ -93,6 +93,13 @@
   font-size: 1rem;
 }
 
+.coin-toss-blocked-text {
+  margin: -1rem 0 0;
+  color: #f59e0b;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .coin-teams-display {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

@@ -12,8 +12,19 @@ import './CoinToss.css';
  * - onTossComplete: function (tossData) - called with { tossWinner: 't1'|'t2', tossDec ision: 'bat'|'bowl'|etc }
  * - initialTossWinner: string (optional) - pre-fill the toss winner
  * - initialTossDecision: string (optional) - pre-fill the toss decision
+ * - canFlip: boolean (optional) - control if toss can be started
+ * - flipBlockedMessage: string (optional) - helper text when toss is blocked
  */
-function CoinToss({ sportId, team1Name, team2Name, onTossComplete, initialTossWinner, initialTossDecision }) {
+function CoinToss({
+  sportId,
+  team1Name,
+  team2Name,
+  onTossComplete,
+  initialTossWinner,
+  initialTossDecision,
+  canFlip = true,
+  flipBlockedMessage = '',
+}) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [tossWinner, setTossWinner] = useState(initialTossWinner || null);
   const [tossDecision, setTossDecision] = useState(initialTossDecision || null);
@@ -105,12 +116,16 @@ function CoinToss({ sportId, team1Name, team2Name, onTossComplete, initialTossWi
             
             <button
               onClick={handleCoinFlip}
-              disabled={isFlipping}
+              disabled={isFlipping || !canFlip}
               className={`coin-flip-button ${isFlipping ? 'flipping' : ''}`}
             >
               <span className={`coin ${isFlipping ? 'spinning' : ''}`}>🪙</span>
               <span className="flip-text">{isFlipping ? 'Flipping...' : 'Flip Coin'}</span>
             </button>
+
+            {!canFlip && !!flipBlockedMessage && (
+              <p className="coin-toss-blocked-text">{flipBlockedMessage}</p>
+            )}
 
             <div className="coin-teams-display">
               <div className="team-option">

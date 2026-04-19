@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getSportMeta } from '../sports/sportsConfig';
 import './sportScoreboards.css';
 
@@ -49,6 +49,73 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
   const team1 = match.team1 || 'Team 1';
   const team2 = match.team2 || 'Team 2';
   const theme = meta.theme || 'default';
+  const [cricketCelebration, setCricketCelebration] = useState(null);
+  const celebrationTimerRef = useRef(null);
+  const didInitCricketEventRef = useRef(false);
+  const lastCricketEventTokenRef = useRef('');
+
+  useEffect(() => {
+    return () => {
+      if (celebrationTimerRef.current) {
+        clearTimeout(celebrationTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sportId !== 'cricket' || !d) return;
+
+    const rawBall = String(d.current_ball_result || '').toUpperCase().trim();
+    const token = [
+      d.innings,
+      rawBall,
+      d.runs_t1,
+      d.wickets_t1,
+      d.overs_t1,
+      d.runs_t2,
+      d.wickets_t2,
+      d.overs_t2,
+    ].join('|');
+
+    if (!didInitCricketEventRef.current) {
+      didInitCricketEventRef.current = true;
+      lastCricketEventTokenRef.current = token;
+      return;
+    }
+
+    if (token === lastCricketEventTokenRef.current) return;
+    lastCricketEventTokenRef.current = token;
+
+    let celebration = null;
+    if (rawBall === '4' || rawBall.includes('+4')) {
+      celebration = { type: 'four', title: 'FOUR!', icon: '4️⃣' };
+    } else if (rawBall === '6' || rawBall.includes('+6')) {
+      celebration = { type: 'six', title: 'SIX!', icon: '6️⃣' };
+    } else if (rawBall === 'W') {
+      celebration = { type: 'wicket', title: 'WICKET!', icon: '🎯' };
+    }
+
+    if (!celebration) return;
+
+    setCricketCelebration({ ...celebration, token });
+    if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+    celebrationTimerRef.current = setTimeout(() => {
+      setCricketCelebration(null);
+      celebrationTimerRef.current = null;
+    }, 10000);
+  }, [sportId, d]);
+
+  const cricketCelebrationOverlay = cricketCelebration ? (
+    <div className={`cricket-celebration-overlay cricket-celebration-${cricketCelebration.type}`} key={cricketCelebration.token}>
+      <div className="cricket-celebration-burst" aria-hidden="true">
+        <span>✦</span><span>●</span><span>✦</span><span>●</span><span>✦</span>
+      </div>
+      <div className="cricket-celebration-content">
+        <span className="cricket-celebration-icon">{cricketCelebration.icon}</span>
+        <span className="cricket-celebration-title">{cricketCelebration.title}</span>
+      </div>
+    </div>
+  ) : null;
 
   if (!d || Object.keys(d).length === 0) {
     return (
@@ -232,6 +299,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
 
         return wrap(
           <>
+            {cricketCelebrationOverlay}
             <div className="sb-cricket">
               <div style={{ flex: 1 }}>
                 <div className="sb-cr-label">
@@ -277,6 +345,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
 
       return wrap(
         <div className="sb-cricket-premium">
+          {cricketCelebrationOverlay}
           <div className="sb-cricket-header-row">
              <span className="cricket-status-badge">{match.status.toUpperCase()}</span>
              <span className="cricket-toss">{d.toss || 'Toss not updated'}</span>
