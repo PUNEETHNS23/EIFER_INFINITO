@@ -5,7 +5,17 @@ export function useMatchSocket(onUpdate) {
 
   const resolveWsUrl = () => {
     if (import.meta.env.VITE_WS_BASE_URL) {
-      return import.meta.env.VITE_WS_BASE_URL;
+      const raw = import.meta.env.VITE_WS_BASE_URL;
+      try {
+        const parsed = new URL(raw);
+        if (parsed.pathname === '/ws/matches') {
+          parsed.pathname = '/api/ws/matches';
+          return parsed.toString();
+        }
+      } catch {
+        // fall through to raw env value
+      }
+      return raw;
     }
 
     const apiBase = import.meta.env.VITE_API_BASE_URL;
