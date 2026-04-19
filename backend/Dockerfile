@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y \
     libpq-dev gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements.txt from parent directory (project root)
-COPY ../requirements.txt /requirements.txt
+# Copy requirements.txt from the backend directory
+COPY requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 
 # Copy the backend directory contents to /app
