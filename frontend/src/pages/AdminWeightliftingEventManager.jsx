@@ -87,6 +87,10 @@ export default function AdminWeightliftingEventManager() {
   const [entryForm, setEntryForm] = useState(null);
   const [editingEntryId, setEditingEntryId] = useState(null);
 
+  // Bulk Edit States
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [bulkEntries, setBulkEntries] = useState([]);
+
   /* ── Data fetching ───────────────────────────────────────────── */
   const fetchEvents = useCallback(async () => {
     try {
@@ -215,6 +219,51 @@ export default function AdminWeightliftingEventManager() {
       await fetchEvents();
       await fetchEventDetail(selectedEventId);
     } catch (err) { alert(err.response?.data?.detail || 'Failed to finalize'); }
+  };
+
+  /* ── Bulk / Sync ───────────────────────────────────────────── */
+  const handleSyncTeams = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await api.post(`/weightlifting/events/${selectedEventId}/sync-teams`);
+      await fetchEventDetail(selectedEventId);
+      alert('Participants synced successfully from weightlifting teams.');
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to sync teams');
+    } finally { setSaving(false); }
+  };
+
+  const enterBulkMode = () => {
+    setBulkEntries(JSON.parse(JSON.stringify(eventDetail.entries || [])));
+    setBulkEditMode(true);
+    setEntryForm(null);
+  };
+
+  const exitBulkMode = () => {
+    setBulkEditMode(false);
+    setBulkEntries([]);
+  };
+
+  const handleBulkChange = (id, field, value) => {
+    setBulkEntries(prev => prev.map(entry => {
+      if (entry.id === id) {
+        return { ...entry, [field]: value };
+      }
+      return entry;
+    }));
+  };
+
+  const handleBulkSave = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/weightlifting/events/${selectedEventId}/entries/bulk`, { updates: bulkEntries });
+      await fetchEventDetail(selectedEventId);
+      setBulkEditMode(false);
+      setBulkEntries([]);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to save bulk updates');
+    } finally { setSaving(false); }
   };
 
   const handlePodiumRematch = async (rank, groupEntries) => {
@@ -370,16 +419,22 @@ export default function AdminWeightliftingEventManager() {
                     {!isFinalized && (
                       <>
                         <button type="button" className="btn-outline btn-sm"
-                          style={{ color: 'var(--color-primary)', borderColor: 'var(--color-primary)' }} onClick={openAdd}>
-                          + Add Lifter
-                        </button>
-                        <button type="button" className="btn-primary"
-                          style={{ background: '#10b981', borderColor: '#10b981' }}
-                          onClick={handleFinalize} disabled={entries.length === 0}>
-                          🔒 Finalize
-                        </button>
-                      </>
-                    )}
+                           style={{ color: 'var(--color-primary)', borderColor: 'var(--color-primary)' }} onClick={openAdd}>
+                           + Add Lifter
+                         </button>
+                         {!bulkEditMode ? (
+                           <button type="button" className="btn-outline btn-sm"
+                             style={{ color: '#a78bfa', borderColor: '#a78bfa' }} onClick={handleSyncTeams}>
+                             🔄 Sync Lifters
+                           </button>
+                         ) : null}
+                         <button type="button" className="btn-primary"
+                           style={{ background: '#10b981', borderColor: '#10b981' }}
+                           onClick={handleFinalize} disabled={entries.length === 0}>
+                           🔒 Finalize
+                         </button>
+                       </>
+                     )}
                     {isFinalized && (
                       <Link to={`/weightlifting/${eventDetail.id}`} className="btn-outline btn-sm">View Public →</Link>
                     )}
@@ -480,6 +535,25 @@ export default function AdminWeightliftingEventManager() {
                 <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <span>🏆</span>
                   <h3 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem' }}>Live Leaderboard</h3>
+                  {!isFinalized && entries.length > 0 && (
+                    <button 
+                      className="btn-outline btn-sm" 
+                      style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem', marginLeft: '1rem', color: bulkEditMode ? '#ef4444' : '#10b981', borderColor: bulkEditMode ? '#ef4444' : '#10b981' }}
+                      onClick={bulkEditMode ? exitBulkMode : enterBulkMode}
+                    >
+                      {bulkEditMode ? '✖ Cancel Bulk Edit' : '📝 Enter Bulk Edit Mode'}
+                    </button>
+                  )}
+                  {bulkEditMode && (
+                    <button 
+                      className="btn-primary" 
+                      style={{ fontSize: '0.72rem', padding: '0.2rem 1rem', background: '#10b981', borderColor: '#10b981' }}
+                      onClick={handleBulkSave}
+                      disabled={saving}
+                    >
+                      {saving ? 'Saving...' : '💾 Save All Changes'}
+                    </button>
+                  )}
                   <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>Highest total first ↓</span>
                 </div>
 
@@ -499,7 +573,7 @@ export default function AdminWeightliftingEventManager() {
                         </tr>
                       </thead>
                       <tbody>
-                        {entries.map((entry, idx) => {
+                        {(bulkEditMode ? bulkEntries : entries).map((entry, idx) => {
                           const rank = entry.rank;
                           const isDQ = entry.is_disqualified;
                           const best = (k) => Math.max(...(entry[k] || [0, 0, 0]).filter(v => v > 0), 0);
@@ -507,7 +581,7 @@ export default function AdminWeightliftingEventManager() {
                             <tr key={entry.id || idx} style={{
                               borderTop: '1px solid rgba(255,255,255,0.05)',
                               background: isDQ ? 'rgba(239,68,68,0.03)' : rank === 1 ? 'rgba(245,158,11,0.04)' : 'transparent',
-                              opacity: isDQ ? 0.65 : 1,
+                              opacity: isDQ ? (bulkEditMode ? 1 : 0.65) : 1,
                             }}>
                               {/* Rank */}
                               <td style={{ padding: '0.8rem' }}>
@@ -527,19 +601,49 @@ export default function AdminWeightliftingEventManager() {
                               {/* Lifts */}
                               {LIFTS.map(lift => (
                                 <td key={lift.key} style={{ padding: '0.8rem' }}>
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-                                    {(entry[lift.key] || [0,0,0]).map((v, i) => (
-                                      <span key={i} style={{ display: 'inline-block', marginRight: '0.3rem',
-                                        fontFamily: 'monospace',
-                                        color: v > 0 && v === best(lift.key) ? '#a78bfa' : v > 0 ? 'var(--color-text)' : 'var(--color-text-muted)',
-                                        fontWeight: v > 0 && v === best(lift.key) ? 700 : 400 }}>
-                                        {v > 0 ? `${v}` : '—'}
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <div style={{ fontSize: '0.72rem', color: '#a78bfa', fontWeight: 600 }}>
-                                    {best(lift.key) > 0 ? `Best: ${best(lift.key)} kg` : '—'}
-                                  </div>
+                                  {bulkEditMode ? (
+                                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                      {(entry[lift.key] || [0,0,0]).map((v, attemptIdx) => (
+                                        <input
+                                          key={attemptIdx}
+                                          type="number"
+                                          step="0.5"
+                                          value={v || ''}
+                                          onChange={e => {
+                                            const nextAttempts = [...(entry[lift.key] || [0,0,0])];
+                                            nextAttempts[attemptIdx] = parseFloat(e.target.value) || 0;
+                                            handleBulkChange(entry.id, lift.key, nextAttempts);
+                                          }}
+                                          style={{
+                                            width: '42px',
+                                            padding: '0.3rem 0',
+                                            borderRadius: '4px',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            color: '#fff',
+                                            fontSize: '0.75rem',
+                                            textAlign: 'center'
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                                        {(entry[lift.key] || [0,0,0]).map((v, i) => (
+                                          <span key={i} style={{ display: 'inline-block', marginRight: '0.3rem',
+                                            fontFamily: 'monospace',
+                                            color: v > 0 && v === best(lift.key) ? '#a78bfa' : v > 0 ? 'var(--color-text)' : 'var(--color-text-muted)',
+                                            fontWeight: v > 0 && v === best(lift.key) ? 700 : 400 }}>
+                                            {v > 0 ? `${v}` : '—'}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <div style={{ fontSize: '0.72rem', color: '#a78bfa', fontWeight: 600 }}>
+                                        {best(lift.key) > 0 ? `Best: ${best(lift.key)} kg` : '—'}
+                                      </div>
+                                    </>
+                                  )}
                                 </td>
                               ))}
                               {/* Total */}
@@ -556,10 +660,21 @@ export default function AdminWeightliftingEventManager() {
                               {/* Actions */}
                               {!isFinalized && (
                                 <td style={{ padding: '0.8rem' }}>
-                                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                    <button className="btn-outline btn-sm" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }} onClick={() => openEdit(entry)}>✏️</button>
-                                    <button className="btn-outline btn-sm" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', color: '#ef4444', borderColor: '#ef4444' }} onClick={() => handleDeleteEntry(entry.id)}>🗑️</button>
-                                  </div>
+                                  {bulkEditMode ? (
+                                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={isDQ} 
+                                        onChange={e => handleBulkChange(entry.id, 'is_disqualified', e.target.checked)} 
+                                      />
+                                      <span style={{ fontSize: '0.7rem', color: isDQ ? '#ef4444' : 'inherit' }}>DQ</span>
+                                    </label>
+                                  ) : (
+                                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                      <button className="btn-outline btn-sm" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }} onClick={() => openEdit(entry)}>✏️</button>
+                                      <button className="btn-outline btn-sm" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', color: '#ef4444', borderColor: '#ef4444' }} onClick={() => handleDeleteEntry(entry.id)}>🗑️</button>
+                                    </div>
+                                  )}
                                 </td>
                               )}
                             </tr>
