@@ -1268,6 +1268,84 @@ def finalize_wl_event(
     return ev
 
 
+@app.post("/api/weightlifting/events/{event_id}/sync-teams", response_model=schemas.WeightLiftingEventOut)
+def sync_wl_teams(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev: raise HTTPException(404, "Event not found")
+    if ev.status == "completed": raise HTTPException(400, "Event is finalized.")
+    
+    entries = list(ev.entries or [])
+    existing_member_names = { (e.get("name") or "").strip().lower() for e in entries }
+    
+    # Fetch all weight-lifting teams
+    teams = db.query(models.Team).filter(models.Team.sport_id == "weight-lifting").all()
+    
+    added_count = 0
+    from sqlalchemy.orm.attributes import flag_modified
+    
+    for team in teams:
+        name = (team.name or "").strip()
+        if not name: continue
+        if name.lower() not in existing_member_names:
+            new_entry = _calc_wl_entry({
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "squat":       [0.0, 0.0, 0.0],
+                "bench_press": [0.0, 0.0, 0.0],
+                "dead_lift":   [0.0, 0.0, 0.0],
+                "is_disqualified": False,
+                "rematch_score": None,
+            })
+            entries.append(new_entry)
+            existing_member_names.add(name.lower())
+            added_count += 1
+            
+    if added_count > 0:
+        ev.entries = _sort_wl_entries(entries)
+        flag_modified(ev, "entries")
+        db.commit()
+        db.refresh(ev)
+        
+    return ev
+
+
+@app.put("/api/weightlifting/events/{event_id}/entries/bulk", response_model=schemas.WeightLiftingEventOut)
+def bulk_update_wl_entries(
+    event_id: int,
+    payload: schemas.WeightLiftingBulkUpdate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token)
+):
+    ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
+    if not ev: raise HTTPException(404, "Event not found")
+    if ev.status == "completed": raise HTTPException(400, "Event is finalized.")
+    
+    entries = list(ev.entries or [])
+    entry_map = { e.get("id"): idx for idx, e in enumerate(entries) }
+    
+    for update in payload.updates:
+        if update.id in entry_map:
+            idx = entry_map[update.id]
+            # Update fields
+            entries[idx]["squat"] = [float(x) for x in update.squat]
+            entries[idx]["bench_press"] = [float(x) for x in update.bench_press]
+            entries[idx]["dead_lift"] = [float(x) for x in update.dead_lift]
+            entries[idx]["is_disqualified"] = update.is_disqualified
+            # Re-calc local totals
+            _calc_wl_entry(entries[idx])
+            
+    from sqlalchemy.orm.attributes import flag_modified
+    ev.entries = _sort_wl_entries(entries)
+    flag_modified(ev, "entries")
+    db.commit()
+    db.refresh(ev)
+    return ev
+
+
 @app.delete("/api/weightlifting/events/{event_id}")
 def delete_wl_event(
     event_id: int,
