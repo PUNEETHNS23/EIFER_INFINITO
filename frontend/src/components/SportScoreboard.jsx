@@ -227,7 +227,8 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
       if (compact) {
         const inn = d.innings || 1;
         const curOvers = inn === 1 ? d.overs_t1 : d.overs_t2;
-        const balls = (d.over_progression || '').split(' ').filter(Boolean);
+        const activeProgression = d.over_progression && d.over_progression.trim() !== '' ? d.over_progression : (d.prev_over_progression || '');
+        const balls = activeProgression.split(' ').filter(Boolean);
 
         return wrap(
           <>
@@ -265,7 +266,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
                     {b}
                   </span>
                 ))}
-                {balls.length === 0 && <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>Waiting for over...</span>}
+                {balls.length === 0 && <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>Waiting for first ball...</span>}
               </div>
             </div>
           </>
@@ -369,7 +370,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
           <div className="cricket-recent-balls">
              <span className="cricket-recent-label">This Over:</span>
              <div className="cricket-balls-list">
-                {(d.over_progression || '').split(' ').filter(Boolean).map((b, i) => (
+                {((d.over_progression && d.over_progression.trim() !== '' ? d.over_progression : d.prev_over_progression) || '').split(' ').filter(Boolean).map((b, i) => (
                    <span key={i} className={`cricket-ball-circle ${b.includes('W') && !b.includes('WD') ? 'ball-w' : (b.includes('4') || b.includes('6') ? 'ball-boundary' : 'ball-normal')}`}>{b}</span>
                 ))}
              </div>

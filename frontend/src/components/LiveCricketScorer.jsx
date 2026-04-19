@@ -988,7 +988,6 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
             <div style={{ marginBottom: '1.25rem' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
                 {isPrev ? `Prev Over` : 'This Over'} · {legalCount}/6 balls
-                {isPrev && <span style={{ marginLeft: '0.5rem', color: '#f59e0b', fontSize: '0.7rem' }}>Waiting for new over to begin…</span>}
               </div>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
                 {displayBalls.split(' ').filter(Boolean).map((b, i) => {

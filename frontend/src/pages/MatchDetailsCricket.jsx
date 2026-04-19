@@ -282,7 +282,6 @@ function MatchDetailsCricket() {
                 <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>
                     {isPrev ? 'Prev Over' : 'This Over'} · {legalCount}/6 balls
-                    {isPrev && <span style={{ marginLeft: '0.5rem', color: '#f59e0b', fontSize: '0.7rem' }}>Waiting for new over…</span>}
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     {displayBalls.trim().split(' ').filter(Boolean).map((b, i) => {
