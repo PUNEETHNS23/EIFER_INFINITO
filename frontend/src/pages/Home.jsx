@@ -56,7 +56,7 @@ function Home() {
     winnerHoldTimersRef.current[matchId] = setTimeout(() => {
       setRecentlyCompletedMatches((prev) => prev.filter((m) => m.id !== matchId));
       delete winnerHoldTimersRef.current[matchId];
-    }, 30000);
+    }, 300000);
   };
 
   const getWinnerName = (match) => {
