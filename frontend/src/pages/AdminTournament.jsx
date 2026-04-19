@@ -73,7 +73,7 @@ function MatchCard({
   const navigate = useNavigate();
   const [showWinner, setShowWinner] = useState(false);
 
-  const isBye    = (match.teamB === null && match.teamA !== null) || (!match.is_3rd_place && match.round === 1 && match.teamB === null);
+  const isBye    = match.teamB === null && match.teamA !== null;
   const teamASet = !!match.teamA;
   const teamBSet = !!match.teamB;
   const bothSet  = teamASet && teamBSet;

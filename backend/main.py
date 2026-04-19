@@ -2030,11 +2030,32 @@ def swap_tournament_teams(
     m_src[payload.team_key_src] = old_team_tgt
     m_tgt[payload.team_key_tgt] = old_team_src
 
-    # PROPAGATION: If these teams were already in next rounds (e.g. via BYE or manual result), update them
-    if old_team_src and m_src.get("next_match_uid"):
-        _propagate_team_update(bracket, m_src["next_match_uid"], old_team_src.get("id"), old_team_tgt)
-    if old_team_tgt and m_tgt.get("next_match_uid"):
-        _propagate_team_update(bracket, m_tgt["next_match_uid"], old_team_tgt.get("id"), old_team_src)
+    # PROPAGATION: remap each affected team exactly once per match snapshot so
+    # shared downstream matches do not get rewritten twice.
+    remap = {}
+    if old_team_src and old_team_src.get("id") is not None:
+        remap[old_team_src["id"]] = old_team_tgt
+    if old_team_tgt and old_team_tgt.get("id") is not None:
+        remap[old_team_tgt["id"]] = old_team_src
+
+    skipped_uids = {m_src["uid"], m_tgt["uid"]}
+    for rnd in bracket:
+        for match in rnd:
+            if match["uid"] in skipped_uids:
+                continue
+
+            team_a = match.get("teamA")
+            team_b = match.get("teamB")
+
+            if team_a and team_a.get("id") in remap:
+                match["teamA"] = remap[team_a["id"]]
+
+            if team_b and team_b.get("id") in remap:
+                match["teamB"] = remap[team_b["id"]]
+
+    # Swapping into or out of a BYE can turn a previously incomplete match into
+    # a real match, so create any newly-unblocked DB rows before syncing ids.
+    bracket = _ensure_match_entries(bracket, t.sport_id, t.category, db)
 
     # DATABASE SYNC: Update active Match rows
     def _sync_bracket_to_matches(b):
