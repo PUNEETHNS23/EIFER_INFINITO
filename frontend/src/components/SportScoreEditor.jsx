@@ -189,10 +189,11 @@ export default function SportScoreEditor({ match, onSaved }) {
     onSaved?.();
   }, [match.id, status, onSaved]);
 
-  const endMatch = useCallback(async () => {
+  const endMatch = useCallback(async (finalDetail) => {
     setManualStatusOverride(true);
     setStatus('completed');
-    await api.put(`/matches/${match.id}`, { score_detail: detailRef.current, status: 'completed' });
+    const d = finalDetail || detailRef.current;
+    await api.put(`/matches/${match.id}`, { score_detail: d, status: 'completed' });
     onSaved?.();
   }, [match.id, onSaved]);
  
