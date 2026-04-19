@@ -141,6 +141,10 @@ class WeightLiftingEventOut(BaseModel):
         from_attributes = True
 
 
+class WeightLiftingBulkUpdate(BaseModel):
+    updates: list[WeightLiftingEntry]
+
+
 # ── Tournament Bracket ────────────────────────────────────────────────────────
 
 class TournamentCreate(BaseModel):
