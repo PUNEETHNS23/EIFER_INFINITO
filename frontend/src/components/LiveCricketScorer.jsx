@@ -285,11 +285,41 @@ function MatchCompleteModal({ msg, isTie, onFinish, onEdit, onSuperOver }) {
         <p style={{ fontSize: '1.25rem', margin: '0 0 2.5rem', color: 'var(--color-text-main)' }}>{msg}</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem' }} onClick={() => { if (onEndMatch) onEndMatch(); patch({ match_finalized: true, match_completed_info: null }); }}>Finish Match (Lock Score)</button>
+          <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem' }} onClick={onFinish}>Finish Match (Lock Score)</button>
           {isTie && (
             <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem', background: '#f59e0b', color: '#000', borderColor: '#f59e0b', boxShadow: '0 0 20px rgba(245,158,11,0.4)' }} onClick={onSuperOver}>⚡ Start Super Over</button>
           )}
-          <button className="btn-outline interactive-btn" style={{ padding: '0.8rem', opacity: 0.8 }} onClick={popHistory}>Wait, I made a mistake (Edit)</button>
+          <button className="btn-outline interactive-btn" style={{ padding: '0.8rem', opacity: 0.8 }} onClick={onEdit}>Wait, I made a mistake (Edit)</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Inline modal for Innings Completion ─────────────────────────────────────
+function InningsCompleteModal({ msg, target, onConfirm, onEdit }) {
+  return (
+    <div className="fade-in" style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999, backdropFilter: 'blur(5px)'
+    }}>
+      <div className="modal-pop" style={{
+        background: 'linear-gradient(145deg, var(--color-surface), #1f2937)', 
+        borderRadius: '24px',
+        padding: '3rem', width: '450px', border: '1px solid rgba(255,165,0,0.1)',
+        boxShadow: '0 30px 100px rgba(0,0,0,0.7)', textAlign: 'center'
+      }}>
+        <h2 style={{ fontSize: '2.2rem', margin: '0 0 1rem', color: '#f59e0b', textShadow: '0 0 20px rgba(245,158,11,0.3)' }}>🏁 Innings Complete!</h2>
+        <p style={{ fontSize: '1.25rem', margin: '0 0 1rem', color: 'var(--color-text-main)' }}>{msg}</p>
+        <div style={{ background: 'rgba(245,158,11,0.1)', padding: '1rem', borderRadius: '12px', marginBottom: '2.5rem', border: '1px solid rgba(245,158,11,0.2)' }}>
+          <span style={{ fontSize: '0.9rem', color: '#f59e0b', fontWeight: 700 }}>REQUIRED TARGET</span>
+          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff' }}>{target} Runs</div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <button className="btn-primary interactive-btn" style={{ padding: '1rem', fontSize: '1.1rem', background: '#f59e0b', borderColor: '#f59e0b', color: '#000' }} onClick={onConfirm}>Start 2nd Innings</button>
+          <button className="btn-outline interactive-btn" style={{ padding: '0.8rem', opacity: 0.8 }} onClick={onEdit}>Wait, I made a mistake (Edit)</button>
         </div>
       </div>
     </div>
@@ -502,12 +532,10 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
     // Auto innings end
     if (updates[`wickets${battingPrefix}`] >= 10) {
       if (innings === 1) {
-        updates.target = totalRuns + 1;
-        updates.innings = 2;
-        updates.striker = ''; updates.non_striker = ''; updates.current_bowler = '';
-        updates.over_progression = '';
-        updates.events_feed = `🛑 First Innings Ends. Target: ${updates.target}\n` + (updates.events_feed || '');
-        alert('All 10 wickets down! Innings 2 begins.');
+        updates.innings_end_info = { 
+          msg: `Batting team is ALL OUT for ${totalRuns} runs.`, 
+          target: totalRuns + 1 
+        };
       } else {
         const t = updates.target || Infinity;
         let msg = '';
@@ -748,12 +776,10 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       updates.match_completed_info = { msg, isTie: false };
     } else if (matchBallsTotal >= maxOvers * 6) {
       if (innings === 1) {
-        updates.target = updates[`runs${battingPrefix}`] + 1;
-        updates.innings = 2;
-        updates.striker = ''; updates.non_striker = ''; updates.current_bowler = '';
-        updates.over_progression = '';
-        updates.events_feed = `🛑 1st Innings Done. Target: ${updates.target}\n` + (updates.events_feed || '');
-        alert(`1st Innings complete! Target: ${updates.target}. Select openers for 2nd innings.`);
+        updates.innings_end_info = {
+          msg: `Maximum overs reached (${maxOvers} ov).`,
+          target: updates[`runs${battingPrefix}`] + 1
+        };
       } else {
         const t = updates.target || Infinity;
         let msg = '';
@@ -880,12 +906,16 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
         />
       )}
 
-      {detail.match_completed_info && (
+      {detail.match_completed_info && !detail.match_finalized && (
         <MatchCompleteModal
           msg={detail.match_completed_info.msg}
           isTie={detail.match_completed_info.isTie}
-          onFinish={() => patch({ match_finalized: true, match_completed_info: null })}
-          onEdit={() => patch({ match_completed_info: null })}
+          onFinish={() => {
+            const finalDetail = { ...detail, match_finalized: true, match_completed_info: null };
+            if (onEndMatch) onEndMatch(finalDetail);
+            patch({ match_finalized: true, match_completed_info: null });
+          }}
+          onEdit={popHistory}
           onSuperOver={() => {
             if (!window.confirm("Initialize Super Over? This clears the scores to 0/0 and sets max overs to 1 while keeping the same teams.")) return;
             saveHistory();
@@ -903,6 +933,26 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
               events_feed: "⚡ SUPER OVER BEGUN!\n" + (detail.events_feed || ''),
               over_progression: '',
               prev_over_progression: ''
+            });
+          }}
+        />
+      )}
+
+      {detail.innings_end_info && !detail.match_finalized && (
+        <InningsCompleteModal
+          msg={detail.innings_end_info.msg}
+          target={detail.innings_end_info.target}
+          onEdit={popHistory}
+          onConfirm={() => {
+            patch({
+              innings: 2,
+              target: detail.innings_end_info.target,
+              striker: '', 
+              non_striker: '', 
+              current_bowler: '',
+              over_progression: '',
+              innings_end_info: null,
+              events_feed: `🛑 2nd Innings Begins. Target: ${detail.innings_end_info.target}\n` + (detail.events_feed || '')
             });
           }}
         />
