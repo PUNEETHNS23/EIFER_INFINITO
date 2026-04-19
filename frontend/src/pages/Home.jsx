@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import SportScoreboard from '../components/SportScoreboard';
@@ -37,10 +37,48 @@ const sortLiveMatchesByPriority = (matches) => (
 
 function Home() {
   const [liveMatches, setLiveMatches] = useState([]);
+  const [recentlyCompletedMatches, setRecentlyCompletedMatches] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
   const [upcomingAthleticsEvents, setUpcomingAthleticsEvents] = useState([]);
   const [teamCount, setTeamCount] = useState(null);
   const [matchCount, setMatchCount] = useState(null);
+  const winnerHoldTimersRef = useRef({});
+
+  const clearWinnerHoldTimer = (matchId) => {
+    if (winnerHoldTimersRef.current[matchId]) {
+      clearTimeout(winnerHoldTimersRef.current[matchId]);
+      delete winnerHoldTimersRef.current[matchId];
+    }
+  };
+
+  const scheduleWinnerHoldRemoval = (matchId) => {
+    clearWinnerHoldTimer(matchId);
+    winnerHoldTimersRef.current[matchId] = setTimeout(() => {
+      setRecentlyCompletedMatches((prev) => prev.filter((m) => m.id !== matchId));
+      delete winnerHoldTimersRef.current[matchId];
+    }, 30000);
+  };
+
+  const getWinnerName = (match) => {
+    const detail = match?.score_detail || {};
+    const t1 = Number(match?.score_t1 ?? 0);
+    const t2 = Number(match?.score_t2 ?? 0);
+    if (t1 > t2) return match.team1;
+    if (t2 > t1) return match.team2;
+
+    const winner = String(detail.winner || '').toLowerCase();
+    if (winner === 't1' || winner === 'team1') return match.team1;
+    if (winner === 't2' || winner === 'team2') return match.team2;
+
+    return 'Draw';
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(winnerHoldTimersRef.current).forEach((timerId) => clearTimeout(timerId));
+      winnerHoldTimersRef.current = {};
+    };
+  }, []);
 
   const getSubcategory = (match) => {
     if (!Object.keys(CATEGORY_SPORTS).includes(match.sport_id)) {
@@ -91,6 +129,22 @@ function Home() {
       }
       return prev.filter((m) => m.id !== updatedMatch.id);
     });
+
+    if (updatedMatch.status === 'completed') {
+      setRecentlyCompletedMatches((prev) => {
+        const idx = prev.findIndex((m) => m.id === updatedMatch.id);
+        if (idx >= 0) {
+          const arr = [...prev];
+          arr[idx] = updatedMatch;
+          return arr;
+        }
+        return [...prev, updatedMatch];
+      });
+      scheduleWinnerHoldRemoval(updatedMatch.id);
+    } else {
+      clearWinnerHoldTimer(updatedMatch.id);
+      setRecentlyCompletedMatches((prev) => prev.filter((m) => m.id !== updatedMatch.id));
+    }
     
     setUpcomingMatches((prev) => {
       if (updatedMatch.status === 'upcoming') {
@@ -104,6 +158,11 @@ function Home() {
       return prev.filter((m) => m.id !== updatedMatch.id || updatedMatch.status === 'upcoming');
     });
   });
+
+  const homeLiveDisplayMatches = sortLiveMatchesByPriority([
+    ...liveMatches,
+    ...recentlyCompletedMatches.filter((completed) => !liveMatches.some((live) => live.id === completed.id)),
+  ]);
 
   return (
     <div className="home-page">
@@ -180,12 +239,25 @@ function Home() {
           <h2 className="section-title">Live Matches</h2>
         </div>
         <div className="live-matches-grid">
-          {liveMatches.length > 0 ? (
-            sortLiveMatchesByPriority(liveMatches).map((match) => (
-              <div key={match.id} className="match-card-live">
+          {homeLiveDisplayMatches.length > 0 ? (
+            homeLiveDisplayMatches.map((match) => {
+              const isWinnerHoldCard = match.status === 'completed';
+              return (
+              <div key={match.id} className={`match-card-live ${isWinnerHoldCard ? 'winner-hold-card' : ''}`}>
                 <div className="match-card-live-glow"></div>
+                {isWinnerHoldCard && (
+                  <div className="winner-confetti-wrap" aria-hidden="true">
+                    {Array.from({ length: 14 }).map((_, i) => (
+                      <span key={i} className="winner-confetti-piece" />
+                    ))}
+                  </div>
+                )}
                 <div className="match-card-live-header">
-                  <span className="match-badge live-badge"><span className="live-dot"></span>LIVE</span>
+                  {isWinnerHoldCard ? (
+                    <span className="match-badge winner-badge">FINAL</span>
+                  ) : (
+                    <span className="match-badge live-badge"><span className="live-dot"></span>LIVE</span>
+                  )}
                   <div className="match-sport-meta">
                     <span className="match-sport-tag">{match.sport_id.replace('-', ' ').toUpperCase()}</span>
                     {getSubcategory(match) && (
@@ -196,11 +268,16 @@ function Home() {
                 <div className="match-card-live-body">
                   <SportScoreboard match={match} compact />
                 </div>
+                {isWinnerHoldCard && (
+                  <div className="winner-name-banner">
+                    Winner: <strong>{getWinnerName(match)}</strong>
+                  </div>
+                )}
                 <Link to={getMatchDetailsRoute(match)} className="match-card-live-link">
-                  Watch Details →
+                  {isWinnerHoldCard ? 'View Result →' : 'Watch Details →'}
                 </Link>
               </div>
-            ))
+            )})
           ) : (
             <div className="empty-state-premium">
               <div className="empty-icon">📡</div>

@@ -334,7 +334,9 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
                     {b}
                   </span>
                 ))}
-                {balls.length === 0 && <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>Waiting for first ball...</span>}
+                   {balls.length === 0 && match.status !== 'completed' && (
+                     <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>Waiting for first ball...</span>
+                   )}
               </div>
             </div>
           </>
