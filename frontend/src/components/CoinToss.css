@@ -185,6 +185,29 @@
   gap: 0.75rem;
 }
 
+.coin-toss-set-config {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.coin-toss-set-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.coin-toss-set-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+}
+
 .decision-button {
   padding: 1rem;
   background: linear-gradient(145deg, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.15));

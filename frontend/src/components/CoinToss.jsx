@@ -22,6 +22,7 @@ function CoinToss({
   onTossComplete,
   initialTossWinner,
   initialTossDecision,
+  initialSetCount,
   canFlip = true,
   flipBlockedMessage = '',
 }) {
@@ -29,6 +30,17 @@ function CoinToss({
   const [tossWinner, setTossWinner] = useState(initialTossWinner || null);
   const [tossDecision, setTossDecision] = useState(initialTossDecision || null);
   const [showDecisionStep, setShowDecisionStep] = useState(!!initialTossWinner);
+
+  const setConfig = getSetConfigForSport(sportId);
+  const resolvedInitialSetCount = Number(initialSetCount);
+  const defaultSetCount = Number.isFinite(resolvedInitialSetCount) && resolvedInitialSetCount > 0
+    ? resolvedInitialSetCount
+    : (setConfig?.defaultValue || 3);
+  const [setCountOption, setSetCountOption] = useState(() => {
+    if (!setConfig) return '3';
+    return setConfig.options.includes(defaultSetCount) ? String(defaultSetCount) : 'Custom';
+  });
+  const [customSetCount, setCustomSetCount] = useState(String(defaultSetCount));
 
   // Determine toss decision options based on sport
   const getTossOptions = () => {
@@ -90,6 +102,18 @@ function CoinToss({
   };
 
   const handleDecisionSelect = (decision) => {
+    let selectedSetCount = null;
+    if (setConfig) {
+      selectedSetCount = setCountOption === 'Custom'
+        ? Number(customSetCount)
+        : Number(setCountOption);
+
+      if (!Number.isFinite(selectedSetCount) || selectedSetCount <= 0) {
+        alert('Please enter a valid number of sets.');
+        return;
+      }
+    }
+
     setTossDecision(decision);
     
     // Call onTossComplete immediately after decision is made
@@ -97,6 +121,7 @@ function CoinToss({
       onTossComplete({
         toss_winner: tossWinner,
         toss_decision: decision,
+        ...(setConfig ? { sets_to_play: selectedSetCount, max_sets: selectedSetCount } : {}),
       });
     }
   };
@@ -147,6 +172,40 @@ function CoinToss({
             </div>
 
             <div className="decision-buttons">
+              {setConfig && (
+                <div className="coin-toss-set-config">
+                  <label className="coin-toss-set-label">No. of sets to be played</label>
+                  <div className="coin-toss-set-inputs">
+                    <select
+                      className="input-field"
+                      value={setCountOption}
+                      onChange={(e) => {
+                        const selected = e.target.value;
+                        setSetCountOption(selected);
+                        if (selected !== 'Custom') {
+                          setCustomSetCount(selected);
+                        }
+                      }}
+                    >
+                      {setConfig.options.map((option) => (
+                        <option key={option} value={String(option)}>{option}</option>
+                      ))}
+                      <option value="Custom">Custom</option>
+                    </select>
+                    {setCountOption === 'Custom' && (
+                      <input
+                        type="number"
+                        min={1}
+                        className="input-field"
+                        value={customSetCount}
+                        onChange={(e) => setCustomSetCount(e.target.value)}
+                        placeholder="Sets"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
               {tossOptions.map((option) => (
                 <button
                   key={option.value}
@@ -169,6 +228,10 @@ function CoinToss({
               onClick={() => {
                 setTossWinner(null);
                 setTossDecision(null);
+                if (setConfig) {
+                  setSetCountOption(setConfig.options.includes(defaultSetCount) ? String(defaultSetCount) : 'Custom');
+                  setCustomSetCount(String(defaultSetCount));
+                }
                 setShowDecisionStep(false);
               }}
               className="coin-reset-button"
@@ -194,5 +257,11 @@ const SPORT_NAMES = {
   'kho-kho': 'kho-kho',
   'tug-of-war': 'side',
 };
+
+function getSetConfigForSport(sportId) {
+  if (sportId === 'volleyball') return { options: [1, 3, 5], defaultValue: 5 };
+  if (sportId === 'badminton' || sportId === 'table-tennis') return { options: [1, 3, 5], defaultValue: 3 };
+  return null;
+}
 
 export default CoinToss;

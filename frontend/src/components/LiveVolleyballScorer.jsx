@@ -376,12 +376,18 @@ export default function LiveVolleyballScorer({
           sportId={sportId}
           team1Name={team1}
           team2Name={team2}
+          initialSetCount={state.maxSets}
           onTossComplete={(tossData) => {
             const winner = tossData.toss_winner === 't1' ? 'A' : 'B';
+            const selectedMaxSets = Number(tossData.max_sets);
+            if (Number.isFinite(selectedMaxSets) && selectedMaxSets > 0) {
+              dispatch({ type: 'SET_MAX_SETS', value: selectedMaxSets });
+            }
             patch({
               toss_winner: tossData.toss_winner,
               toss_decision: tossData.toss_decision,
               toss_decided: true,
+              ...(Number.isFinite(selectedMaxSets) && selectedMaxSets > 0 ? { max_sets: selectedMaxSets } : {}),
               servingTeam: winner, // Default serving team to toss winner
             });
           }}
