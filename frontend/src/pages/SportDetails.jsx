@@ -42,28 +42,31 @@ function SportDetails() {
 
     const fetchDetails = async () => {
       try {
-        const matchesRes = await api.get(`/matches/sport/${id}`);
-        setMatches(matchesRes.data);
-
-        await fetchTeamsForSport();
+        const requests = [
+          api.get(`/matches/sport/${id}`),
+          api.get(`/teams/sport/${id}`),
+          api.get(`/tournaments?sport_id=${id}`),
+        ];
 
         if (id === 'athletics') {
-          const allTeamsRes = await api.get('/teams');
+          requests.push(api.get('/teams'));
+        }
+
+        const [matchesRes, teamsRes, tourRes, allTeamsRes] = await Promise.all(requests);
+
+        setMatches(matchesRes.data);
+        setTeams(teamsRes.data);
+
+        if (id === 'athletics') {
           setAllTeams(allTeamsRes.data);
         }
 
-        // Fetch tournaments for this sport
         setLoadingBrackets(true);
-        try {
-          const tourRes = await api.get(`/tournaments?sport_id=${id}`);
-          setTournaments(tourRes.data || []);
-        } catch (err) {
-          console.error('Failed to fetch tournaments', err);
-        } finally {
-          setLoadingBrackets(false);
-        }
+        setTournaments(tourRes.data || []);
       } catch (err) {
         console.error('Failed to fetch sport details', err);
+      } finally {
+        setLoadingBrackets(false);
       }
     };
     fetchDetails();

@@ -15,13 +15,15 @@ function MatchDetailsVolleyball() {
   useEffect(() => {
     const fetchMatch = async () => {
       try {
-        const res = await api.get('/matches');
-        const found = res.data.find(m => String(m.id) === id);
+        const found = (await api.get(`/matches/${id}`)).data;
         if (found) {
+          const [team1Res, team2Res] = await Promise.all([
+            api.get(`/teams/${found.team1_id}`),
+            api.get(`/teams/${found.team2_id}`),
+          ]);
           setMatch(found);
-          const teamsRes = await api.get('/teams');
-          setTeam1Data(teamsRes.data.find(t => t.id === found.team1_id));
-          setTeam2Data(teamsRes.data.find(t => t.id === found.team2_id));
+          setTeam1Data(team1Res.data || null);
+          setTeam2Data(team2Res.data || null);
         }
       } catch (err) {
         console.error('Failed to fetch match details', err);

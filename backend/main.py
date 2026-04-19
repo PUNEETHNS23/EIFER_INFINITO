@@ -182,6 +182,13 @@ def delete_admin(admin_id: int, db: Session = Depends(get_db), current_user: str
 def get_teams(db: Session = Depends(get_db)):
     return db.query(models.Team).all()
 
+@app.get("/api/teams/{team_id}", response_model=schemas.Team)
+def get_team(team_id: int, db: Session = Depends(get_db)):
+    team = db.query(models.Team).filter(models.Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return team
+
 @app.get("/api/teams/sport/{sport_id}", response_model=list[schemas.Team])
 def get_teams_by_sport(sport_id: str, db: Session = Depends(get_db)):
     return db.query(models.Team).filter(models.Team.sport_id == sport_id).all()
@@ -607,6 +614,13 @@ def get_matches(db: Session = Depends(get_db)):
 def get_live_matches(db: Session = Depends(get_db)):
     matches = db.query(models.Match).filter(models.Match.status == "live").order_by(models.Match.scheduled_time).all()
     return [map_match_names(m, db) for m in matches]
+
+@app.get("/api/matches/{match_id}", response_model=schemas.Match)
+def get_match(match_id: int, db: Session = Depends(get_db)):
+    match = db.query(models.Match).filter(models.Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return map_match_names(match, db)
 
 @app.get("/api/matches/sport/{sport_id}", response_model=list[schemas.Match])
 def get_matches_by_sport(sport_id: str, db: Session = Depends(get_db)):

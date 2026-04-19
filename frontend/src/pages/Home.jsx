@@ -55,33 +55,24 @@ function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const teamsRes = await api.get('/teams');
+        const [teamsRes, liveRes, allRes, athleticsRes] = await Promise.all([
+          api.get('/teams'),
+          api.get('/matches/live'),
+          api.get('/matches'),
+          api.get('/athletics/events'),
+        ]);
+
         setTeamCount(Array.isArray(teamsRes.data) ? teamsRes.data.length : 0);
-      } catch (err) {
-        console.error('Failed to fetch teams', err);
-      }
-      try {
-        const liveRes = await api.get('/matches/live');
-        setLiveMatches(liveRes.data);
-      } catch (err) {
-        console.error('Failed to fetch live matches', err);
-      }
-      try {
-        const allRes = await api.get('/matches');
+        setLiveMatches(Array.isArray(liveRes.data) ? liveRes.data : []);
         setMatchCount(Array.isArray(allRes.data) ? allRes.data.length : 0);
-        setUpcomingMatches(allRes.data.filter(m => m.status === 'upcoming').slice(0, 4));
-      } catch (err) {
-        console.error('Failed to fetch matches', err);
-      }
-      try {
-        const athleticsRes = await api.get('/athletics/events');
+        setUpcomingMatches((Array.isArray(allRes.data) ? allRes.data : []).filter(m => m.status === 'upcoming').slice(0, 4));
         setUpcomingAthleticsEvents(
           (Array.isArray(athleticsRes.data) ? athleticsRes.data : [])
             .filter((event) => event.status !== 'completed')
             .slice(0, 4)
         );
       } catch (err) {
-        console.error('Failed to fetch athletics events', err);
+        console.error('Failed to fetch home data', err);
       }
     };
     fetchData();

@@ -109,15 +109,16 @@ function MatchDetailsGeneric() {
   useEffect(() => {
     const fetchMatch = async () => {
       try {
-        const [matchesRes, teamsRes] = await Promise.all([
-          api.get('/matches'),
-          api.get('/teams'),
-        ]);
-        const found = matchesRes.data.find((m) => String(m.id) === id);
+        const matchRes = await api.get(`/matches/${id}`);
+        const found = matchRes.data;
         if (found) {
+          const [team1Res, team2Res] = await Promise.all([
+            api.get(`/teams/${found.team1_id}`),
+            api.get(`/teams/${found.team2_id}`),
+          ]);
           setMatch(found);
-          setTeam1Data(teamsRes.data.find((t) => t.id === found.team1_id) || null);
-          setTeam2Data(teamsRes.data.find((t) => t.id === found.team2_id) || null);
+          setTeam1Data(team1Res.data || null);
+          setTeam2Data(team2Res.data || null);
         }
       } catch (err) {
         console.error('Failed to fetch match details', err);
