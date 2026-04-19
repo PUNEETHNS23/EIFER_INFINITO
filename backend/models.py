@@ -76,6 +76,7 @@ class Tournament(Base):
     name        = Column(String)
     category    = Column(String, nullable=True)
     status      = Column(String, default="active")  # active | completed
+    is_public   = Column(Boolean, default=True, nullable=False)
     # Full bracket: list of rounds, each round = list of match dicts
     # match dict keys: uid, round, position, teamA, teamB, winner, match_id, scheduled_at
     bracket     = Column(JSON, nullable=True)

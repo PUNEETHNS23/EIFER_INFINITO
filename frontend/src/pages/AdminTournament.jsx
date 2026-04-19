@@ -395,7 +395,7 @@ export default function AdminTournament() {
   const [loadingList,  setLoadingList]  = useState(true);
 
   // Form
-  const [form, setForm] = useState({ sport_id: sportId || 'cricket', name: '', category: '', venue: '' });
+  const [form, setForm] = useState({ sport_id: sportId || 'cricket', name: '', category: '', venue: '', is_public: true });
   const [sportTeams,      setSportTeams]      = useState([]);
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
   const [creating,        setCreating]        = useState(false);
@@ -452,11 +452,12 @@ export default function AdminTournament() {
         name:     form.name,
         category: form.category || null,
         venue:    form.venue || null,
+        is_public: form.is_public,
         team_ids: selectedTeamIds,
       });
       await fetchList();
       selectTournament(res.data.id);
-      setForm(f => ({ ...f, name: '', category: '', venue: '' }));
+      setForm(f => ({ ...f, name: '', category: '', venue: '', is_public: true }));
       setSelectedTeamIds([]);
     } catch (err) {
       alert(err.response?.data?.detail || 'Failed to create tournament');
@@ -480,6 +481,19 @@ export default function AdminTournament() {
 
   const handleSwapTeams = (srcUid, srcKey, tgtUid, tgtKey) => {
     setPendingSwap({ srcUid, srcKey, tgtUid, tgtKey });
+  };
+
+  const handleVisibilityToggle = async (nextIsPublic) => {
+    if (!tournament || tournament.is_public === nextIsPublic) return;
+    try {
+      const res = await api.patch(`/tournaments/${tournament.id}/visibility`, {
+        is_public: nextIsPublic,
+      });
+      setTournament(res.data);
+      setTournaments(prev => prev.map(t => t.id === res.data.id ? { ...t, is_public: res.data.is_public } : t));
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to update bracket visibility');
+    }
   };
 
   const confirmSwap = async () => {
@@ -602,6 +616,31 @@ export default function AdminTournament() {
               </div>
 
               <div className="input-group">
+                <label className="input-label">Bracket Visibility</label>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, is_public: true }))}
+                    className={form.is_public ? 'btn-primary' : 'btn-outline'}
+                    style={{ padding: '0.7rem 1rem' }}
+                  >
+                    Public
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, is_public: false }))}
+                    className={!form.is_public ? 'btn-primary' : 'btn-outline'}
+                    style={{ padding: '0.7rem 1rem' }}
+                  >
+                    Private
+                  </button>
+                </div>
+                <p style={{ margin: '0.5rem 0 0', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                  Public brackets appear to all visitors. Private brackets stay hidden unless the viewer is signed in.
+                </p>
+              </div>
+
+              <div className="input-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
                   <label className="input-label" style={{ marginBottom: 0 }}>
                     Select Teams ({selectedTeamIds.length})
@@ -710,6 +749,13 @@ export default function AdminTournament() {
                     }}>
                       {tournament.status === 'completed' ? '🏆 Completed' : '⚡ Active'}
                     </span>
+                    <span style={{
+                      fontSize: '0.75rem', fontWeight: 800, padding: '2px 12px', borderRadius: 999,
+                      background: tournament.is_public ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.15)',
+                      color: tournament.is_public ? '#34d399' : '#ef4444',
+                    }}>
+                      {tournament.is_public ? 'Public Bracket' : 'Private Bracket'}
+                    </span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -723,6 +769,35 @@ export default function AdminTournament() {
                   <Link to={`/tournament/${tournament.id}`} target="_blank" className="btn-outline btn-sm" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
                      Public Bracket ↗
                   </Link>
+                </div>
+              </div>
+
+              <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.35rem', fontSize: '1.05rem', fontWeight: 800 }}>Bracket Visibility</h3>
+                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.88rem' }}>
+                      Control whether the audience can open this bracket page.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleVisibilityToggle(true)}
+                      className={tournament.is_public ? 'btn-primary' : 'btn-outline'}
+                      style={{ padding: '0.7rem 1rem' }}
+                    >
+                      Make Public
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleVisibilityToggle(false)}
+                      className={!tournament.is_public ? 'btn-primary' : 'btn-outline'}
+                      style={{ padding: '0.7rem 1rem' }}
+                    >
+                      Make Private
+                    </button>
+                  </div>
                 </div>
               </div>
 

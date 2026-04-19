@@ -56,6 +56,12 @@ def ensure_db_migrations():
             with database.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE teams ADD COLUMN results JSON"))
 
+    if "tournaments" in tables:
+        cols = {c["name"] for c in insp.get_columns("tournaments")}
+        if "is_public" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE tournaments ADD COLUMN is_public BOOLEAN DEFAULT TRUE"))
+
 
 ensure_db_migrations()
 
@@ -1670,10 +1676,16 @@ def _sync_tournament_bracket(db_match: models.Match, db: Session):
 
 
 @app.get("/api/tournaments", response_model=list[schemas.TournamentOut])
-def list_tournaments(sport_id: Optional[str] = None, db: Session = Depends(get_db)):
+def list_tournaments(
+    sport_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Optional[str] = Depends(auth.get_optional_username),
+):
     q = db.query(models.Tournament)
     if sport_id:
         q = q.filter(models.Tournament.sport_id == sport_id)
+    if current_user is None:
+        q = q.filter(models.Tournament.is_public.is_(True))
     return q.order_by(models.Tournament.created_at.desc()).all()
 
 
@@ -1702,6 +1714,7 @@ def create_tournament(
         name     = payload.name,
         category = payload.category,
         status   = "active",
+        is_public = payload.is_public,
         bracket  = bracket,
     )
     db.add(tournament)
@@ -1711,10 +1724,33 @@ def create_tournament(
 
 
 @app.get("/api/tournaments/{tournament_id}", response_model=schemas.TournamentOut)
-def get_tournament(tournament_id: int, db: Session = Depends(get_db)):
+def get_tournament(
+    tournament_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[str] = Depends(auth.get_optional_username),
+):
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Tournament not found")
+    if current_user is None and not t.is_public:
+        raise HTTPException(404, "Tournament not found")
+    return t
+
+
+@app.patch("/api/tournaments/{tournament_id}/visibility", response_model=schemas.TournamentOut)
+def set_tournament_visibility(
+    tournament_id: int,
+    payload: schemas.TournamentVisibilityUpdate,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(auth.verify_token),
+):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(404, "Tournament not found")
+
+    t.is_public = payload.is_public
+    db.commit()
+    db.refresh(t)
     return t
 
 

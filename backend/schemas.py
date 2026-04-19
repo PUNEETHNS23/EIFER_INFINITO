@@ -153,6 +153,7 @@ class TournamentCreate(BaseModel):
     category:  Optional[str] = None
     venue:     Optional[str] = None
     team_ids:  list[int]
+    is_public: bool = True
 
 class TournamentSetWinner(BaseModel):
     match_uid:   str
@@ -183,8 +184,13 @@ class TournamentOut(BaseModel):
     name:      str
     category:  Optional[str] = None
     status:    str
+    is_public: bool
     bracket:   Optional[list] = None
     created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class TournamentVisibilityUpdate(BaseModel):
+    is_public: bool
