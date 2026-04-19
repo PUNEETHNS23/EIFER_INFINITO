@@ -12,11 +12,11 @@ const BRACKET_SPORT_IDS = [
 ];
 
 const CARD_W       = 240;
-const CARD_H       = 110;
+const CARD_H       = 150;
 const CONN_W       = 40;
 const ROUND_W      = CARD_W + CONN_W;
 const HEADER_H     = 38;
-const BASE_SLOT_H  = CARD_H + 20;
+const BASE_SLOT_H  = CARD_H + 30;
 
 function getRoundName(total, idx) {
   const fromEnd = total - 1 - idx;
