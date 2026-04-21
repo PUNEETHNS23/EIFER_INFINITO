@@ -1,9 +1,10 @@
+import getpass
 import requests
 
-sport_creds = {
-    "cricket": ("cricket_admin", "cricket_admin"),
-    "football": ("football_admin", "football_admin"),
-    "volleyball": ("volleyball_admin", "volleyball_admin"),
+sport_users = {
+    "cricket": "cricket_admin",
+    "football": "football_admin",
+    "volleyball": "volleyball_admin",
 }
 
 res = requests.get("http://localhost:8000/api/matches")
@@ -12,7 +13,8 @@ if res.status_code == 200:
     print("Matches:", len(matches))
     if len(matches) > 0:
         sport_id = matches[0]["sport_id"]
-        username, password = sport_creds.get(sport_id, ("general_admin", "general_admin"))
+        username = sport_users.get(sport_id, "general_admin")
+        password = getpass.getpass(f"Password for {username}: ")
         login = requests.post("http://localhost:8000/api/auth/token", data={"username": username, "password": password})
         if login.status_code != 200:
             print("Login failed:", login.text)

@@ -1,4 +1,5 @@
 import os
+import secrets
 import uuid
 from pathlib import Path
 from typing import Optional, Any
@@ -89,21 +90,17 @@ ALL_SPORT_IDS = [
     "esports",
 ]
 
-SPORT_ADMIN_ACCOUNTS: dict[str, dict[str, Any]] = {
+DEFAULT_ADMIN_ACCOUNTS: dict[str, dict[str, Any]] = {
     "cricket_admin": {
-        "password": os.environ.get("CRICKET_ADMIN_PASSWORD", "cricket_admin"),
         "allowed_sports": ["cricket"],
     },
     "football_admin": {
-        "password": os.environ.get("FOOTBALL_ADMIN_PASSWORD", "football_admin"),
         "allowed_sports": ["football"],
     },
     "volleyball_admin": {
-        "password": os.environ.get("VOLLEYBALL_ADMIN_PASSWORD", "volleyball_admin"),
         "allowed_sports": ["volleyball"],
     },
     "general_admin": {
-        "password": os.environ.get("GENERAL_ADMIN_PASSWORD", "general_admin"),
         "allowed_sports": [sport for sport in ALL_SPORT_IDS if sport not in {"cricket", "football", "volleyball"}],
     },
 }
@@ -160,19 +157,59 @@ def _require_full_admin(user: models.User):
         raise HTTPException(status_code=403, detail="This action is available only to the general admin.")
 
 
+def _generate_bootstrap_password() -> str:
+    return secrets.token_urlsafe(18)
+
+
+def _load_admin_credentials_from_db(db: Session) -> list[models.AdminCredential]:
+    for username, row in DEFAULT_ADMIN_ACCOUNTS.items():
+        credential = db.query(models.AdminCredential).filter(models.AdminCredential.username == username).first()
+        if not credential:
+            generated_password = _generate_bootstrap_password()
+            db.add(
+                models.AdminCredential(
+                    username=username,
+                    password=generated_password,
+                    allowed_sports=_normalize_allowed_sports(row["allowed_sports"]),
+                )
+            )
+            print(f"[AUTH] Generated bootstrap password for {username}: {generated_password}")
+            continue
+
+        if not credential.password:
+            generated_password = _generate_bootstrap_password()
+            credential.password = generated_password
+            print(f"[AUTH] Regenerated missing password for {username}: {generated_password}")
+
+        if not credential.allowed_sports:
+            credential.allowed_sports = _normalize_allowed_sports(row["allowed_sports"])
+
+    db.flush()
+    return db.query(models.AdminCredential).all()
+
+
 def _seed_default_admin_accounts(db: Session):
     legacy_admins = db.query(models.User).filter(models.User.username == "admin").all()
     for legacy_admin in legacy_admins:
         db.delete(legacy_admin)
 
-    for username, account in SPORT_ADMIN_ACCOUNTS.items():
-        allowed_sports = _normalize_allowed_sports(account["allowed_sports"])
+    credentials = _load_admin_credentials_from_db(db)
+    for credential in credentials:
+        username = credential.username
+        password = credential.password
+        if not username or not password:
+            continue
+
+        allowed_sports = _normalize_allowed_sports(credential.allowed_sports)
+        if not allowed_sports and username in DEFAULT_ADMIN_ACCOUNTS:
+            allowed_sports = _normalize_allowed_sports(DEFAULT_ADMIN_ACCOUNTS[username]["allowed_sports"])
+
         user = db.query(models.User).filter(models.User.username == username).first()
         if not user:
             db.add(
                 models.User(
                     username=username,
-                    hashed_password=auth.get_password_hash(account["password"]),
+                    hashed_password=auth.get_password_hash(password),
                     is_admin=True,
                     allowed_sports=allowed_sports,
                 )
@@ -181,8 +218,8 @@ def _seed_default_admin_accounts(db: Session):
 
         user.is_admin = True
         user.allowed_sports = allowed_sports
-        if not user.hashed_password:
-            user.hashed_password = auth.get_password_hash(account["password"])
+        if not user.hashed_password or not auth.verify_password(password, user.hashed_password):
+            user.hashed_password = auth.get_password_hash(password)
 
 class ConnectionManager:
     def __init__(self):

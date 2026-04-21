@@ -16,10 +16,14 @@ A modern, visually striking sports event website for SportsFest INFINITO. This p
 
 The backend seeds sport-scoped admin accounts on startup:
 
-- `cricket_admin` / `cricket_admin`
-- `football_admin` / `football_admin`
-- `volleyball_admin` / `volleyball_admin`
-- `general_admin` / `general_admin` for the remaining sports
+- `cricket_admin`
+- `football_admin`
+- `volleyball_admin`
+- `general_admin` for the remaining sports
+
+Passwords are sourced from the database table `admin_credentials`.
+On first bootstrap, strong random passwords are generated and printed once in backend logs.
+Rotate/update them in the `admin_credentials` table after setup.
 
 ## Requirements
 

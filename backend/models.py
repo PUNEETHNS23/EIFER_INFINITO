@@ -13,6 +13,15 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     allowed_sports = Column(JSON, nullable=True)
 
+
+class AdminCredential(Base):
+    __tablename__ = "admin_credentials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password = Column(String)
+    allowed_sports = Column(JSON, nullable=True)
+
 class Team(Base):
     __tablename__ = "teams"
 
