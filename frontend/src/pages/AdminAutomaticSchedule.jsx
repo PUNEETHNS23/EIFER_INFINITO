@@ -102,6 +102,8 @@ export default function AdminAutomaticSchedule() {
   const { sportId } = useParams();
   const navigate = useNavigate();
   const { user, authLoading } = useAuth();
+  const allowedSports = user?.allowed_sports || [];
+  const canAccessSport = allowedSports.length === 0 || allowedSports.includes(sportId);
   
   const meta = getSportMeta(sportId);
   const categories = getSportCategories(sportId);
@@ -124,7 +126,7 @@ export default function AdminAutomaticSchedule() {
   }, [sportId, initialCategory]);
 
   useEffect(() => {
-    if (authLoading || !user || !isValidSport) return;
+    if (authLoading || !user || !isValidSport || !canAccessSport) return;
 
     let mounted = true;
     (async () => {
@@ -143,7 +145,7 @@ export default function AdminAutomaticSchedule() {
     return () => {
       mounted = false;
     };
-  }, [authLoading, user, sportId, isValidSport]);
+  }, [authLoading, user, sportId, isValidSport, canAccessSport]);
 
   const categoryTeams = useMemo(
     () => {
@@ -271,6 +273,10 @@ export default function AdminAutomaticSchedule() {
   }
 
   if (!isValidSport) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  if (!canAccessSport) {
     return <Navigate to="/admin" replace />;
   }
 

@@ -49,6 +49,8 @@ function StatusBadge({ status }) {
 /* ─── Main Component ─────────────────────────────────────────────── */
 export default function AdminAthleticsEventManager() {
   const { user, authLoading } = useAuth();
+  const allowedSports = user?.allowed_sports || [];
+  const canAccessSport = allowedSports.length === 0 || allowedSports.includes('athletics');
 
   const [events, setEvents] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -100,6 +102,10 @@ export default function AdminAthleticsEventManager() {
     if (user) {
       fetchEvents();
       fetchTeams();
+
+    if (!canAccessSport) {
+      return <Navigate to="/admin" replace />;
+    }
     }
   }, [user, fetchEvents, fetchTeams]);
 

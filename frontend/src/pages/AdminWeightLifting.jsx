@@ -16,6 +16,8 @@ const tdStyle = { padding: '0.65rem 1rem', verticalAlign: 'middle' };
 
 function AdminWeightLifting() {
   const { user, authLoading } = useAuth();
+  const allowedSports = user?.allowed_sports || [];
+  const canAccessSport = allowedSports.length === 0 || allowedSports.includes('weight-lifting');
   const [teams, setTeams] = useState([]);
   const [draft, setDraft] = useState({});
 
@@ -34,6 +36,7 @@ function AdminWeightLifting() {
 
   if (authLoading) return null;
   if (!user) return <Navigate to="/login" />;
+  if (!canAccessSport) return <Navigate to="/admin" replace />;
 
   const getValues = (t) => ({
     squat: 0, bench: 0, deadlift: 0, is_injured: false, is_disqualified: false,

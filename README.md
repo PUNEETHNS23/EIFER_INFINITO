@@ -6,11 +6,20 @@ A modern, visually striking sports event website for SportsFest INFINITO. This p
 
 - **Frontend:** React, Vite, React Router DOM, Axios, Custom Vanilla CSS
 - **Backend:** FastAPI, SQLAlchemy, SQLite Database, JWT Authentication
-- **Database Model:** 
+- **Database Model:**
   - `Users` (for admin authentication)
   - `Teams` (stores individual or group participants and points)
   - `Matches` (stores schedule and scores)
 - **Features:** Live Matches, Sport-wise Details, Overall Leaderboard, JWT Admin Login, Live Match Status Control.
+
+### Default Admin Accounts
+
+The backend seeds sport-scoped admin accounts on startup:
+
+- `cricket_admin` / `cricket_admin`
+- `football_admin` / `football_admin`
+- `volleyball_admin` / `volleyball_admin`
+- `general_admin` / `general_admin` for the remaining sports
 
 ## Requirements
 

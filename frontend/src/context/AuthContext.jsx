@@ -1,24 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import AuthContext from './authContextInstance';
+import api from '../api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  useEffect(() => {
-    // Check if user is logged in
+  const loadCurrentUser = async () => {
     const token = localStorage.getItem('token');
-    if (token) {
-      // In a real app, you would decode the JWT or verify it here
-      setUser({ token });
+    if (!token) {
+      setUser(null);
+      setAuthLoading(false);
+      return;
     }
-    setAuthLoading(false);
+
+    try {
+      const res = await api.get('/auth/me');
+      setUser({ token, ...res.data });
+    } catch (error) {
+      localStorage.removeItem('token');
+      setUser(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCurrentUser();
   }, []);
 
-  const login = (token) => {
+  const login = async (token) => {
     localStorage.setItem('token', token);
-    setUser({ token });
-    setAuthLoading(false);
+    setAuthLoading(true);
+    try {
+      const res = await api.get('/auth/me');
+      setUser({ token, ...res.data });
+    } catch (error) {
+      localStorage.removeItem('token');
+      setUser(null);
+      throw error;
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const logout = () => {

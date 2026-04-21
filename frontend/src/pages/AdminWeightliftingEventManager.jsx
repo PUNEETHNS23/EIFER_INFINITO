@@ -76,6 +76,8 @@ function AttemptInput({ lift, attempts, onChange, disabled }) {
 /* ── Main Component ──────────────────────────────────────────────── */
 export default function AdminWeightliftingEventManager() {
   const { user, authLoading } = useAuth();
+  const allowedSports = user?.allowed_sports || [];
+  const canAccessSport = allowedSports.length === 0 || allowedSports.includes('weight-lifting');
 
   const [events, setEvents] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -304,6 +306,7 @@ export default function AdminWeightliftingEventManager() {
   /* ── Auth ───────────────────────────────────────────────────── */
   if (authLoading) return null;
   if (!user) return <Navigate to="/login" />;
+  if (!canAccessSport) return <Navigate to="/admin" replace />;
 
   const isFinalized = eventDetail?.status === 'completed';
   const entries = eventDetail?.entries || [];

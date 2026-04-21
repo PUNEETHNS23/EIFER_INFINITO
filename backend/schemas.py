@@ -62,11 +62,13 @@ class Token(BaseModel):
 class AdminCreate(BaseModel):
     username: str
     password: str
+    allowed_sports: list[str] = Field(default_factory=list)
 
 class AdminUser(BaseModel):
     id: int
     username: str
     is_admin: bool
+    allowed_sports: list[str] = Field(default_factory=list)
     class Config:
         from_attributes = True
 

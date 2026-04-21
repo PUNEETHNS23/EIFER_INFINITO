@@ -399,6 +399,8 @@ export default function AdminTournament() {
   const [sportTeams,      setSportTeams]      = useState([]);
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
   const [creating,        setCreating]        = useState(false);
+  const allowedSports = user?.allowed_sports || [];
+  const canAccessSport = (sid) => allowedSports.length === 0 || allowedSports.includes(sid);
 
   const fetchList = useCallback(async () => {
     setLoadingList(true);
@@ -541,8 +543,9 @@ export default function AdminTournament() {
 
   if (authLoading) return null;
   if (!user)       return <Navigate to="/login" />;
+  if (sportId && !canAccessSport(sportId)) return <Navigate to="/admin" replace />;
 
-  const bracketSports = SPORTS.filter(s => BRACKET_SPORT_IDS.includes(s.id));
+  const bracketSports = SPORTS.filter(s => BRACKET_SPORT_IDS.includes(s.id) && canAccessSport(s.id));
 
   return (
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '5rem' }}>

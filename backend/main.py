@@ -62,10 +62,127 @@ def ensure_db_migrations():
             with database.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE tournaments ADD COLUMN is_public BOOLEAN DEFAULT TRUE"))
 
+    if "users" in tables:
+        cols = {c["name"] for c in insp.get_columns("users")}
+        if "allowed_sports" not in cols:
+            with database.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN allowed_sports JSON"))
+
 
 ensure_db_migrations()
 
 app = FastAPI(title="SportsFest INFINITO API")
+
+ALL_SPORT_IDS = [
+    "athletics",
+    "cricket",
+    "volleyball",
+    "football",
+    "carrom",
+    "chess",
+    "arm-wrestling",
+    "weight-lifting",
+    "kho-kho",
+    "badminton",
+    "table-tennis",
+    "tug-of-war",
+    "esports",
+]
+
+SPORT_ADMIN_ACCOUNTS: dict[str, dict[str, Any]] = {
+    "cricket_admin": {
+        "password": os.environ.get("CRICKET_ADMIN_PASSWORD", "cricket_admin"),
+        "allowed_sports": ["cricket"],
+    },
+    "football_admin": {
+        "password": os.environ.get("FOOTBALL_ADMIN_PASSWORD", "football_admin"),
+        "allowed_sports": ["football"],
+    },
+    "volleyball_admin": {
+        "password": os.environ.get("VOLLEYBALL_ADMIN_PASSWORD", "volleyball_admin"),
+        "allowed_sports": ["volleyball"],
+    },
+    "general_admin": {
+        "password": os.environ.get("GENERAL_ADMIN_PASSWORD", "general_admin"),
+        "allowed_sports": [sport for sport in ALL_SPORT_IDS if sport not in {"cricket", "football", "volleyball"}],
+    },
+}
+
+
+def _normalize_allowed_sports(value: Any) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, str):
+        raw_items = [part.strip() for part in value.split(",")]
+    elif isinstance(value, (list, tuple, set)):
+        raw_items = [str(part).strip() for part in value]
+    else:
+        raw_items = [str(value).strip()]
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for sport_id in raw_items:
+        if not sport_id or sport_id in seen:
+            continue
+        cleaned.append(sport_id)
+        seen.add(sport_id)
+    return cleaned
+
+
+def _get_admin_user(db: Session, username: str) -> Optional[models.User]:
+    user = db.query(models.User).filter(models.User.username == username).first()
+    return user if user and user.is_admin else None
+
+
+def _require_admin(db: Session, username: str) -> models.User:
+    user = _get_admin_user(db, username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Admin access required")
+    return user
+
+
+def _is_full_admin(user: models.User) -> bool:
+    return user.username == "general_admin"
+
+
+def _can_manage_sport(user: models.User, sport_id: str) -> bool:
+    allowed_sports = set(_normalize_allowed_sports(user.allowed_sports))
+    return sport_id in allowed_sports
+
+
+def _require_sport_access(user: models.User, sport_id: str):
+    if not _can_manage_sport(user, sport_id):
+        raise HTTPException(status_code=403, detail=f"This admin cannot manage {sport_id}.")
+
+
+def _require_full_admin(user: models.User):
+    if not _is_full_admin(user):
+        raise HTTPException(status_code=403, detail="This action is available only to the general admin.")
+
+
+def _seed_default_admin_accounts(db: Session):
+    legacy_admins = db.query(models.User).filter(models.User.username == "admin").all()
+    for legacy_admin in legacy_admins:
+        db.delete(legacy_admin)
+
+    for username, account in SPORT_ADMIN_ACCOUNTS.items():
+        allowed_sports = _normalize_allowed_sports(account["allowed_sports"])
+        user = db.query(models.User).filter(models.User.username == username).first()
+        if not user:
+            db.add(
+                models.User(
+                    username=username,
+                    hashed_password=auth.get_password_hash(account["password"]),
+                    is_admin=True,
+                    allowed_sports=allowed_sports,
+                )
+            )
+            continue
+
+        user.is_admin = True
+        user.allowed_sports = allowed_sports
+        if not user.hashed_password:
+            user.hashed_password = auth.get_password_hash(account["password"])
 
 class ConnectionManager:
     def __init__(self):
@@ -131,11 +248,8 @@ def get_db():
 @app.on_event("startup")
 def startup_event():
     db = database.SessionLocal()
-    admin = db.query(models.User).filter(models.User.username == "admin").first()
-    if not admin:
-        hashed_pw = auth.get_password_hash("admin") # default pw
-        db.add(models.User(username="admin", hashed_password=hashed_pw, is_admin=True))
-        db.commit()
+    _seed_default_admin_accounts(db)
+    db.commit()
     _sync_leaderboard_points()
     db.close()
 
@@ -143,7 +257,7 @@ def startup_event():
 @app.post("/api/auth/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+    if not user or not user.is_admin or not auth.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -155,18 +269,50 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
+@app.get("/api/auth/me", response_model=schemas.AdminUser)
+def get_current_admin_profile(db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "is_admin": user.is_admin,
+        "allowed_sports": _normalize_allowed_sports(user.allowed_sports),
+    }
+
 # --- ADMIN MANAGEMENT ROUTES ---
 @app.get("/api/admins", response_model=list[schemas.AdminUser])
 def get_admins(db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
-    return db.query(models.User).filter(models.User.is_admin == True).all()
+    user = _require_admin(db, current_user)
+    _require_full_admin(user)
+    admins = db.query(models.User).filter(models.User.is_admin == True).all()
+    return [
+        {
+            "id": admin.id,
+            "username": admin.username,
+            "is_admin": admin.is_admin,
+            "allowed_sports": _normalize_allowed_sports(admin.allowed_sports),
+        }
+        for admin in admins
+    ]
 
 @app.post("/api/admins", response_model=schemas.AdminUser)
 def create_admin(admin_data: schemas.AdminCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
+    _require_full_admin(user)
     existing = db.query(models.User).filter(models.User.username == admin_data.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
+    allowed_sports = _normalize_allowed_sports(admin_data.allowed_sports)
+    if not allowed_sports:
+        raise HTTPException(status_code=400, detail="Select at least one sport for this admin.")
     hashed_pw = auth.get_password_hash(admin_data.password)
-    new_admin = models.User(username=admin_data.username, hashed_password=hashed_pw, is_admin=True)
+    new_admin = models.User(
+        username=admin_data.username,
+        hashed_password=hashed_pw,
+        is_admin=True,
+        allowed_sports=allowed_sports,
+    )
     db.add(new_admin)
     db.commit()
     db.refresh(new_admin)
@@ -174,11 +320,13 @@ def create_admin(admin_data: schemas.AdminCreate, db: Session = Depends(get_db),
 
 @app.delete("/api/admins/{admin_id}")
 def delete_admin(admin_id: int, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
+    _require_full_admin(user)
     admin = db.query(models.User).filter(models.User.id == admin_id).first()
     if not admin:
         raise HTTPException(status_code=404, detail="Admin not found")
-    if admin.username == "admin":
-        raise HTTPException(status_code=400, detail="Cannot delete the root admin account")
+    if admin.username == "general_admin":
+        raise HTTPException(status_code=400, detail="Cannot delete the general admin account")
     db.delete(admin)
     db.commit()
     return {"detail": "Admin removed"}
@@ -235,6 +383,8 @@ def get_overall_leaderboard(db: Session = Depends(get_db)):
 
 @app.post("/api/teams", response_model=schemas.Team)
 def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, team.sport_id)
     racket_categories = {
         "Mens Singles",
         "Mens Doubles",
@@ -314,9 +464,11 @@ def create_team(team: schemas.TeamCreate, db: Session = Depends(get_db), current
 
 @app.delete("/api/teams/{team_id}")
 def delete_team(team_id: int, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
     team = db.query(models.Team).filter(models.Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    _require_sport_access(user, team.sport_id)
 
     linked_match = db.query(models.Match).filter(
         (models.Match.team1_id == team_id) | (models.Match.team2_id == team_id)
@@ -337,9 +489,11 @@ def update_team_results(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
     team = db.query(models.Team).filter(models.Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    _require_sport_access(user, team.sport_id)
 
     # For powerlifting/weight-lifting, auto-calculate the total
     if team.sport_id == "weight-lifting":
@@ -362,9 +516,11 @@ def update_team_results(
 
 @app.put("/api/teams/{team_id}/disqualify", response_model=schemas.Team)
 def disqualify_team(team_id: int, req: schemas.DisqualifyRequest, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
     team = db.query(models.Team).filter(models.Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    _require_sport_access(user, team.sport_id)
     team.is_disqualified = True
     team.disqualification_reason = req.reason
     db.commit()
@@ -373,9 +529,11 @@ def disqualify_team(team_id: int, req: schemas.DisqualifyRequest, db: Session = 
 
 @app.put("/api/teams/{team_id}/reinstate", response_model=schemas.Team)
 def reinstate_team(team_id: int, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
     team = db.query(models.Team).filter(models.Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    _require_sport_access(user, team.sport_id)
     team.is_disqualified = False
     team.disqualification_reason = None
     db.commit()
@@ -635,6 +793,8 @@ def get_matches_by_sport(sport_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/matches", response_model=schemas.Match)
 def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, match.sport_id)
     if match.team1_id == match.team2_id:
         raise HTTPException(status_code=400, detail="Team 1 and Team 2 must be different")
 
@@ -686,9 +846,11 @@ def create_match(match: schemas.MatchCreate, db: Session = Depends(get_db), curr
 
 @app.put("/api/matches/{match_id}", response_model=schemas.Match)
 async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
+    _require_sport_access(user, db_match.sport_id)
 
     payload = match_update.model_dump(exclude_unset=True)
 
@@ -724,6 +886,8 @@ async def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Ses
  
 @app.post("/api/sports/{sport_id}/finalize")
 def finalize_sport(sport_id: str, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, sport_id)
     # 1. Reset all team points for this sport
     db.query(models.Team).filter(models.Team.sport_id == sport_id).update({models.Team.points: 0})
     
@@ -755,9 +919,11 @@ def finalize_sport(sport_id: str, db: Session = Depends(get_db), current_user: s
 
 @app.delete("/api/matches/{match_id}")
 def delete_match(match_id: int, db: Session = Depends(get_db), current_user: str = Depends(auth.verify_token)):
+    user = _require_admin(db, current_user)
     db_match = db.query(models.Match).filter(models.Match.id == match_id).first()
     if not db_match:
         raise HTTPException(status_code=404, detail="Match not found")
+    _require_sport_access(user, db_match.sport_id)
     
     db.delete(db_match)
     db.flush()
@@ -842,6 +1008,8 @@ def create_athletics_event(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "athletics")
     allowed = {"relay_4x100", "boys_100m", "girls_100m"}
     if payload.event_type not in allowed:
         raise HTTPException(status_code=400, detail=f"event_type must be one of {allowed}")
@@ -874,6 +1042,8 @@ def add_athletics_entry(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "athletics")
     ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -905,6 +1075,8 @@ def update_athletics_entry(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "athletics")
     ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -937,6 +1109,8 @@ def delete_athletics_entry(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "athletics")
     ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -958,6 +1132,8 @@ def resolve_athletics_tie_rematch(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "athletics")
     ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1004,6 +1180,8 @@ def finalize_athletics_event(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "athletics")
     ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1022,6 +1200,8 @@ def delete_athletics_event(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "athletics")
     ev = db.query(models.AthleticsEvent).filter(models.AthleticsEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1121,6 +1301,8 @@ def create_wl_event(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = models.WeightLiftingEvent(label=payload.label or "", status="upcoming", entries=[])
     db.add(ev)
     db.commit()
@@ -1144,6 +1326,8 @@ def add_wl_entry(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1176,6 +1360,8 @@ def update_wl_entry(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1209,6 +1395,8 @@ def delete_wl_entry(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1230,6 +1418,8 @@ def resolve_wl_tie_rematch(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1276,6 +1466,8 @@ def finalize_wl_event(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1294,6 +1486,8 @@ def sync_wl_teams(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev: raise HTTPException(404, "Event not found")
     if ev.status == "completed": raise HTTPException(400, "Event is finalized.")
@@ -1340,6 +1534,8 @@ def bulk_update_wl_entries(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev: raise HTTPException(404, "Event not found")
     if ev.status == "completed": raise HTTPException(400, "Event is finalized.")
@@ -1372,6 +1568,8 @@ def delete_wl_event(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token)
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, "weight-lifting")
     ev = db.query(models.WeightLiftingEvent).filter(models.WeightLiftingEvent.id == event_id).first()
     if not ev:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -1695,6 +1893,8 @@ def create_tournament(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token),
 ):
+    user = _require_admin(db, current_user)
+    _require_sport_access(user, payload.sport_id)
     if payload.sport_id not in BRACKET_SPORTS:
         raise HTTPException(400, f"Tournament brackets only for: {', '.join(sorted(BRACKET_SPORTS))}")
     if len(payload.team_ids) < 2:
@@ -1744,9 +1944,12 @@ def set_tournament_visibility(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token),
 ):
+    user = _require_admin(db, current_user)
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Tournament not found")
+
+    _require_sport_access(user, t.sport_id)
 
     t.is_public = payload.is_public
     db.commit()
@@ -1761,9 +1964,12 @@ def set_tournament_winner(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token),
 ):
+    user = _require_admin(db, current_user)
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Tournament not found")
+
+    _require_sport_access(user, t.sport_id)
 
     bracket = list(t.bracket or [])
     winner  = {"id": payload.winner_id, "name": payload.winner_name}
@@ -1796,9 +2002,12 @@ def set_tournament_details(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token),
 ):
+    user = _require_admin(db, current_user)
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Tournament not found")
+
+    _require_sport_access(user, t.sport_id)
 
     bracket = list(t.bracket or [])
     found = False
@@ -1893,9 +2102,12 @@ def bulk_set_tournament_details(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token),
 ):
+    user = _require_admin(db, current_user)
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Tournament not found")
+
+    _require_sport_access(user, t.sport_id)
 
     bracket = list(t.bracket or [])
     from dateutil import parser
@@ -1998,9 +2210,12 @@ def swap_tournament_teams(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token),
 ):
+    user = _require_admin(db, current_user)
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Tournament not found")
+
+    _require_sport_access(user, t.sport_id)
 
     bracket = list(t.bracket or [])
     
@@ -2083,9 +2298,12 @@ def delete_tournament(
     db: Session = Depends(get_db),
     current_user: str = Depends(auth.verify_token),
 ):
+    user = _require_admin(db, current_user)
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(404, "Tournament not found")
+
+    _require_sport_access(user, t.sport_id)
 
     # Delete linked Match rows
     match_ids = [

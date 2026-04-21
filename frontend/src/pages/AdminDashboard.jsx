@@ -20,7 +20,12 @@ function AdminDashboard() {
 
   // Form states
   const footballSquadLimit = 11;
-  const createTeamState = (sportId = 'cricket', category = '') => ({
+  const allowedSports = user?.allowed_sports || [];
+  const isGeneralAdmin = user?.username === 'general_admin';
+  const canAccessSport = (sportId) => allowedSports.length === 0 || allowedSports.includes(sportId);
+  const defaultSportId = allowedSports[0] || 'cricket';
+
+  const createTeamState = (sportId = defaultSportId, category = '') => ({
     name: '',
     sport_id: sportId,
     category,
@@ -33,10 +38,10 @@ function AdminDashboard() {
     setNewTeam(createTeamState(sportId, initialCategory));
   };
 
-  const [newTeam, setNewTeam] = useState(createTeamState());
+  const [newTeam, setNewTeam] = useState(createTeamState(defaultSportId));
   const [tempPlayerName, setTempPlayerName] = useState('');
-  const [newMatch, setNewMatch] = useState({ sport_id: 'cricket', team1_id: '', team2_id: '', scheduled_time: '' });
-  const [newAdmin, setNewAdmin] = useState({ username: '', password: '' });
+  const [newMatch, setNewMatch] = useState({ sport_id: defaultSportId, team1_id: '', team2_id: '', scheduled_time: '' });
+  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', allowed_sports: [] });
   const [adminMsg, setAdminMsg] = useState('');
   const [dqReason, setDqReason] = useState({});
   const teamsRefreshTimeoutRef = useRef(null);
@@ -69,9 +74,11 @@ function AdminDashboard() {
     if (user) {
       fetchMatches();
       fetchTeams();
-      fetchAdmins();
+      if (isGeneralAdmin) {
+        fetchAdmins();
+      }
     }
-  }, [user]);
+  }, [user, isGeneralAdmin]);
 
   useMatchSocket((updatedMatch) => {
     setMatches((prev) => {
@@ -211,7 +218,7 @@ function AdminDashboard() {
     try {
       await api.post('/admins', newAdmin);
       fetchAdmins();
-      setNewAdmin({ username: '', password: '' });
+      setNewAdmin({ username: '', password: '', allowed_sports: [] });
       setAdminMsg('Admin created successfully!');
     } catch (e) {
       setAdminMsg(e.response?.data?.detail || 'Error creating admin');
@@ -278,7 +285,7 @@ function AdminDashboard() {
 
       {/* Section Tabs */}
       <div className="admin-tabs-container">
-        {['matches', 'teams', 'admins'].map(section => (
+        {['matches', 'teams', ...(isGeneralAdmin ? ['admins'] : [])].map(section => (
           <button
             key={section}
             className={`admin-tab ${activeSection === section ? 'active' : ''}`}
@@ -298,7 +305,7 @@ function AdminDashboard() {
               Each sport has its own scoreboard layout and fields. Open a desk to update live scores and status.
             </p>
             <div className="admin-grid-desks">
-              {SPORTS.map((s) => (
+              {SPORTS.filter((s) => canAccessSport(s.id)).map((s) => (
                 s.id === 'athletics' ? (
                   <Link key={s.id} to="/admin/athletics" className="btn-outline btn-sm" style={{ textAlign: 'center', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
                     {s.icon} {s.name}
@@ -350,7 +357,7 @@ function AdminDashboard() {
               </Link>
             </div>
             <div className="admin-grid-desks" style={{ marginTop: '0.5rem' }}>
-              {SPORTS.filter(s => ['cricket','volleyball','football','badminton','table-tennis','chess','carrom','tug-of-war','kho-kho','arm-wrestling'].includes(s.id)).map(s => (
+              {SPORTS.filter(s => ['cricket','volleyball','football','badminton','table-tennis','chess','carrom','tug-of-war','kho-kho','arm-wrestling'].includes(s.id) && canAccessSport(s.id)).map(s => (
                 <Link key={s.id} to={`/admin/tournament/${s.id}`}
                   className="btn-outline btn-sm"
                   style={{ textAlign: 'center', borderColor: 'rgba(245,158,11,0.4)', color: '#f59e0b' }}>
@@ -382,7 +389,7 @@ function AdminDashboard() {
                   onChange={(e) => setMatchSportFilter(e.target.value)}
                 >
                   <option value="">All</option>
-                  {SPORTS.map((s) => (
+                  {SPORTS.filter((s) => canAccessSport(s.id)).map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
@@ -456,7 +463,7 @@ function AdminDashboard() {
               <>
                 <h2 className="admin-section-title">Step 1: Select Sport to Create Team</h2>
                 <div className="admin-grid-desks">
-                  {SPORTS.map((s) => (
+                  {SPORTS.filter((s) => canAccessSport(s.id)).map((s) => (
                     <button
                       key={s.id}
                       onClick={() => {
@@ -605,7 +612,7 @@ function AdminDashboard() {
                   }}
                   style={{ minWidth: '200px' }}
                 >
-                  {SPORTS.map((s) => (
+                  {SPORTS.filter((s) => canAccessSport(s.id)).map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
@@ -771,6 +778,33 @@ function AdminDashboard() {
                   required
                 />
               </div>
+              <div className="input-group">
+                <label className="input-label">Allowed Sports</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.6rem' }}>
+                  {SPORTS.map((sport) => (
+                    <label key={sport.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 0.75rem', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', cursor: 'pointer', opacity: canAccessSport(sport.id) ? 1 : 0.45 }}>
+                      <input
+                        type="checkbox"
+                        checked={newAdmin.allowed_sports.includes(sport.id)}
+                        disabled={!canAccessSport(sport.id)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setNewAdmin((prev) => ({
+                            ...prev,
+                            allowed_sports: checked
+                              ? Array.from(new Set([...(prev.allowed_sports || []), sport.id]))
+                              : (prev.allowed_sports || []).filter((id) => id !== sport.id),
+                          }));
+                        }}
+                      />
+                      <span>{sport.icon} {sport.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                  Select one or more sports for this admin. The current admin can only assign sports they already manage.
+                </p>
+              </div>
               <button className="btn-primary" style={{ width: '100%' }}>Create Admin</button>
             </form>
           </div>
@@ -793,10 +827,15 @@ function AdminDashboard() {
                     <tr key={a.id}>
                       <td className="team-name-cell">
                         {a.username}
-                        {a.username === 'admin' && <span style={{ color: 'var(--color-primary)', fontSize: '0.7rem', marginLeft: '0.5rem' }}>[Root]</span>}
+                        {a.username === 'general_admin' && <span style={{ color: 'var(--color-primary)', fontSize: '0.7rem', marginLeft: '0.5rem' }}>[General]</span>}
+                        {Array.isArray(a.allowed_sports) && a.allowed_sports.length > 0 && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                            {a.allowed_sports.join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td>
-                        {a.username !== 'admin' && (
+                        {a.username !== 'general_admin' && (
                           <button 
                             className="btn-outline btn-sm"
                             onClick={() => handleDeleteAdmin(a.id)}

@@ -19,6 +19,8 @@ function AdminSportScore() {
   const valid = SPORTS.some((s) => s.id === sportId);
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   const isCategorizedSport = categorizedSports.includes(sportId);
+  const allowedSports = user?.allowed_sports || [];
+  const canAccessSport = allowedSports.length === 0 || allowedSports.includes(sportId);
 
   const normalizeCategory = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -62,6 +64,10 @@ function AdminSportScore() {
   }
 
   if (!valid) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  if (!canAccessSport) {
     return <Navigate to="/admin" replace />;
   }
 

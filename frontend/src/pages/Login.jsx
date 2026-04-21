@@ -24,10 +24,10 @@ function Login() {
         }
       });
       
-      login(res.data.access_token);
+      await login(res.data.access_token);
       navigate('/admin');
     } catch (err) {
-      setError('Invalid admin credentials. Access Denied.');
+      setError('Invalid admin credentials or insufficient sport access.');
     }
   };
 

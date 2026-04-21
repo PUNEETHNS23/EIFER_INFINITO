@@ -9,6 +9,8 @@ function AdminCreateMatch() {
   const { sportId } = useParams();
   const navigate = useNavigate();
   const { user, authLoading } = useAuth();
+  const allowedSports = user?.allowed_sports || [];
+  const canAccessSport = allowedSports.length === 0 || allowedSports.includes(sportId);
   const categorizedSports = Object.keys(CATEGORY_SPORTS);
   const isCategorizedSport = categorizedSports.includes(sportId);
   
@@ -70,6 +72,10 @@ function AdminCreateMatch() {
       navigate('/login', { replace: true });
       return;
     }
+    if (!canAccessSport) {
+      navigate('/admin', { replace: true });
+      return;
+    }
     const fetchTeams = async () => {
       try {
         const res = await api.get(`/teams/sport/${sportId}`);
@@ -88,7 +94,7 @@ function AdminCreateMatch() {
     };
     fetchTeams();
     fetchMatches();
-  }, [user, authLoading, navigate, sportId]);
+  }, [user, authLoading, navigate, sportId, canAccessSport]);
 
   const selectedCategory = newMatch.score_detail?.category || (isCategorizedSport ? getSportCategories(sportId)[0] : '');
   const categoryFilteredTeams = isCategorizedSport
@@ -99,6 +105,10 @@ function AdminCreateMatch() {
 
   if (authLoading) {
     return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
+  }
+
+  if (!canAccessSport) {
+    return <Navigate to="/admin" replace />;
   }
 
 
