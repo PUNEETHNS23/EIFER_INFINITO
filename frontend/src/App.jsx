@@ -55,7 +55,7 @@ function Layout() {
 
         <div className={`nav-links ${menuOpen ? 'nav-open' : ''}`}>
           <Link to="/" className={`nav-link ${isActive('/')}`} onClick={() => setMenuOpen(false)}>Home</Link>
-          <Link to="/about" className={`nav-link ${isActive('/about')}`} onClick={() => setMenuOpen(false)}>About Co-ordinators</Link>
+          <Link to="/about" className={`nav-link ${isActive('/about')}`} onClick={() => setMenuOpen(false)}>About</Link>
           <Link to="/leaderboard" className={`nav-link ${isActive('/leaderboard')}`} onClick={() => setMenuOpen(false)}>Leaderboard</Link>
           {user ? (
             <>
