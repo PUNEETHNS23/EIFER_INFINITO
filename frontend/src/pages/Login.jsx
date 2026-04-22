@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
@@ -26,7 +26,7 @@ function Login() {
       
       await login(res.data.access_token);
       navigate('/admin');
-    } catch (err) {
+    } catch {
       setError('Invalid admin credentials or insufficient sport access.');
     }
   };

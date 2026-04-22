@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../api';
 import { hydrateScoreDetail } from '../sports/sportsConfig';
 import LiveCricketScorer from './LiveCricketScorer';
@@ -7,7 +7,7 @@ import LiveFootballScorer from './LiveFootballScorer';
 import CoinToss from './CoinToss';
 import './sportScoreboards.css';
 
-function racketToVolleyballDetail(detail, sid) {
+function racketToVolleyballDetail(detail) {
   const d = detail || {};
   const currentSet = Number(d.currentSet || ((d.past_games || []).length + 1) || 1);
   const existingSetTargets = d.setTargets;
@@ -124,21 +124,6 @@ function Num({ label, value, onChange, step = 1 }) {
   );
 }
 
-function Txt({ label, value, onChange, placeholder = '' }) {
-  return (
-    <label className="sbe-field">
-      <span>{label}</span>
-      <input
-        type="text"
-        className="input-field"
-        value={value ?? ''}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </label>
-  );
-}
-
 function getTugFormat(detail) {
   const raw = detail?.match_format || 'Best of 3';
   if (raw === 'Best of 5' || raw === '1 Game' || raw === 'Best of 3') return raw;
@@ -165,7 +150,7 @@ export default function SportScoreEditor({ match, onSaved }) {
     setDetail(hydrateScoreDetail(sid, match));
     setStatus(match.status || 'upcoming');
     setManualStatusOverride(false);
-  }, [match.id, sid, match.score_detail, match.status, match.score_t1, match.score_t2]);
+  }, [match, sid]);
 
   useEffect(() => {
     if (['cricket', 'volleyball', 'badminton', 'table-tennis', 'football'].includes(sid)) {
@@ -243,7 +228,7 @@ export default function SportScoreEditor({ match, onSaved }) {
     if (detail.toss_decided && status === 'upcoming') {
       setStatus('live');
     }
-  }, [sid, detail.match_format, detail.games_t1, detail.games_t2, detail.toss_decided, status, manualStatusOverride]);
+  }, [sid, detail, status, manualStatusOverride]);
 
   const patch = useCallback((partial) => {
     setDetail((prev) => {
@@ -580,7 +565,7 @@ export default function SportScoreEditor({ match, onSaved }) {
 
     case 'badminton':
     case 'table-tennis': {
-      const adaptedDetail = racketToVolleyballDetail(detail, sid);
+      const adaptedDetail = racketToVolleyballDetail(detail);
       const defaultSetTarget = Number(detail.point_limit === 'Custom' ? detail.custom_limit : detail.point_limit) || (sid === 'badminton' ? 21 : 11);
       form = (
         <LiveVolleyballScorer

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
-import { getSportMeta, SPORTS, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';
-import CoinToss from '../components/CoinToss';
+import { getSportMeta, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';
 
 function AdminCreateMatch() {
   const { sportId } = useParams();
@@ -46,8 +45,6 @@ function AdminCreateMatch() {
   ];
 
   const meta = getSportMeta(sportId);
-  const requiresToss = SPORTS.find(s => s.id === sportId)?.requiresToss || false;
-
   useEffect(() => {
     const nextScoreDetail =
       sportId === 'cricket'
@@ -94,15 +91,12 @@ function AdminCreateMatch() {
     };
     fetchTeams();
     fetchMatches();
-  }, [user, authLoading, navigate, sportId, canAccessSport]);
+  }, [user, authLoading, navigate, sportId, canAccessSport, categorizedSports]);
 
   const selectedCategory = newMatch.score_detail?.category || (isCategorizedSport ? getSportCategories(sportId)[0] : '');
   const categoryFilteredTeams = isCategorizedSport
     ? teams.filter((t) => (t.category || '') === selectedCategory)
     : teams;
-  const team1 = teams.find((t) => String(t.id) === String(newMatch.team1_id));
-  const team2 = teams.find((t) => String(t.id) === String(newMatch.team2_id));
-
   if (authLoading) {
     return <div className="container"><p style={{ color: 'var(--color-text-muted)' }}>Checking admin session…</p></div>;
   }

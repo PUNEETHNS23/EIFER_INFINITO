@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './LiveCricketScorer.css'; // Just re-use the cool buttons and structure
 
 export default function LiveBadmintonScorer({ sid, detail, patch, team1, team2, team1Data, team2Data }) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
@@ -28,7 +28,7 @@ function AdminSportScore() {
     ? matches.filter((m) => normalizeCategory(m?.score_detail?.category) === categoryFilter)
     : matches;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get(`/matches/sport/${sportId}`);
@@ -39,11 +39,11 @@ function AdminSportScore() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sportId]);
 
   useEffect(() => {
     if (user && valid) load();
-  }, [user, sportId, valid]);
+  }, [user, valid, load]);
 
   useEffect(() => {
     setCategoryFilter('all');

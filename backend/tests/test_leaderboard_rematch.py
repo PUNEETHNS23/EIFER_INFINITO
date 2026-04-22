@@ -16,6 +16,33 @@ def client(tmp_path):
     testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     models.Base.metadata.create_all(bind=engine)
 
+    seed_db = testing_session_local()
+    try:
+        seed_db.add(
+            models.User(
+                username="general_admin",
+                hashed_password=auth.get_password_hash("test-password"),
+                is_admin=True,
+                allowed_sports=[
+                    "athletics",
+                    "cricket",
+                    "volleyball",
+                    "football",
+                    "badminton",
+                    "table-tennis",
+                    "arm-wrestling",
+                    "carrom",
+                    "chess",
+                    "kho-kho",
+                    "tug-of-war",
+                    "weight-lifting",
+                ],
+            )
+        )
+        seed_db.commit()
+    finally:
+        seed_db.close()
+
     def override_get_db():
         db = testing_session_local()
         try:
@@ -26,7 +53,7 @@ def client(tmp_path):
     original_startup_handlers = list(main.app.router.on_startup)
     main.app.router.on_startup = []
     main.app.dependency_overrides[main.get_db] = override_get_db
-    main.app.dependency_overrides[auth.verify_token] = lambda: "admin"
+    main.app.dependency_overrides[auth.verify_token] = lambda: "general_admin"
 
     try:
         with TestClient(main.app) as test_client:

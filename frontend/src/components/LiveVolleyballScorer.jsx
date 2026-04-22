@@ -1,4 +1,4 @@
-import React, { useReducer, useEffect, useRef, useCallback, useState } from 'react';
+import { useReducer, useEffect, useRef, useCallback, useState } from 'react';
 import CoinToss from './CoinToss';
 import './LiveVolleyballScorer.css';
 
@@ -129,7 +129,7 @@ function reducer(state, action) {
 /* ═══════════════════════════════════════════════════════════
    SUB-COMPONENT: ROSTER
 ═══════════════════════════════════════════════════════════ */
-function Roster({ team, teamName, roster, teamData, dispatch }) {
+function Roster({ team, roster, teamData, dispatch }) {
   const squad = teamData?.squad || [];
 
   return (
@@ -247,7 +247,7 @@ export default function LiveVolleyballScorer({
       rosterB:     state.rosterB,
     });
     }, [state.maxSets, state.sets_t1, state.sets_t2, state.pointsA, state.pointsB,
-      state.currentSet, state.status, state.winner, state.pendingComplete, state.servingTeam, state.history, state.setTargets, state.rosterSize, state.rosterA, state.rosterB]);
+      state.currentSet, state.status, state.winner, state.pendingComplete, state.servingTeam, state.history, state.setTargets, state.rosterSize, state.rosterA, state.rosterB, state.setHistory]);
 
   /* ── Animations ─────────────────────────────────────── */
   const flashRef   = useRef(null);
@@ -298,7 +298,7 @@ export default function LiveVolleyballScorer({
       doFlash(state.winner === 'A' ? 'fa' : 'fb');
       showToast(`🏆 ${t} wins the final set! Complete the match when ready.`);
     }
-  }, [state.lastEvent, state.pointsA, state.pointsB]);
+  }, [state.lastEvent, state.pointsA, state.pointsB, bump, doFlash, serveIcon, showToast, state.setHistory.length, state.teamA, state.teamB, state.winner]);
 
   /* ── Deuce label ────────────────────────────────────── */
   const tgt = state.setTargets[state.currentSet];

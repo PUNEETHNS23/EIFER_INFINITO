@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { SPORTS } from '../sports/sportsConfig';
@@ -9,19 +9,19 @@ export default function TournamentBracketView() {
   const [tournament, setTournament] = useState(null);
   const [loading,    setLoading]    = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await api.get(`/tournaments/${tournamentId}`);
       setTournament(res.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  };
+  }, [tournamentId]);
 
   useEffect(() => {
     load();
     const iv = setInterval(load, 30000);
     return () => clearInterval(iv);
-  }, [tournamentId]);
+  }, [load]);
 
   const sp = tournament ? SPORTS.find(s => s.id === tournament.sport_id) : null;
   const champion = tournament?.bracket?.at(-1)?.[0]?.winner;

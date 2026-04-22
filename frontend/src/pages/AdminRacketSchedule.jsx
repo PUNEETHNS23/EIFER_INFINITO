@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
@@ -53,12 +53,6 @@ function resolveLineup(detail, team, category, prefix) {
     [primaryKey]: (detail?.[primaryKey] || '').trim() || names[0] || '',
     [partnerKey]: isDoubles ? ((detail?.[partnerKey] || '').trim() || names[1] || '') : '',
   };
-}
-
-function getTeamLabel(team) {
-  if (!team) return 'Select a team';
-  const squadNames = getSquadNames(team);
-  return `${team.name}${squadNames.length ? ` · ${squadNames.join(' / ')}` : ''}`;
 }
 
 function createRandomizedDrafts(teams, category, sportId) {
@@ -124,7 +118,7 @@ export default function AdminRacketSchedule() {
         const res = await api.get(`/teams/sport/${sportId}`);
         if (!mounted) return;
         setTeams(res.data || []);
-      } catch (error) {
+      } catch {
         if (mounted) setTeams([]);
       } finally {
         if (mounted) setLoading(false);

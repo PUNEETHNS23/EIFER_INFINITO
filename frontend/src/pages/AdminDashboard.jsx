@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
@@ -19,7 +19,6 @@ function AdminDashboard() {
   const [selectedSportForTeam, setSelectedSportForTeam] = useState(null);
 
   // Form states
-  const footballSquadLimit = 11;
   const allowedSports = user?.allowed_sports || [];
   const isGeneralAdmin = user?.username === 'general_admin';
   const canAccessSport = (sportId) => allowedSports.length === 0 || allowedSports.includes(sportId);
@@ -40,7 +39,6 @@ function AdminDashboard() {
 
   const [newTeam, setNewTeam] = useState(createTeamState(defaultSportId));
   const [tempPlayerName, setTempPlayerName] = useState('');
-  const [newMatch, setNewMatch] = useState({ sport_id: defaultSportId, team1_id: '', team2_id: '', scheduled_time: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '', allowed_sports: [] });
   const [adminMsg, setAdminMsg] = useState('');
   const [dqReason, setDqReason] = useState({});
@@ -159,7 +157,7 @@ function AdminDashboard() {
       });
       fetchTeams();
       resetTeamFormForSport(selectedSportForTeam || newTeam.sport_id);
-    } catch (e) {
+    } catch {
       alert('Error adding team');
     }
   };
@@ -190,16 +188,6 @@ function AdminDashboard() {
 
   const removePlayerFromSquad = (idx) => {
     setNewTeam(prev => ({ ...prev, squad: prev.squad.filter((_, i) => i !== idx) }));
-  };
-
-  const handleAddMatch = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/matches', newMatch);
-      fetchMatches();
-    } catch (e) {
-      alert('Error creating match');
-    }
   };
 
   const handleDeleteMatch = async (id) => {
@@ -273,9 +261,6 @@ function AdminDashboard() {
   if (!user) {
     return <Navigate to="/login" />;
   }
-
-  const thStyle = { padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' };
-  const tdStyle = { padding: '0.65rem 1rem', verticalAlign: 'middle' };
 
   return (
     <div className="container">

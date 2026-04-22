@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Any
 from datetime import datetime
 
@@ -17,8 +17,7 @@ class Team(TeamBase):
     disqualification_reason: Optional[str] = None
     squad: Optional[list[dict[str, Any]]] = None
     results: Optional[dict[str, Any]] = None
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class OverallLeaderboardEntry(BaseModel):
     name: str
@@ -26,8 +25,7 @@ class OverallLeaderboardEntry(BaseModel):
     sports: list[str] = Field(default_factory=list)
     team_ids: list[int] = Field(default_factory=list)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MatchBase(BaseModel):
     sport_id: str
@@ -52,8 +50,7 @@ class Match(MatchBase):
     score_detail: Optional[dict[str, Any]] = None
     team1: Optional[str] = None
     team2: Optional[str] = None
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):
     access_token: str
@@ -69,8 +66,7 @@ class AdminUser(BaseModel):
     username: str
     is_admin: bool
     allowed_sports: list[str] = Field(default_factory=list)
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DisqualifyRequest(BaseModel):
     reason: str
@@ -108,8 +104,7 @@ class AthleticsEventOut(BaseModel):
     finalized_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Weight Lifting Leaderboard ───────────────────────────────────────────────
@@ -139,8 +134,7 @@ class WeightLiftingEventOut(BaseModel):
     finalized_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WeightLiftingBulkUpdate(BaseModel):
@@ -190,8 +184,7 @@ class TournamentOut(BaseModel):
     bracket:   Optional[list] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TournamentVisibilityUpdate(BaseModel):

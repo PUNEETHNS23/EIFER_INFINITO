@@ -1,4 +1,3 @@
-import React from 'react';
 
 const CARD_W      = 200;
 const CARD_H      = 100;

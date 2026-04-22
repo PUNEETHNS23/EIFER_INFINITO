@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
@@ -274,7 +274,7 @@ export default function AdminWeightliftingEventManager() {
     const results = [];
     for (const entry of groupEntries) {
       const input = window.prompt(
-        `Enter final rematch total (kg) for \"${entry.name}\" (rank #${rank} tie):`,
+        `Enter final rematch total (kg) for "${entry.name}" (rank #${rank} tie):`,
         ''
       );
       if (input === null) {

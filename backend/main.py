@@ -1,6 +1,7 @@
 import os
 import secrets
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, Any
 from dotenv import load_dotenv
@@ -17,7 +18,10 @@ from sqlalchemy.engine.url import make_url
 from datetime import datetime, timedelta
 
 from sqlalchemy import inspect, text, String, cast
-import models, schemas, database, auth, scoring
+try:
+    from . import models, schemas, database, auth, scoring
+except ImportError:  # pragma: no cover - fallback for direct script-style execution
+    import models, schemas, database, auth, scoring
 
 
 def _db_target_string(url: str) -> str:
@@ -72,7 +76,20 @@ def ensure_db_migrations():
 
 ensure_db_migrations()
 
-app = FastAPI(title="SportsFest INFINITO API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = database.SessionLocal()
+    try:
+        _seed_default_admin_accounts(db)
+        db.commit()
+        _sync_leaderboard_points()
+    finally:
+        db.close()
+    yield
+
+
+app = FastAPI(title="SportsFest INFINITO API", lifespan=lifespan)
 
 ALL_SPORT_IDS = [
     "athletics",
@@ -280,15 +297,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-# --- INIT DEFAULT ADMIN ---
-@app.on_event("startup")
-def startup_event():
-    db = database.SessionLocal()
-    _seed_default_admin_accounts(db)
-    db.commit()
-    _sync_leaderboard_points()
-    db.close()
 
 # --- AUTH ROUTES ---
 @app.post("/api/auth/token", response_model=schemas.Token)

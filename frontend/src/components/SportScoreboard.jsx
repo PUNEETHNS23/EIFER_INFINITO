@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getSportMeta } from '../sports/sportsConfig';
 import './sportScoreboards.css';
 
@@ -218,7 +218,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
       const pB = isRacket ? (d.current_p2 ?? 0) : (d.pointsB ?? 0);
       const sA = isRacket ? (d.games_t1 ?? 0) : (d.setsA ?? d.sets_t1 ?? 0);
       const sB = isRacket ? (d.games_t2 ?? 0) : (d.setsB ?? d.sets_t2 ?? 0);
-      const curSet = isRacket ? (d.currentSet ?? ((d.past_games || []).length + 1) ?? 1) : (d.currentSet ?? 1);
+      const curSet = isRacket ? (d.currentSet ?? ((d.past_games || []).length + 1)) : (d.currentSet ?? 1);
       const target = isRacket
         ? (Number(d.point_limit === 'Custom' ? d.custom_limit : d.point_limit) || (sportId === 'badminton' ? 21 : 11))
         : (d.setTargets?.[curSet] ?? (curSet === 5 ? 15 : 25));
@@ -290,7 +290,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
         </div>
       );
     }
-    case 'cricket':
+    case 'cricket': {
       if (compact) {
         const inn = d.innings || 1;
         const curOvers = inn === 1 ? d.overs_t1 : d.overs_t2;
@@ -448,6 +448,7 @@ export default function SportScoreboard({ match, compact = false, team1Data = nu
           </div>
         </div>
       );
+    }
     case 'carrom':
       return wrap(
         <div className={`sb-carrom ${compact ? 'sb-carrom-compact' : ''}`}>

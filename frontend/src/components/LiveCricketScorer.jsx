@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import CoinToss from './CoinToss';
 import './LiveCricketScorer.css';
 
@@ -638,7 +638,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
       case '4': runsAdded = 4; batterRuns = 4; four = 1; break;
       case '6': runsAdded = 6; batterRuns = 6; six = 1; break;
       case 'WD': runsAdded = 1; isLegal = false; isExtra = true; break;
-      case 'NB': 
+      case 'NB': {
         const nbRuns = extraData ? extraData.runs : 0;
         runsAdded = 1 + nbRuns; 
         batterRuns = nbRuns;
@@ -663,6 +663,7 @@ export default function LiveCricketScorer({ detail, patch, team1, team2, team1Da
           updates.events_feed = `⚠️ ${o}.${b} - No Ball (${extraData.reason})! ${nbRuns > 0 ? nbRuns + ' runs off bat.' : ''}\n` + (updates.events_feed || '');
         }
         break;
+      }
       default: break;
     }
 

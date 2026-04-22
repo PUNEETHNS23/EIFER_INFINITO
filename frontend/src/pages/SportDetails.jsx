@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { getSportMeta, CATEGORY_SPORTS, getSportCategories } from '../sports/sportsConfig';

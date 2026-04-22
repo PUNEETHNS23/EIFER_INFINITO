@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import api from '../api';
 import { SPORTS, getSportCategories } from '../sports/sportsConfig';
@@ -70,7 +70,6 @@ function MatchCard({
   match, sportId, tournamentId, isAdmin, 
   onSetWinner, onDragStart, onDropTeam, draggingRef, onInternalSwap
 }) {
-  const navigate = useNavigate();
   const [showWinner, setShowWinner] = useState(false);
 
   const isBye    = match.teamB === null && match.teamA !== null;
@@ -242,7 +241,7 @@ function MatchCard({
 
 // ── BracketVisualization ──────────────────────────────────────────────────────
 function BracketVisualization({ rounds, sportId, tournamentId, isAdmin, onSetWinner, onSwapTeams }) {
-  const draggingRef = React.useRef(null);
+  const draggingRef = useRef(null);
 
   if (!rounds?.length) return (
     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
@@ -392,7 +391,7 @@ export default function AdminTournament() {
   const [tournaments,  setTournaments]  = useState([]);
   const [selectedId,   setSelectedId]   = useState(null);
   const [tournament,   setTournament]   = useState(null);
-  const [loadingList,  setLoadingList]  = useState(true);
+  const [, setLoadingList]  = useState(true);
 
   // Form
   const [form, setForm] = useState({ sport_id: sportId || 'cricket', name: '', category: '', venue: '', is_public: true });
